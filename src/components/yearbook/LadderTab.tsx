@@ -605,13 +605,14 @@ function PageDialog({
 
   const handleLink = async (requirementId: string, assetId: string) => {
     try {
-      await associate({ data: { yearbookId, pageId: page.id, requirementId, assetId } });
+      await associate({ data: { pageId: page.id, requirementId, assetId } });
       toast.success("Asset linked to requirement");
       onDone();
     } catch (e: any) {
       toast.error(e.message);
     }
   };
+
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
