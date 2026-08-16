@@ -170,6 +170,31 @@ function Dashboard() {
                   </div>
                 </div>
 
+                <div className="mt-4 flex flex-col gap-2 border-t border-border/50 pt-4">
+                  <div className="flex items-center justify-between text-[10px] uppercase font-bold text-muted-foreground">
+                    <span>Design Status</span>
+                    <span className="text-accent">{(y as any).metrics?.designStats?.complete ?? 0} Complete</span>
+                  </div>
+                  <div className="flex gap-1 h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="bg-green-500 h-full" 
+                      style={{ width: `${((y as any).metrics?.designStats?.complete / (y as any).metrics?.designStats?.total) * 100 || 0}%` }} 
+                    />
+                    <div 
+                      className="bg-amber-500 h-full" 
+                      style={{ width: `${((y as any).metrics?.designStats?.designing / (y as any).metrics?.designStats?.total) * 100 || 0}%` }} 
+                    />
+                    <div 
+                      className="bg-blue-500 h-full" 
+                      style={{ width: `${((y as any).metrics?.designStats?.ready / (y as any).metrics?.designStats?.total) * 100 || 0}%` }} 
+                    />
+                  </div>
+                  <div className="flex justify-between text-[9px] text-muted-foreground">
+                    <span>{(y as any).metrics?.designStats?.ready ?? 0} Ready</span>
+                    <span>{(y as any).metrics?.designStats?.designing ?? 0} Designing</span>
+                  </div>
+                </div>
+
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap gap-1.5">
