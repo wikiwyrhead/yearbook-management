@@ -1,14 +1,16 @@
 /**
- * Yearbook System - Phase 1 Foundation
+ * Yearbook System - Phase 2 Asset Management
  * 
  * Architecture Decisions:
  * 1. Multi-tenancy: Enforced at the RLS level using security definer functions.
  * 2. Page Management: decoupled 'position' (internal order) from 'page_number' (display/print).
  * 3. Roles: Hierarchical (Super Admin > Coordinator > Staff > Proofreader > Corrector > Student).
  * 4. Canva: Fields pre-allocated for Phase 2 integration.
+ * 5. Assets: Centralized library with versioning and audit trails.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { z } from "zod";
 
 type Json = Record<string, unknown>;
 
