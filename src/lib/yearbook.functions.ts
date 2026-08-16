@@ -83,7 +83,7 @@ export const updateSchool = createServerFn({ method: "POST" })
   .inputValidator((d: { id: string; patch: Json }) => d)
   .handler(async ({ data, context }) =>
     unwrap(
-      await context.supabase.from("schools").update(data.patch).eq("id", data.id).select().single(),
+      await context.supabase.from("schools").update(data.patch as never).eq("id", data.id).select().single(),
     ),
   );
 
@@ -172,13 +172,13 @@ export const addMember = createServerFn({ method: "POST" })
   .inputValidator((d: { yearbookId: string; email: string; role: string }) => d)
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const profile = unwrap(
-      await supabase
-        .from("profiles")
-        .select("id")
-        .ilike("email", data.email.trim())
-        .maybeSingle(),
-    );
+    const profileRes = await supabase
+      .from("profiles")
+      .select("id")
+      .ilike("email", data.email.trim())
+      .maybeSingle();
+    if (profileRes.error) throw new Error(profileRes.error.message);
+    const profile = profileRes.data;
     if (!profile) {
       throw new Error(
         "No account found with that email. Ask them to sign up first, then add them here.",
@@ -336,15 +336,14 @@ export const createPages = createServerFn({ method: "POST" })
     );
     let pos = existing?.[0]?.position ?? 0;
     let num = existing?.[0]?.page_number ?? 0;
-    const defaultStatus = unwrap(
-      await supabase
-        .from("page_statuses")
-        .select("id")
-        .eq("yearbook_id", data.yearbookId)
-        .order("position")
-        .limit(1)
-        .maybeSingle(),
-    );
+    const statusRes = await supabase
+      .from("page_statuses")
+      .select("id")
+      .eq("yearbook_id", data.yearbookId)
+      .order("position")
+      .limit(1)
+      .maybeSingle();
+    const defaultStatus = statusRes.data;
 
     const rows = Array.from({ length: Math.max(1, Math.min(200, data.count)) }, () => {
       pos += 1;
@@ -477,7 +476,7 @@ export const saveRequirement = createServerFn({ method: "POST" })
       if (data.needed !== undefined) patch['needed'] = data.needed;
       if (data.have !== undefined) patch['have'] = data.have;
       return unwrap(
-        await supabase.from("page_requirements").update(patch).eq("id", data.id).select().single(),
+        await supabase.from("page_requirements").update(patch as never).eq("id", data.id).select().single(),
       );
     }
     return unwrap(
