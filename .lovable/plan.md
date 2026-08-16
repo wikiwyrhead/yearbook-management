@@ -18,9 +18,9 @@ This phase implements a production-grade proofreading workflow, focusing on visu
 
 ### 3. Correction Lifecycle
 - Corrections are bound to a specific **Proof Version** and **Page**.
-- Statuses: `OPEN`, `ACKNOWLEDGED`, `IN PROGRESS`, `RESOLVED` (by designer), `AWAITING VERIFICATION`, `VERIFIED` (by proofreader), `CLOSED`.
-- Threaded discussions for each correction.
-- Role enforcement: Designers cannot verify their own fixes.
+- Statuses: `OPEN`, `ACKNOWLEDGED`, `IN PROGRESS`, `RESOLVED`, `AWAITING VERIFICATION`, `VERIFIED`, `CLOSED`.
+- Role enforcement (Database level): The person who resolves a correction CANNOT verify their own resolution. If the reporter and resolver are the same person, another authorized proofreader must verify.
+- Reopening a correction after verification automatically invalidates relevant page/section approvals.
 
 ### 4. Approval & Production Lock
 - Multi-level approval: Page -> Section -> Yearbook.
@@ -49,9 +49,9 @@ This phase implements a production-grade proofreading workflow, focusing on visu
 - **`page_checklist_responses` table**: User-completed checklist items.
 
 ### 2. RLS & Permissions
-- Proofreaders: Can view assigned pages/proofs, create corrections, and verify their own reported issues.
+- Proofreaders: Can view assigned pages/proofs, create corrections, and verify reported issues (enforcing the non-self-verification rule).
 - Designers (Staff/Corrector): Can view assigned corrections, mark as resolved, but **not** verified.
-- Coordinators: Can assign proofreaders, manage all corrections, and perform final approvals/locking.
+- Coordinators: Can assign proofreaders, manage all corrections, and perform final approvals/locking. Admin override for verification.
 - Multi-tenant isolation enforced via `yearbook_id` in all policies.
 
 ### 3. PDF Rendering
