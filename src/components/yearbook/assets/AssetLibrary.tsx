@@ -35,7 +35,15 @@ import { getAssets, updateAssetStatus } from "@/lib/yearbook.functions";
 import { BulkUpload } from "./BulkUpload";
 import { AssetDetail } from "./AssetDetail";
 
-export function AssetLibrary({ yearbookId, canEdit }: { yearbookId: string; canEdit: boolean }) {
+export function AssetLibrary({ 
+  yearbookId, 
+  canEdit,
+  studentId 
+}: { 
+  yearbookId: string; 
+  canEdit: boolean;
+  studentId?: string;
+}) {
   const fetchAssets = useServerFn(getAssets);
   const updateStatus = useServerFn(updateAssetStatus);
   const qc = useQueryClient();
@@ -44,6 +52,8 @@ export function AssetLibrary({ yearbookId, canEdit }: { yearbookId: string; canE
   const [type, setType] = useState("all");
   const [status, setStatus] = useState("all");
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const [showOnlyMine, setShowOnlyMine] = useState(!!studentId);
+
 
   const queryKey = ["assets", yearbookId, { search, type, status }];
   const { data: assets, isLoading } = useQuery({
