@@ -152,8 +152,13 @@ function Workspace() {
         </TabsContent>
 
         <TabsContent value="assets" className="mt-6">
-          <AssetLibrary yearbookId={yearbookId} canEdit={data.canEdit} />
+          <AssetLibrary 
+            yearbookId={yearbookId} 
+            canEdit={data.canEdit} 
+            studentId={data.myStudentId || undefined} 
+          />
         </TabsContent>
+
 
         <TabsContent value="people" className="mt-6">
           <PeopleTab yearbookId={yearbookId} canEdit={data.canEdit} />
