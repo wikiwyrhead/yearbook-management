@@ -66,18 +66,20 @@ export function BulkUpload({
           const storagePath = `https://images.unsplash.com/photo-1523050853064-dbad3e24993f?w=800&q=80`;
           
           await uploadAsset({
-            data: {
-              yearbookId,
-              fileName: file.name,
-              fileType: file.type,
-              fileSize: file.size,
-              storagePath,
-              assetType: file.type.startsWith('image/') ? 'photo' : 'document' as any,
-              category: 'Bulk Upload',
-              validationMetadata: {
-                lastModified: file.lastModified,
+              data: {
+                yearbookId,
+                fileName: file.name,
+                fileType: file.type,
+                fileSize: file.size,
+                storagePath,
+                assetType: file.type.startsWith('image/') ? 'photo' : 'document' as any,
+                category: studentId ? 'Student Submission' : 'Bulk Upload',
+                studentId: studentId || undefined,
+                validationMetadata: {
+                  lastModified: file.lastModified,
+                }
               }
-            }
+
           });
           
           completed++;
