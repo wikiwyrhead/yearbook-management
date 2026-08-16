@@ -68,9 +68,9 @@ export function ProofreadingCenter({ yearbookId, canManage, onViewProof }: Proof
             <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <FileCheck className="size-4" /> Page Completion
             </h3>
-            <p className="text-2xl font-display mt-1">{report?.completePages} / {report?.totalPages}</p>
+            <p className="text-2xl font-display mt-1">{report?.completePages ?? 0} / {report?.totalPages ?? 0}</p>
           </div>
-          <Progress value={(report?.completePages / report?.totalPages) * 100} className="mt-4 h-1.5" />
+          <Progress value={((report?.completePages ?? 0) / (report?.totalPages ?? 1)) * 100} className="mt-4 h-1.5" />
         </div>
 
         <div className="plate p-4 flex flex-col justify-between">

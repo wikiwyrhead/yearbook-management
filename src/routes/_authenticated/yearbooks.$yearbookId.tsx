@@ -33,8 +33,10 @@ import { PeopleTab } from "@/components/yearbook/PeopleTab";
 import { AssetLibrary } from "@/components/yearbook/assets/AssetLibrary";
 import { TeamInvitations } from "@/components/yearbook/TeamInvitations";
 import { ProofreadingCenter } from "@/components/yearbook/production/ProofreadingCenter";
+import { ProductionDashboard } from "@/components/yearbook/production/ProductionDashboard";
 import { PDFProofViewer } from "@/components/yearbook/production/PDFProofViewer";
 import { getYearbook, addMember, removeMember, getProofs, getCorrections } from "@/lib/yearbook.functions";
+
 
 
 
@@ -166,6 +168,7 @@ function Workspace() {
             <BookCheck className="size-4" /> Proofreading
           </TabsTrigger>
           <TabsTrigger value="assets">Assets</TabsTrigger>
+          <TabsTrigger value="production">Production</TabsTrigger>
           <TabsTrigger value="people">People</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
         </TabsList>
@@ -206,6 +209,13 @@ function Workspace() {
             yearbookId={yearbookId} 
             canEdit={data.canEdit} 
             studentId={data.myStudentId ?? undefined} 
+          />
+        </TabsContent>
+
+        <TabsContent value="production" className="mt-6">
+          <ProductionDashboard 
+            yearbookId={yearbookId}
+            canManage={data.canManage}
           />
         </TabsContent>
 
