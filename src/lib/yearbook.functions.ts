@@ -926,7 +926,7 @@ export const createProof = createServerFn({ method: "POST" })
     notes: z.string().optional(),
     canvaExportId: z.string().optional(),
   }))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<any> => {
     const { supabase, userId } = context;
     
     const lastProof = await (supabase as any)
