@@ -71,14 +71,21 @@ export type Database = {
           category: string | null
           class_id: string | null
           created_at: string
+          external_file_id: string | null
+          external_filename: string | null
+          external_folder_id: string | null
+          external_url: string | null
           faculty_id: string | null
           file_name: string
           file_size: number | null
           file_type: string | null
           id: string
+          imported_at: string | null
           is_current: boolean
+          last_synced_at: string | null
           notes: string | null
           section_id: string | null
+          source_metadata: Json | null
           status: Database["public"]["Enums"]["asset_status"]
           storage_path: string
           storage_provider: Database["public"]["Enums"]["storage_provider"]
@@ -94,14 +101,21 @@ export type Database = {
           category?: string | null
           class_id?: string | null
           created_at?: string
+          external_file_id?: string | null
+          external_filename?: string | null
+          external_folder_id?: string | null
+          external_url?: string | null
           faculty_id?: string | null
           file_name: string
           file_size?: number | null
           file_type?: string | null
           id?: string
+          imported_at?: string | null
           is_current?: boolean
+          last_synced_at?: string | null
           notes?: string | null
           section_id?: string | null
+          source_metadata?: Json | null
           status?: Database["public"]["Enums"]["asset_status"]
           storage_path: string
           storage_provider?: Database["public"]["Enums"]["storage_provider"]
@@ -117,14 +131,21 @@ export type Database = {
           category?: string | null
           class_id?: string | null
           created_at?: string
+          external_file_id?: string | null
+          external_filename?: string | null
+          external_folder_id?: string | null
+          external_url?: string | null
           faculty_id?: string | null
           file_name?: string
           file_size?: number | null
           file_type?: string | null
           id?: string
+          imported_at?: string | null
           is_current?: boolean
+          last_synced_at?: string | null
           notes?: string | null
           section_id?: string | null
+          source_metadata?: Json | null
           status?: Database["public"]["Enums"]["asset_status"]
           storage_path?: string
           storage_provider?: Database["public"]["Enums"]["storage_provider"]
@@ -427,6 +448,102 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      member_storage_connections: {
+        Row: {
+          account_email: string | null
+          created_at: string
+          credentials: Json | null
+          external_account_id: string | null
+          id: string
+          last_checked_at: string | null
+          last_error: string | null
+          provider: Database["public"]["Enums"]["storage_provider"]
+          status: Database["public"]["Enums"]["provider_connection_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_email?: string | null
+          created_at?: string
+          credentials?: Json | null
+          external_account_id?: string | null
+          id?: string
+          last_checked_at?: string | null
+          last_error?: string | null
+          provider: Database["public"]["Enums"]["storage_provider"]
+          status?: Database["public"]["Enums"]["provider_connection_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_email?: string | null
+          created_at?: string
+          credentials?: Json | null
+          external_account_id?: string | null
+          id?: string
+          last_checked_at?: string | null
+          last_error?: string | null
+          provider?: Database["public"]["Enums"]["storage_provider"]
+          status?: Database["public"]["Enums"]["provider_connection_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      organization_storage_connections: {
+        Row: {
+          account_email: string | null
+          connected_by: string | null
+          created_at: string
+          credentials: Json | null
+          display_name: string | null
+          external_account_id: string | null
+          id: string
+          is_default: boolean
+          last_checked_at: string | null
+          last_error: string | null
+          provider: Database["public"]["Enums"]["storage_provider"]
+          root_folder_id: string | null
+          root_folder_path: string | null
+          status: Database["public"]["Enums"]["provider_connection_status"]
+          updated_at: string
+        }
+        Insert: {
+          account_email?: string | null
+          connected_by?: string | null
+          created_at?: string
+          credentials?: Json | null
+          display_name?: string | null
+          external_account_id?: string | null
+          id?: string
+          is_default?: boolean
+          last_checked_at?: string | null
+          last_error?: string | null
+          provider: Database["public"]["Enums"]["storage_provider"]
+          root_folder_id?: string | null
+          root_folder_path?: string | null
+          status?: Database["public"]["Enums"]["provider_connection_status"]
+          updated_at?: string
+        }
+        Update: {
+          account_email?: string | null
+          connected_by?: string | null
+          created_at?: string
+          credentials?: Json | null
+          display_name?: string | null
+          external_account_id?: string | null
+          id?: string
+          is_default?: boolean
+          last_checked_at?: string | null
+          last_error?: string | null
+          provider?: Database["public"]["Enums"]["storage_provider"]
+          root_folder_id?: string | null
+          root_folder_path?: string | null
+          status?: Database["public"]["Enums"]["provider_connection_status"]
+          updated_at?: string
+        }
+        Relationships: []
       }
       page_approvals: {
         Row: {
@@ -1564,6 +1681,53 @@ export type Database = {
           },
         ]
       }
+      yearbook_storage_config: {
+        Row: {
+          additional_providers: Database["public"]["Enums"]["storage_provider"][]
+          allow_member_sources: boolean
+          created_at: string
+          folder_id: string | null
+          folder_path: string | null
+          id: string
+          mode: Database["public"]["Enums"]["yearbook_storage_mode"]
+          provider: Database["public"]["Enums"]["storage_provider"] | null
+          updated_at: string
+          yearbook_id: string
+        }
+        Insert: {
+          additional_providers?: Database["public"]["Enums"]["storage_provider"][]
+          allow_member_sources?: boolean
+          created_at?: string
+          folder_id?: string | null
+          folder_path?: string | null
+          id?: string
+          mode?: Database["public"]["Enums"]["yearbook_storage_mode"]
+          provider?: Database["public"]["Enums"]["storage_provider"] | null
+          updated_at?: string
+          yearbook_id: string
+        }
+        Update: {
+          additional_providers?: Database["public"]["Enums"]["storage_provider"][]
+          allow_member_sources?: boolean
+          created_at?: string
+          folder_id?: string | null
+          folder_path?: string | null
+          id?: string
+          mode?: Database["public"]["Enums"]["yearbook_storage_mode"]
+          provider?: Database["public"]["Enums"]["storage_provider"] | null
+          updated_at?: string
+          yearbook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "yearbook_storage_config_yearbook_id_fkey"
+            columns: ["yearbook_id"]
+            isOneToOne: true
+            referencedRelation: "yearbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       yearbooks: {
         Row: {
           created_at: string
@@ -1696,18 +1860,25 @@ export type Database = {
         | "closed"
         | "rejected"
         | "cancelled"
+      provider_connection_status:
+        | "connected"
+        | "needs_reauthorization"
+        | "disconnected"
+        | "error"
       storage_provider:
         | "lovable"
         | "google_drive"
         | "onedrive"
         | "dropbox"
         | "external"
+        | "box"
       yearbook_role:
         | "coordinator"
         | "staff"
         | "proofreader"
         | "corrector"
         | "student"
+      yearbook_storage_mode: "inherit_organization" | "provider" | "milestone"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1881,12 +2052,19 @@ export const Constants = {
         "rejected",
         "cancelled",
       ],
+      provider_connection_status: [
+        "connected",
+        "needs_reauthorization",
+        "disconnected",
+        "error",
+      ],
       storage_provider: [
         "lovable",
         "google_drive",
         "onedrive",
         "dropbox",
         "external",
+        "box",
       ],
       yearbook_role: [
         "coordinator",
@@ -1895,6 +2073,7 @@ export const Constants = {
         "corrector",
         "student",
       ],
+      yearbook_storage_mode: ["inherit_organization", "provider", "milestone"],
     },
   },
 } as const
