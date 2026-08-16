@@ -606,10 +606,11 @@ export const getAssets = createServerFn({ method: "GET" })
     const { supabase } = context;
     let query = supabase
       .from("assets")
-      .select("*, uploaded_by_profile:profiles!assets_uploaded_by_fkey(full_name, email), student:students(first_name, last_name)")
+      .select("*, uploaded_by_profile:profiles!assets_uploaded_by_fkey(full_name, email), student:students(first_name, last_name), pages:page_assets(page:pages(id, page_number, title))")
       .eq("yearbook_id", data.yearbookId)
       .eq("is_current", true)
       .order("created_at", { ascending: false });
+
 
     if (data.filters?.status) query = query.eq("status", data.filters.status as never);
     if (data.filters?.type) query = query.eq("asset_type", data.filters.type as never);
