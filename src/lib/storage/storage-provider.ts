@@ -19,8 +19,8 @@ export type ConnectionStatus =
 export type ConnectionState = {
   status: ConnectionStatus;
   /** Human-readable explanation, shown in settings UI. */
-  detail?: string;
-  accountEmail?: string;
+  detail?: string | undefined;
+  accountEmail?: string | undefined;
 };
 
 /**
@@ -37,19 +37,19 @@ export type CredentialRef =
 export type RemoteFolder = {
   id: string;
   name: string;
-  parentId?: string;
-  path?: string;
+  parentId?: string | undefined;
+  path?: string | undefined;
 };
 
 export type RemoteFile = {
   id: string;
   name: string;
   mimeType: string;
-  size?: number;
-  modifiedAt?: string;
-  webUrl?: string;
-  thumbnailUrl?: string;
-  parentId?: string;
+  size?: number | undefined;
+  modifiedAt?: string | undefined;
+  webUrl?: string | undefined;
+  thumbnailUrl?: string | undefined;
+  parentId?: string | undefined;
 };
 
 export type DownloadedFile = {
@@ -59,13 +59,13 @@ export type DownloadedFile = {
 };
 
 export type ListOptions = {
-  pageSize?: number;
-  pageToken?: string;
+  pageSize?: number | undefined;
+  pageToken?: string | undefined;
 };
 
 export type ListResult<T> = {
   items: T[];
-  nextPageToken?: string;
+  nextPageToken?: string | undefined;
 };
 
 export interface StorageProvider {
