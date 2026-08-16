@@ -168,18 +168,19 @@ export function AssetDetail({
                     onChange={(e) => setNotes(e.target.value)}
                   />
                   <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="success" onClick={() => handleStatusUpdate('approved')}>
+                    <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleStatusUpdate('approved')}>
                       Approve
                     </Button>
                     <Button size="sm" variant="destructive" onClick={() => handleStatusUpdate('rejected')}>
                       Reject
                     </Button>
-                    <Button size="sm" variant="warning" onClick={() => handleStatusUpdate('replacement_required')}>
+                    <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white" onClick={() => handleStatusUpdate('replacement_required')}>
                       Replacement Required
                     </Button>
                   </div>
                 </div>
               )}
+
             </div>
 
             <Separator />
