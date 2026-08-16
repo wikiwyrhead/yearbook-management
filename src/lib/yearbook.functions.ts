@@ -77,11 +77,46 @@ export const getControlCenter = createServerFn({ method: "GET" })
       userId,
       isSuperAdmin,
       schools: schools ?? [],
-      yearbooks: (yearbooks ?? []).map((y) => ({
-        ...y,
-        myRoles: roleByYearbook[y.id] ?? (isSuperAdmin ? ["super_admin"] : []),
+      yearbooks: await Promise.all((yearbooks ?? []).map(async (y) => {
+        const myRoles = roleByYearbook[y.id] ?? (isSuperAdmin ? ["super_admin"] : []);
+        const isPrivileged = myRoles.includes('coordinator') || isSuperAdmin;
+        
+        let metrics = { assetCompletion: 0, pageProgress: "0 / 0" };
+        
+        if (isPrivileged) {
+          const { data: reqs } = await supabase
+            .from("page_requirements")
+            .select("have, needed")
+            .eq("yearbook_id", y.id);
+          
+          if (reqs && reqs.length > 0) {
+            const totalNeeded = reqs.reduce((acc, r) => acc + (r.needed || 0), 0);
+            const totalHave = reqs.reduce((acc, r) => acc + (r.have || 0), 0);
+            metrics.assetCompletion = totalNeeded > 0 ? Math.round((totalHave / totalNeeded) * 100) : 0;
+          }
+
+          const { count: totalPages } = await supabase
+            .from("pages")
+            .select("id", { count: 'exact', head: true })
+            .eq("yearbook_id", y.id);
+          
+          const { count: completedPages } = await supabase
+            .from("pages")
+            .select("id", { count: 'exact', head: true })
+            .eq("yearbook_id", y.id)
+            .not("status_id", "is", null);
+            
+          metrics.pageProgress = `${completedPages || 0} / ${totalPages || 0}`;
+        }
+
+        return {
+          ...y,
+          myRoles,
+          metrics
+        };
       })),
       myStudentRecords: myStudentRecords ?? [],
+
     };
   });
 
