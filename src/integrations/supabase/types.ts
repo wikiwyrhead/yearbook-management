@@ -14,6 +14,165 @@ export type Database = {
   }
   public: {
     Tables: {
+      asset_audit_log: {
+        Row: {
+          action: string
+          asset_id: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          new_status: Database["public"]["Enums"]["asset_status"] | null
+          old_status: Database["public"]["Enums"]["asset_status"] | null
+          performed_by: string
+          yearbook_id: string
+        }
+        Insert: {
+          action: string
+          asset_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          new_status?: Database["public"]["Enums"]["asset_status"] | null
+          old_status?: Database["public"]["Enums"]["asset_status"] | null
+          performed_by: string
+          yearbook_id: string
+        }
+        Update: {
+          action?: string
+          asset_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          new_status?: Database["public"]["Enums"]["asset_status"] | null
+          old_status?: Database["public"]["Enums"]["asset_status"] | null
+          performed_by?: string
+          yearbook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_audit_log_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_audit_log_yearbook_id_fkey"
+            columns: ["yearbook_id"]
+            isOneToOne: false
+            referencedRelation: "yearbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assets: {
+        Row: {
+          asset_type: Database["public"]["Enums"]["asset_type"]
+          category: string | null
+          class_id: string | null
+          created_at: string
+          faculty_id: string | null
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+          is_current: boolean
+          notes: string | null
+          section_id: string | null
+          status: Database["public"]["Enums"]["asset_status"]
+          storage_path: string
+          storage_provider: Database["public"]["Enums"]["storage_provider"]
+          student_id: string | null
+          updated_at: string
+          uploaded_by: string
+          validation_metadata: Json | null
+          version: number
+          yearbook_id: string
+        }
+        Insert: {
+          asset_type?: Database["public"]["Enums"]["asset_type"]
+          category?: string | null
+          class_id?: string | null
+          created_at?: string
+          faculty_id?: string | null
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          is_current?: boolean
+          notes?: string | null
+          section_id?: string | null
+          status?: Database["public"]["Enums"]["asset_status"]
+          storage_path: string
+          storage_provider?: Database["public"]["Enums"]["storage_provider"]
+          student_id?: string | null
+          updated_at?: string
+          uploaded_by: string
+          validation_metadata?: Json | null
+          version?: number
+          yearbook_id: string
+        }
+        Update: {
+          asset_type?: Database["public"]["Enums"]["asset_type"]
+          category?: string | null
+          class_id?: string | null
+          created_at?: string
+          faculty_id?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          is_current?: boolean
+          notes?: string | null
+          section_id?: string | null
+          status?: Database["public"]["Enums"]["asset_status"]
+          storage_path?: string
+          storage_provider?: Database["public"]["Enums"]["storage_provider"]
+          student_id?: string | null
+          updated_at?: string
+          uploaded_by?: string
+          validation_metadata?: Json | null
+          version?: number
+          yearbook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assets_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assets_faculty_id_fkey"
+            columns: ["faculty_id"]
+            isOneToOne: false
+            referencedRelation: "faculty"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assets_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assets_yearbook_id_fkey"
+            columns: ["yearbook_id"]
+            isOneToOne: false
+            referencedRelation: "yearbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       classes: {
         Row: {
           created_at: string
@@ -104,6 +263,52 @@ export type Database = {
             columns: ["yearbook_id"]
             isOneToOne: false
             referencedRelation: "yearbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      page_assets: {
+        Row: {
+          asset_id: string
+          created_at: string
+          id: string
+          page_id: string
+          requirement_id: string | null
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string
+          id?: string
+          page_id: string
+          requirement_id?: string | null
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          id?: string
+          page_id?: string
+          requirement_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "page_assets_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "page_assets_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "page_assets_requirement_id_fkey"
+            columns: ["requirement_id"]
+            isOneToOne: false
+            referencedRelation: "page_requirements"
             referencedColumns: ["id"]
           },
         ]
@@ -563,6 +768,50 @@ export type Database = {
         }
         Relationships: []
       }
+      yearbook_invitations: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          role: Database["public"]["Enums"]["yearbook_role"]
+          status: string
+          token: string
+          yearbook_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          role?: Database["public"]["Enums"]["yearbook_role"]
+          status?: string
+          token?: string
+          yearbook_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          role?: Database["public"]["Enums"]["yearbook_role"]
+          status?: string
+          token?: string
+          yearbook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "yearbook_invitations_yearbook_id_fkey"
+            columns: ["yearbook_id"]
+            isOneToOne: false
+            referencedRelation: "yearbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       yearbook_members: {
         Row: {
           created_at: string
@@ -686,6 +935,29 @@ export type Database = {
     }
     Enums: {
       app_role: "super_admin"
+      asset_status:
+        | "missing"
+        | "requested"
+        | "uploaded"
+        | "under_review"
+        | "approved"
+        | "rejected"
+        | "replacement_required"
+        | "archived"
+      asset_type:
+        | "photo"
+        | "document"
+        | "pdf"
+        | "logo"
+        | "artwork"
+        | "message"
+        | "other"
+      storage_provider:
+        | "lovable"
+        | "google_drive"
+        | "onedrive"
+        | "dropbox"
+        | "external"
       yearbook_role:
         | "coordinator"
         | "staff"
@@ -820,6 +1092,32 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["super_admin"],
+      asset_status: [
+        "missing",
+        "requested",
+        "uploaded",
+        "under_review",
+        "approved",
+        "rejected",
+        "replacement_required",
+        "archived",
+      ],
+      asset_type: [
+        "photo",
+        "document",
+        "pdf",
+        "logo",
+        "artwork",
+        "message",
+        "other",
+      ],
+      storage_provider: [
+        "lovable",
+        "google_drive",
+        "onedrive",
+        "dropbox",
+        "external",
+      ],
       yearbook_role: [
         "coordinator",
         "staff",

@@ -1,14 +1,16 @@
 /**
- * Yearbook System - Phase 1 Foundation
+ * Yearbook System - Phase 2 Asset Management
  * 
  * Architecture Decisions:
  * 1. Multi-tenancy: Enforced at the RLS level using security definer functions.
  * 2. Page Management: decoupled 'position' (internal order) from 'page_number' (display/print).
  * 3. Roles: Hierarchical (Super Admin > Coordinator > Staff > Proofreader > Corrector > Student).
  * 4. Canva: Fields pre-allocated for Phase 2 integration.
+ * 5. Assets: Centralized library with versioning and audit trails.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { z } from "zod";
 
 type Json = Record<string, unknown>;
 
@@ -511,4 +513,266 @@ export const deleteRequirement = createServerFn({ method: "POST" })
     const { error } = await context.supabase.from("page_requirements").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+/* ---------------- Asset Management ---------------- */
+
+export const getAssets = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    yearbookId: z.string(),
+    filters: z.object({
+      status: z.string().optional(),
+      type: z.string().optional(),
+      studentId: z.string().optional(),
+      pageId: z.string().optional(),
+      search: z.string().optional(),
+    }).optional()
+  }))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    let query = supabase
+      .from("assets")
+      .select("*, uploaded_by_profile:profiles!assets_uploaded_by_fkey(full_name, email), student:students(first_name, last_name)")
+      .eq("yearbook_id", data.yearbookId)
+      .eq("is_current", true)
+      .order("created_at", { ascending: false });
+
+    if (data.filters?.status) query = query.eq("status", data.filters.status);
+    if (data.filters?.type) query = query.eq("asset_type", data.filters.type);
+    if (data.filters?.studentId) query = query.eq("student_id", data.filters.studentId);
+    
+    if (data.filters?.search) {
+        query = query.ilike("file_name", `%${data.filters.search}%`);
+    }
+
+    const assets = unwrap(await query);
+
+    // If pageId filter, we need to join through page_assets
+    if (data.filters?.pageId) {
+        const pageAssetIds = unwrap(
+            await supabase.from("page_assets").select("asset_id").eq("page_id", data.filters.pageId)
+        ).map(pa => pa.asset_id);
+        return assets.filter(a => pageAssetIds.includes(a.id));
+    }
+
+    return assets;
+  });
+
+export const getAssetDetails = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ assetId: z.string() }))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const asset = unwrap(
+      await supabase
+        .from("assets")
+        .select("*, pages:page_assets(page:pages(id, page_number, title))")
+        .eq("id", data.assetId)
+        .single()
+    );
+
+    const history = unwrap(
+      await supabase
+        .from("assets")
+        .select("*")
+        .eq("yearbook_id", asset.yearbook_id)
+        .eq("file_name", asset.file_name) // Simple versioning by name for now
+        .order("version", { ascending: false })
+    );
+
+    const auditLogs = unwrap(
+      await supabase
+        .from("asset_audit_log")
+        .select("*, performed_by_profile:profiles!asset_audit_log_performed_by_fkey(full_name)")
+        .eq("asset_id", data.assetId)
+        .order("created_at", { ascending: false })
+    );
+
+    return { asset, history, auditLogs };
+  });
+
+export const createAsset = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    yearbookId: z.string(),
+    fileName: z.string(),
+    fileType: z.string().optional(),
+    fileSize: z.number().optional(),
+    storagePath: z.string(),
+    assetType: z.enum(['photo', 'document', 'pdf', 'logo', 'artwork', 'message', 'other']).default('photo'),
+    studentId: z.string().optional(),
+    facultyId: z.string().optional(),
+    classId: z.string().optional(),
+    sectionId: z.string().optional(),
+    category: z.string().optional(),
+    validationMetadata: z.record(z.any()).optional(),
+  }))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
+    // Check for duplicates/versions
+    const existing = await supabase
+        .from("assets")
+        .select("id, version")
+        .eq("yearbook_id", data.yearbookId)
+        .eq("file_name", data.fileName)
+        .eq("is_current", true)
+        .maybeSingle();
+
+    let version = 1;
+    if (existing.data) {
+        version = existing.data.version + 1;
+        // Mark old version as not current
+        await supabase.from("assets").update({ is_current: false }).eq("id", existing.data.id);
+    }
+
+    const asset = unwrap(
+      await supabase
+        .from("assets")
+        .insert({
+          yearbook_id: data.yearbookId,
+          file_name: data.fileName,
+          file_type: data.fileType,
+          file_size: data.fileSize,
+          storage_path: data.storagePath,
+          asset_type: data.assetType,
+          student_id: data.studentId,
+          faculty_id: data.facultyId,
+          class_id: data.classId,
+          section_id: data.sectionId,
+          category: data.category,
+          version,
+          is_current: true,
+          status: 'uploaded',
+          uploaded_by: userId,
+          validation_metadata: data.validationMetadata || {},
+        })
+        .select()
+        .single()
+    );
+
+    // Audit log
+    await supabase.from("asset_audit_log").insert({
+      asset_id: asset.id,
+      yearbook_id: data.yearbookId,
+      action: version > 1 ? 'replaced' : 'uploaded',
+      performed_by: userId,
+      new_status: 'uploaded',
+      metadata: { version }
+    });
+
+    return asset;
+  });
+
+export const updateAssetStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    assetId: z.string(),
+    status: z.enum(['missing', 'requested', 'uploaded', 'under_review', 'approved', 'rejected', 'replacement_required', 'archived']),
+    notes: z.string().optional(),
+  }))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const oldAsset = unwrap(await supabase.from("assets").select("status, yearbook_id").eq("id", data.assetId).single());
+    
+    const asset = unwrap(
+      await supabase
+        .from("assets")
+        .update({ status: data.status, notes: data.notes })
+        .eq("id", data.assetId)
+        .select()
+        .single()
+    );
+
+    await supabase.from("asset_audit_log").insert({
+      asset_id: data.assetId,
+      yearbook_id: oldAsset.yearbook_id,
+      action: 'status_changed',
+      performed_by: userId,
+      old_status: oldAsset.status,
+      new_status: data.status,
+      metadata: { notes: data.notes }
+    });
+
+    return asset;
+  });
+
+export const associateAssetToPage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    assetId: z.string(),
+    pageId: z.string(),
+    requirementId: z.string().optional(),
+  }))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    
+    const res = unwrap(
+      await supabase
+        .from("page_assets")
+        .upsert({
+          asset_id: data.assetId,
+          page_id: data.pageId,
+          requirement_id: data.requirementId,
+        })
+        .select()
+        .single()
+    );
+
+    // If requirementId is provided, we should probably update the requirement's "have" count
+    // This is a simplified implementation for now
+    if (data.requirementId) {
+        const countRes = await supabase
+            .from("page_assets")
+            .select("id", { count: 'exact', head: true })
+            .eq("requirement_id", data.requirementId);
+        
+        if (countRes.count !== null) {
+            await supabase
+                .from("page_requirements")
+                .update({ have: countRes.count })
+                .eq("id", data.requirementId);
+        }
+    }
+
+    return res;
+  });
+
+/* ---------------- Invitations ---------------- */
+
+export const inviteUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    yearbookId: z.string(),
+    email: z.string().email(),
+    role: z.enum(['coordinator', 'staff', 'proofreader', 'corrector', 'student']),
+  }))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    return unwrap(
+      await supabase
+        .from("yearbook_invitations")
+        .insert({
+          yearbook_id: data.yearbookId,
+          email: data.email.toLowerCase(),
+          role: data.role,
+          invited_by: userId,
+        })
+        .select()
+        .single()
+    );
+  });
+
+export const getInvitations = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ yearbookId: z.string() }))
+  .handler(async ({ data, context }) => {
+    return unwrap(
+      await context.supabase
+        .from("yearbook_invitations")
+        .select("*, invited_by_profile:profiles!yearbook_invitations_invited_by_fkey(full_name)")
+        .eq("yearbook_id", data.yearbookId)
+        .order("created_at", { ascending: false })
+    );
   });
