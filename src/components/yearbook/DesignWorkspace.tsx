@@ -7,9 +7,7 @@ import {
   AlertCircle, 
   Clock, 
   ExternalLink, 
-  Settings, 
   FileText, 
-  Image as ImageIcon,
   ChevronRight,
   Filter,
   RefreshCw,
@@ -213,7 +211,6 @@ function DesignDetailDialog({ yearbookId, pageId, onClose, onUpdate, canEdit }: 
   const fetchProofs = useServerFn(getProofs);
   const updateStatus = useServerFn(updateDesignStatus);
   const connectCanva = useServerFn(connectCanvaDesign);
-  const createProofVersion = useServerFn(createProof);
 
   const { data: ladderData } = useQuery({ 
     queryKey: ["ladder", yearbookId], 
