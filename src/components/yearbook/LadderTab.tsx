@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, Plus, Trash2, ExternalLink, ListOrdered, UserPlus } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Trash2, ExternalLink, ListOrdered, UserPlus, ImageIcon, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -34,7 +35,10 @@ import {
   unassignPage,
   saveRequirement,
   deleteRequirement,
+  getAssets,
+  associateAssetToPage
 } from "@/lib/yearbook.functions";
+
 
 type Lookup = { id: string; name: string; color?: string };
 type Member = { user_id: string; role: string; profile: { full_name: string | null; email: string | null } | null };
