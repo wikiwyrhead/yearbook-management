@@ -109,6 +109,20 @@ export const getControlCenter = createServerFn({ method: "GET" })
             .not("status_id", "is", null);
             
           metrics.pageProgress = `${completedPages || 0} / ${totalPages || 0}`;
+
+          const { data: designStatusData } = await (supabase as any)
+            .from("pages")
+            .select("design_status")
+            .eq("yearbook_id", y.id);
+          
+          if (designStatusData) {
+            metrics.designStats = {
+              total: designStatusData.length,
+              ready: designStatusData.filter((p: any) => p.design_status === 'ready_for_design').length,
+              designing: designStatusData.filter((p: any) => p.design_status === 'designing').length,
+              complete: designStatusData.filter((p: any) => p.design_status === 'complete').length,
+            };
+          }
         }
 
         return {
