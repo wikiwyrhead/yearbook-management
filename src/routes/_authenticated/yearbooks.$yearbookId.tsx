@@ -28,7 +28,10 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { LadderTab } from "@/components/yearbook/LadderTab";
 import { PeopleTab } from "@/components/yearbook/PeopleTab";
+import { AssetLibrary } from "@/components/yearbook/assets/AssetLibrary";
+import { TeamInvitations } from "@/components/yearbook/TeamInvitations";
 import { getYearbook, addMember, removeMember } from "@/lib/yearbook.functions";
+
 
 export const Route = createFileRoute("/_authenticated/yearbooks/$yearbookId")({
   head: () => ({
@@ -129,9 +132,11 @@ function Workspace() {
       <Tabs defaultValue="ladder" className="mt-8">
         <TabsList>
           <TabsTrigger value="ladder">Page ladder</TabsTrigger>
+          <TabsTrigger value="assets">Assets</TabsTrigger>
           <TabsTrigger value="people">People</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
         </TabsList>
+
 
         <TabsContent value="ladder" className="mt-6">
           <LadderTab
@@ -146,9 +151,19 @@ function Workspace() {
           />
         </TabsContent>
 
+        <TabsContent value="assets" className="mt-6">
+          <AssetLibrary 
+            yearbookId={yearbookId} 
+            canEdit={data.canEdit} 
+            studentId={data.myStudentId ?? undefined} 
+          />
+        </TabsContent>
+
+
         <TabsContent value="people" className="mt-6">
           <PeopleTab yearbookId={yearbookId} canEdit={data.canEdit} />
         </TabsContent>
+
 
         <TabsContent value="team" className="mt-6">
           <TeamTab
@@ -275,7 +290,12 @@ function TeamTab({
         ))}
       </div>
 
+      <div className="mt-8">
+        <TeamInvitations yearbookId={yearbookId} canManage={canManage} />
+      </div>
+
       <div className="plate mt-6 p-5">
+
         <h3 className="font-display text-lg">What each role can do</h3>
         <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
           <li>

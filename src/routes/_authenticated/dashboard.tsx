@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, School, BookOpen, GraduationCap } from "lucide-react";
+import { Plus, School, BookOpen, GraduationCap, Image as ImageIcon, CheckCircle2, AlertCircle } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,26 +82,46 @@ function Dashboard() {
 
       {data.myStudentRecords.length > 0 && (
         <section className="mt-8">
-          <h2 className="font-display text-xl">My student profile</h2>
+          <h2 className="font-display text-xl">My Yearbook Submission</h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {data.myStudentRecords.map((s) => (
               <div key={s.id} className="plate p-4">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <GraduationCap className="size-4 text-accent" />
-                  {s.preferred_name || s.first_name} {s.last_name}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <GraduationCap className="size-4 text-accent" />
+                    {s.preferred_name || s.first_name} {s.last_name}
+                  </div>
+                  <Badge variant="secondary" className="capitalize text-[10px]">
+                    {s.submission_status.replace('_', ' ')}
+                  </Badge>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {s.grade ? `Grade ${s.grade} · ` : ""}
-                  {s.student_number ? `ID ${s.student_number}` : "No student ID"}
-                </p>
-                <Badge className="mt-3 capitalize" variant="secondary">
-                  {s.submission_status}
-                </Badge>
+                
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground italic">Required Portrait</span>
+                    {s.submission_status === 'submitted' ? (
+                      <span className="text-green-600 font-bold">✓ Uploaded</span>
+                    ) : (
+                      <span className="text-amber-600 font-bold">⚠ Missing</span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground italic">Student Information</span>
+                    <span className="text-green-600 font-bold">✓ Complete</span>
+                  </div>
+                </div>
+
+                <Button variant="outline" size="sm" className="w-full mt-4 h-8 text-xs" asChild>
+                  <Link to="/yearbooks/$yearbookId" params={{ yearbookId: s.yearbook_id }}>
+                    Manage My Assets
+                  </Link>
+                </Button>
               </div>
             ))}
           </div>
         </section>
       )}
+
 
       <section className="mt-10">
         <h2 className="font-display text-xl">Yearbooks</h2>
@@ -119,30 +139,50 @@ function Dashboard() {
                 key={y.id}
                 to="/yearbooks/$yearbookId"
                 params={{ yearbookId: y.id }}
-                className="plate block p-5 transition-shadow hover:shadow-lift"
+                className="plate block p-5 transition-shadow hover:shadow-lift group"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs uppercase tracking-widest text-muted-foreground">
                       {y.schools?.name}
                     </p>
-                    <h3 className="font-display text-2xl">{y.title || `${y.year} Yearbook`}</h3>
+                    <h3 className="font-display text-2xl group-hover:text-accent transition-colors">
+                      {y.title || `${y.year} Yearbook`}
+                    </h3>
                   </div>
-                  <span className="font-display text-3xl text-accent">{y.year}</span>
+                  <span className="font-display text-3xl text-accent/20 group-hover:text-accent/40 transition-colors">
+                    {y.year}
+                  </span>
                 </div>
-                <div className="mt-4 flex flex-wrap gap-1.5">
-                  {(y.myRoles.length ? y.myRoles : ["viewer"]).map((r) => (
-                    <Badge key={r} variant="secondary" className="capitalize">
-                      {r.replace("_", " ")}
-                    </Badge>
-                  ))}
+                
+                <div className="mt-4 grid grid-cols-2 gap-4 border-t border-border/50 pt-4">
+                  <div className="space-y-1">
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Asset Completion</p>
+                    <p className="text-sm font-display">{(y as any).metrics?.assetCompletion ?? 0}%</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Page Progress</p>
+                    <p className="text-sm font-display">{(y as any).metrics?.pageProgress ?? "0 / 0"}</p>
+                  </div>
                 </div>
-                {y.deadline && (
-                  <p className="mt-3 text-xs text-muted-foreground">Deadline {y.deadline}</p>
-                )}
+
+
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    {(y.myRoles.length ? y.myRoles : ["viewer"]).map((r) => (
+                      <Badge key={r} variant="secondary" className="capitalize text-[9px] h-4">
+                        {r.replace("_", " ")}
+                      </Badge>
+                    ))}
+                  </div>
+                  {y.deadline && (
+                    <p className="text-[10px] text-muted-foreground">Due {y.deadline}</p>
+                  )}
+                </div>
               </Link>
             ))}
           </div>
+
         )}
       </section>
 

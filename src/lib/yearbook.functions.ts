@@ -19,6 +19,27 @@ function unwrap<T>(res: { data: T | null; error: { message: string } | null }): 
   return res.data as T;
 }
 
+export type YearbookAsset = {
+  id: string;
+  yearbook_id: string;
+  file_name: string;
+  file_type?: string;
+  file_size?: number;
+  storage_path: string;
+  asset_type: 'photo' | 'document' | 'pdf' | 'logo' | 'artwork' | 'message' | 'other';
+  status: string;
+  created_at: string;
+  uploaded_by?: string;
+  is_current: boolean;
+  version: number;
+  student_id?: string;
+  category?: string;
+  uploaded_by_profile?: { full_name: string };
+  student?: { first_name: string; last_name: string };
+  pages?: Array<{ page: { id: string; page_number: number; title: string } }>;
+};
+
+
 /* ---------------- Dashboard ---------------- */
 
 export const getControlCenter = createServerFn({ method: "GET" })
@@ -56,11 +77,46 @@ export const getControlCenter = createServerFn({ method: "GET" })
       userId,
       isSuperAdmin,
       schools: schools ?? [],
-      yearbooks: (yearbooks ?? []).map((y) => ({
-        ...y,
-        myRoles: roleByYearbook[y.id] ?? (isSuperAdmin ? ["super_admin"] : []),
+      yearbooks: await Promise.all((yearbooks ?? []).map(async (y) => {
+        const myRoles = roleByYearbook[y.id] ?? (isSuperAdmin ? ["super_admin"] : []);
+        const isPrivileged = myRoles.includes('coordinator') || isSuperAdmin;
+        
+        let metrics = { assetCompletion: 0, pageProgress: "0 / 0" };
+        
+        if (isPrivileged) {
+          const { data: reqs } = await supabase
+            .from("page_requirements")
+            .select("have, needed")
+            .eq("yearbook_id", y.id);
+          
+          if (reqs && reqs.length > 0) {
+            const totalNeeded = reqs.reduce((acc, r) => acc + (r.needed || 0), 0);
+            const totalHave = reqs.reduce((acc, r) => acc + (r.have || 0), 0);
+            metrics.assetCompletion = totalNeeded > 0 ? Math.round((totalHave / totalNeeded) * 100) : 0;
+          }
+
+          const { count: totalPages } = await supabase
+            .from("pages")
+            .select("id", { count: 'exact', head: true })
+            .eq("yearbook_id", y.id);
+          
+          const { count: completedPages } = await supabase
+            .from("pages")
+            .select("id", { count: 'exact', head: true })
+            .eq("yearbook_id", y.id)
+            .not("status_id", "is", null);
+            
+          metrics.pageProgress = `${completedPages || 0} / ${totalPages || 0}`;
+        }
+
+        return {
+          ...y,
+          myRoles,
+          metrics
+        };
       })),
       myStudentRecords: myStudentRecords ?? [],
+
     };
   });
 
@@ -131,6 +187,9 @@ export const getYearbook = createServerFn({ method: "GET" })
     const yearbook = unwrap(
       await supabase.from("yearbooks").select("*, schools(*)").eq("id", id).single(),
     );
+    const myProfileRes = await supabase.from("profiles").select("email").eq("id", userId).single();
+    const myEmail = myProfileRes.data?.email || "";
+
     const myRoles = (
       unwrap(
         await supabase
@@ -161,9 +220,21 @@ export const getYearbook = createServerFn({ method: "GET" })
         ) ?? [])
       : [];
 
+
+    const myStudentRecords = myEmail 
+      ? unwrap(
+          await supabase
+            .from("students")
+            .select("id")
+            .eq("email", myEmail)
+            .eq("yearbook_id", id)
+        )
+      : [];
+
     return {
       yearbook,
       myRoles: isSuperAdmin ? [...myRoles, "super_admin"] : myRoles,
+      myStudentId: (myStudentRecords as any[])?.[0]?.id || null,
       canManage: isSuperAdmin || myRoles.includes("coordinator"),
       canEdit: isSuperAdmin || myRoles.includes("coordinator") || myRoles.includes("staff"),
       sections: unwrap(sections) ?? [],
@@ -174,6 +245,8 @@ export const getYearbook = createServerFn({ method: "GET" })
         profile: profiles.find((p) => p.id === m.user_id) ?? null,
       })),
     };
+
+
   });
 
 /* ---------------- Members ---------------- */
@@ -533,13 +606,14 @@ export const getAssets = createServerFn({ method: "GET" })
     const { supabase } = context;
     let query = supabase
       .from("assets")
-      .select("*, uploaded_by_profile:profiles!assets_uploaded_by_fkey(full_name, email), student:students(first_name, last_name)")
+      .select("*, uploaded_by_profile:profiles!assets_uploaded_by_fkey(full_name, email), student:students(first_name, last_name), pages:page_assets(page:pages(id, page_number, title))")
       .eq("yearbook_id", data.yearbookId)
       .eq("is_current", true)
       .order("created_at", { ascending: false });
 
-    if (data.filters?.status) query = query.eq("status", data.filters.status);
-    if (data.filters?.type) query = query.eq("asset_type", data.filters.type);
+
+    if (data.filters?.status) query = query.eq("status", data.filters.status as never);
+    if (data.filters?.type) query = query.eq("asset_type", data.filters.type as never);
     if (data.filters?.studentId) query = query.eq("student_id", data.filters.studentId);
     
     if (data.filters?.search) {
@@ -553,10 +627,10 @@ export const getAssets = createServerFn({ method: "GET" })
         const pageAssetIds = unwrap(
             await supabase.from("page_assets").select("asset_id").eq("page_id", data.filters.pageId)
         ).map(pa => pa.asset_id);
-        return assets.filter(a => pageAssetIds.includes(a.id));
+        return (assets ?? []).filter(a => pageAssetIds.includes(a.id));
     }
 
-    return assets;
+    return assets ?? [];
   });
 
 export const getAssetDetails = createServerFn({ method: "GET" })
@@ -570,14 +644,16 @@ export const getAssetDetails = createServerFn({ method: "GET" })
         .select("*, pages:page_assets(page:pages(id, page_number, title))")
         .eq("id", data.assetId)
         .single()
-    );
+    ) as YearbookAsset;
+
+    if (!asset) throw new Error("Asset not found");
 
     const history = unwrap(
       await supabase
         .from("assets")
         .select("*")
         .eq("yearbook_id", asset.yearbook_id)
-        .eq("file_name", asset.file_name) // Simple versioning by name for now
+        .eq("file_name", asset.file_name)
         .order("version", { ascending: false })
     );
 
@@ -589,7 +665,7 @@ export const getAssetDetails = createServerFn({ method: "GET" })
         .order("created_at", { ascending: false })
     );
 
-    return { asset, history, auditLogs };
+    return { asset, history: history ?? [], auditLogs: auditLogs ?? [] };
   });
 
 export const createAsset = createServerFn({ method: "POST" })
@@ -611,7 +687,6 @@ export const createAsset = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
-    // Check for duplicates/versions
     const existing = await supabase
         .from("assets")
         .select("id, version")
@@ -623,7 +698,6 @@ export const createAsset = createServerFn({ method: "POST" })
     let version = 1;
     if (existing.data) {
         version = existing.data.version + 1;
-        // Mark old version as not current
         await supabase.from("assets").update({ is_current: false }).eq("id", existing.data.id);
     }
 
@@ -633,15 +707,15 @@ export const createAsset = createServerFn({ method: "POST" })
         .insert({
           yearbook_id: data.yearbookId,
           file_name: data.fileName,
-          file_type: data.fileType,
-          file_size: data.fileSize,
+          file_type: data.fileType ?? null,
+          file_size: data.fileSize ?? null,
           storage_path: data.storagePath,
           asset_type: data.assetType,
-          student_id: data.studentId,
-          faculty_id: data.facultyId,
-          class_id: data.classId,
-          section_id: data.sectionId,
-          category: data.category,
+          student_id: data.studentId ?? null,
+          faculty_id: data.facultyId ?? null,
+          class_id: data.classId ?? null,
+          section_id: data.sectionId ?? null,
+          category: data.category ?? null,
           version,
           is_current: true,
           status: 'uploaded',
@@ -650,9 +724,10 @@ export const createAsset = createServerFn({ method: "POST" })
         })
         .select()
         .single()
-    );
+    ) as YearbookAsset;
 
-    // Audit log
+    if (!asset) throw new Error("Failed to create asset");
+
     await supabase.from("asset_audit_log").insert({
       asset_id: asset.id,
       yearbook_id: data.yearbookId,
@@ -674,12 +749,13 @@ export const updateAssetStatus = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const oldAsset = unwrap(await supabase.from("assets").select("status, yearbook_id").eq("id", data.assetId).single());
+    const oldAsset = unwrap(await supabase.from("assets").select("status, yearbook_id").eq("id", data.assetId).single()) as YearbookAsset;
+    if (!oldAsset) throw new Error("Asset not found");
     
     const asset = unwrap(
       await supabase
         .from("assets")
-        .update({ status: data.status, notes: data.notes })
+        .update({ status: data.status, notes: data.notes ?? null })
         .eq("id", data.assetId)
         .select()
         .single()
@@ -690,7 +766,7 @@ export const updateAssetStatus = createServerFn({ method: "POST" })
       yearbook_id: oldAsset.yearbook_id,
       action: 'status_changed',
       performed_by: userId,
-      old_status: oldAsset.status,
+      old_status: oldAsset.status as any,
       new_status: data.status,
       metadata: { notes: data.notes }
     });
@@ -714,14 +790,12 @@ export const associateAssetToPage = createServerFn({ method: "POST" })
         .upsert({
           asset_id: data.assetId,
           page_id: data.pageId,
-          requirement_id: data.requirementId,
+          requirement_id: data.requirementId ?? null,
         })
         .select()
         .single()
     );
 
-    // If requirementId is provided, we should probably update the requirement's "have" count
-    // This is a simplified implementation for now
     if (data.requirementId) {
         const countRes = await supabase
             .from("page_assets")
