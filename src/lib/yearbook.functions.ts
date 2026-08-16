@@ -1,12 +1,14 @@
 /**
- * Yearbook System - Phase 2 Asset Management
+ * Yearbook System - Phase 3 Canva & Production Workflow
  * 
  * Architecture Decisions:
  * 1. Multi-tenancy: Enforced at the RLS level using security definer functions.
  * 2. Page Management: decoupled 'position' (internal order) from 'page_number' (display/print).
  * 3. Roles: Hierarchical (Super Admin > Coordinator > Staff > Proofreader > Corrector > Student).
- * 4. Canva: Fields pre-allocated for Phase 2 integration.
+ * 4. Canva: Modular integration using existing page fields + yearbook-level config.
  * 5. Assets: Centralized library with versioning and audit trails.
+ * 6. Production: Design readiness based on requirement fulfillment.
+ * 7. Proofing: Versioned PDF entities for auditability.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -81,7 +83,7 @@ export const getControlCenter = createServerFn({ method: "GET" })
         const myRoles = roleByYearbook[y.id] ?? (isSuperAdmin ? ["super_admin"] : []);
         const isPrivileged = myRoles.includes('coordinator') || isSuperAdmin;
         
-        let metrics = { assetCompletion: 0, pageProgress: "0 / 0" };
+        let metrics = { assetCompletion: 0, pageProgress: "0 / 0", designStats: { total: 0, ready: 0, designing: 0, complete: 0 } };
         
         if (isPrivileged) {
           const { data: reqs } = await supabase
@@ -107,6 +109,20 @@ export const getControlCenter = createServerFn({ method: "GET" })
             .not("status_id", "is", null);
             
           metrics.pageProgress = `${completedPages || 0} / ${totalPages || 0}`;
+
+          const { data: designStatusData } = await (supabase as any)
+            .from("pages")
+            .select("design_status")
+            .eq("yearbook_id", y.id);
+          
+          if (designStatusData) {
+            metrics.designStats = {
+              total: designStatusData.length,
+              ready: designStatusData.filter((p: any) => p.design_status === 'ready_for_design').length,
+              designing: designStatusData.filter((p: any) => p.design_status === 'designing').length,
+              complete: designStatusData.filter((p: any) => p.design_status === 'complete').length,
+            };
+          }
         }
 
         return {
@@ -850,3 +866,145 @@ export const getInvitations = createServerFn({ method: "GET" })
         .order("created_at", { ascending: false })
     );
   });
+
+/* ---------------- Design & Canva ---------------- */
+
+export const getCanvaConfig = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ yearbookId: z.string() }))
+  .handler(async ({ data, context }): Promise<any> => {
+    const { supabase } = context;
+    return unwrap(
+      await (supabase as any)
+        .from("canva_integrations")
+        .select("*")
+        .eq("yearbook_id", data.yearbookId)
+        .maybeSingle()
+    );
+  });
+
+export const updateDesignStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    pageId: z.string(),
+    status: z.string(),
+    override: z.boolean().optional(),
+  }))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    return unwrap(
+      await supabase
+        .from("pages")
+        .update({ 
+          design_status: data.status as any,
+          design_readiness_override: data.override ?? false
+        } as any)
+        .eq("id", data.pageId)
+        .select()
+        .single()
+    );
+  });
+
+export const connectCanvaDesign = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    pageId: z.string(),
+    canvaDesignId: z.string(),
+  }))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { canvaService } = await import("./canva.server");
+    const design = await canvaService.connectDesign(data.canvaDesignId);
+    
+    return unwrap(
+      await supabase
+        .from("pages")
+        .update({
+          canva_design_id: design.id,
+          canva_design_url: design.url,
+          canva_design_name: design.name as any,
+          canva_synced_at: design.lastSyncedAt
+        } as any)
+        .eq("id", data.pageId)
+        .select()
+        .single()
+    );
+  });
+
+export const createProof = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    yearbookId: z.string(),
+    pageIds: z.array(z.string()),
+    storagePath: z.string(),
+    notes: z.string().optional(),
+    canvaExportId: z.string().optional(),
+  }))
+  .handler(async ({ data, context }): Promise<any> => {
+    const { supabase, userId } = context;
+    
+    const lastProof = await (supabase as any)
+      .from("proofs")
+      .select("version")
+      .eq("yearbook_id", data.yearbookId)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+      
+    const version = ((lastProof.data as any)?.version ?? 0) + 1;
+    
+    const proof = unwrap(
+      await (supabase as any)
+        .from("proofs")
+        .insert({
+          yearbook_id: data.yearbookId,
+          version,
+          storage_path: data.storagePath,
+          canva_export_id: data.canvaExportId ?? null,
+          notes: data.notes ?? null,
+          created_by: userId,
+          status: 'ready'
+        })
+        .select()
+        .single()
+    );
+    
+    if (proof && data.pageIds.length > 0) {
+      await (supabase as any)
+        .from("proof_pages")
+        .insert(data.pageIds.map(id => ({
+          proof_id: (proof as any).id,
+          page_id: id
+        })));
+    }
+    
+    return proof;
+  });
+
+export const getProofs = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ 
+    yearbookId: z.string(),
+    pageId: z.string().optional()
+  }))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    let query = (supabase as any)
+      .from("proofs")
+      .select("*, created_by_profile:profiles!proofs_created_by_fkey(full_name), pages:proof_pages(page_id)")
+      .eq("yearbook_id", data.yearbookId)
+      .order("version", { ascending: false });
+      
+    const proofsRes = await query;
+    const proofs = unwrap(proofsRes) as any[];
+    
+    if (data.pageId) {
+      return (proofs ?? []).filter(p => 
+        (p.pages as any[]).some(pg => pg.page_id === data.pageId)
+      );
+    }
+    
+    return proofs ?? [];
+  });
+
+

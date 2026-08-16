@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -158,11 +159,39 @@ function Dashboard() {
                 <div className="mt-4 grid grid-cols-2 gap-4 border-t border-border/50 pt-4">
                   <div className="space-y-1">
                     <p className="text-[10px] uppercase font-bold text-muted-foreground">Asset Completion</p>
-                    <p className="text-sm font-display">{(y as any).metrics?.assetCompletion ?? 0}%</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-display">{(y as any).metrics?.assetCompletion ?? 0}%</p>
+                      <Progress value={(y as any).metrics?.assetCompletion ?? 0} className="h-1 flex-1" />
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[10px] uppercase font-bold text-muted-foreground">Page Progress</p>
                     <p className="text-sm font-display">{(y as any).metrics?.pageProgress ?? "0 / 0"}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-col gap-2 border-t border-border/50 pt-4">
+                  <div className="flex items-center justify-between text-[10px] uppercase font-bold text-muted-foreground">
+                    <span>Design Status</span>
+                    <span className="text-accent">{(y as any).metrics?.designStats?.complete ?? 0} Complete</span>
+                  </div>
+                  <div className="flex gap-1 h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="bg-green-500 h-full" 
+                      style={{ width: `${((y as any).metrics?.designStats?.complete / (y as any).metrics?.designStats?.total) * 100 || 0}%` }} 
+                    />
+                    <div 
+                      className="bg-amber-500 h-full" 
+                      style={{ width: `${((y as any).metrics?.designStats?.designing / (y as any).metrics?.designStats?.total) * 100 || 0}%` }} 
+                    />
+                    <div 
+                      className="bg-blue-500 h-full" 
+                      style={{ width: `${((y as any).metrics?.designStats?.ready / (y as any).metrics?.designStats?.total) * 100 || 0}%` }} 
+                    />
+                  </div>
+                  <div className="flex justify-between text-[9px] text-muted-foreground">
+                    <span>{(y as any).metrics?.designStats?.ready ?? 0} Ready</span>
+                    <span>{(y as any).metrics?.designStats?.designing ?? 0} Designing</span>
                   </div>
                 </div>
 
