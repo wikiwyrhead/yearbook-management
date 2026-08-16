@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ChevronLeft, Trash2, UserPlus } from "lucide-react";
+import { ChevronLeft, Trash2, UserPlus, BookCheck } from "lucide-react";
+
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +32,10 @@ import { LadderTab } from "@/components/yearbook/LadderTab";
 import { PeopleTab } from "@/components/yearbook/PeopleTab";
 import { AssetLibrary } from "@/components/yearbook/assets/AssetLibrary";
 import { TeamInvitations } from "@/components/yearbook/TeamInvitations";
-import { getYearbook, addMember, removeMember } from "@/lib/yearbook.functions";
+import { ProofreadingCenter } from "@/components/yearbook/production/ProofreadingCenter";
+import { PDFProofViewer } from "@/components/yearbook/production/PDFProofViewer";
+import { getYearbook, addMember, removeMember, getProofs, getCorrections } from "@/lib/yearbook.functions";
+
 
 
 export const Route = createFileRoute("/_authenticated/yearbooks/$yearbookId")({
@@ -67,6 +71,30 @@ function Workspace() {
     queryKey: key,
     queryFn: () => fetchYb({ data: { yearbookId } }),
   });
+  const fetchProofs = useServerFn(getProofs);
+  const fetchCorrections = useServerFn(getCorrections);
+
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [activeProofId, setActiveProofId] = useState<string | null>(null);
+  const [activePageId, setActivePageId] = useState<string | null>(null);
+
+  const { data: proofs } = useQuery({
+    queryKey: ['proofs', yearbookId],
+    queryFn: () => fetchProofs({ data: { yearbookId } }),
+    enabled: !!data
+  });
+
+  const { data: corrections } = useQuery({
+    queryKey: ['corrections', yearbookId],
+    queryFn: () => fetchCorrections({ data: { yearbookId } }),
+    enabled: !!data
+  });
+
+  const handleViewProof = (proofId: string, pageId?: string) => {
+    setActiveProofId(proofId);
+    setActivePageId(pageId ?? null);
+    setViewerOpen(true);
+  };
 
   if (isLoading) {
     return (
@@ -134,10 +162,14 @@ function Workspace() {
         <TabsList>
           <TabsTrigger value="ladder">Page ladder</TabsTrigger>
           <TabsTrigger value="design">Design</TabsTrigger>
+          <TabsTrigger value="proofreading" className="gap-2">
+            <BookCheck className="size-4" /> Proofreading
+          </TabsTrigger>
           <TabsTrigger value="assets">Assets</TabsTrigger>
           <TabsTrigger value="people">People</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
         </TabsList>
+
 
 
         <TabsContent value="ladder" className="mt-6">
@@ -159,6 +191,15 @@ function Workspace() {
             canEdit={data.canEdit} 
           />
         </TabsContent>
+
+        <TabsContent value="proofreading" className="mt-6">
+          <ProofreadingCenter 
+            yearbookId={yearbookId}
+            canManage={data.canManage}
+            onViewProof={handleViewProof}
+          />
+        </TabsContent>
+
 
         <TabsContent value="assets" className="mt-6">
           <AssetLibrary 
@@ -183,7 +224,25 @@ function Workspace() {
           />
         </TabsContent>
       </Tabs>
+      <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[95vh] p-0 overflow-hidden">
+          <DialogHeader className="hidden">
+            <DialogTitle>PDF Proof Viewer</DialogTitle>
+          </DialogHeader>
+          <PDFProofViewer 
+            yearbookId={yearbookId}
+            proofUrl={proofs?.find((p: any) => p.id === activeProofId)?.storage_path || ''}
+            initialPage={1} // In a real app, find page number from activePageId
+            corrections={corrections || []}
+            onAddCorrection={(p, x, y) => {
+              toast.info(`Creating correction at ${Math.round(x)}%, ${Math.round(y)}% on page ${p}`);
+              // Integration with createCorrection server function would go here
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </AppShell>
+
   );
 }
 
