@@ -538,8 +538,8 @@ export const getAssets = createServerFn({ method: "GET" })
       .eq("is_current", true)
       .order("created_at", { ascending: false });
 
-    if (data.filters?.status) query = query.eq("status", data.filters.status);
-    if (data.filters?.type) query = query.eq("asset_type", data.filters.type);
+    if (data.filters?.status) query = query.eq("status", data.filters.status as never);
+    if (data.filters?.type) query = query.eq("asset_type", data.filters.type as never);
     if (data.filters?.studentId) query = query.eq("student_id", data.filters.studentId);
     
     if (data.filters?.search) {
@@ -553,10 +553,10 @@ export const getAssets = createServerFn({ method: "GET" })
         const pageAssetIds = unwrap(
             await supabase.from("page_assets").select("asset_id").eq("page_id", data.filters.pageId)
         ).map(pa => pa.asset_id);
-        return assets.filter(a => pageAssetIds.includes(a.id));
+        return (assets ?? []).filter(a => pageAssetIds.includes(a.id));
     }
 
-    return assets;
+    return assets ?? [];
   });
 
 export const getAssetDetails = createServerFn({ method: "GET" })
@@ -572,12 +572,14 @@ export const getAssetDetails = createServerFn({ method: "GET" })
         .single()
     );
 
+    if (!asset) throw new Error("Asset not found");
+
     const history = unwrap(
       await supabase
         .from("assets")
         .select("*")
         .eq("yearbook_id", asset.yearbook_id)
-        .eq("file_name", asset.file_name) // Simple versioning by name for now
+        .eq("file_name", asset.file_name)
         .order("version", { ascending: false })
     );
 
@@ -589,7 +591,7 @@ export const getAssetDetails = createServerFn({ method: "GET" })
         .order("created_at", { ascending: false })
     );
 
-    return { asset, history, auditLogs };
+    return { asset, history: history ?? [], auditLogs: auditLogs ?? [] };
   });
 
 export const createAsset = createServerFn({ method: "POST" })
@@ -611,7 +613,6 @@ export const createAsset = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
-    // Check for duplicates/versions
     const existing = await supabase
         .from("assets")
         .select("id, version")
@@ -623,7 +624,6 @@ export const createAsset = createServerFn({ method: "POST" })
     let version = 1;
     if (existing.data) {
         version = existing.data.version + 1;
-        // Mark old version as not current
         await supabase.from("assets").update({ is_current: false }).eq("id", existing.data.id);
     }
 
@@ -633,15 +633,15 @@ export const createAsset = createServerFn({ method: "POST" })
         .insert({
           yearbook_id: data.yearbookId,
           file_name: data.fileName,
-          file_type: data.fileType,
-          file_size: data.fileSize,
+          file_type: data.fileType ?? null,
+          file_size: data.fileSize ?? null,
           storage_path: data.storagePath,
           asset_type: data.assetType,
-          student_id: data.studentId,
-          faculty_id: data.facultyId,
-          class_id: data.classId,
-          section_id: data.sectionId,
-          category: data.category,
+          student_id: data.studentId ?? null,
+          faculty_id: data.facultyId ?? null,
+          class_id: data.classId ?? null,
+          section_id: data.sectionId ?? null,
+          category: data.category ?? null,
           version,
           is_current: true,
           status: 'uploaded',
@@ -652,7 +652,8 @@ export const createAsset = createServerFn({ method: "POST" })
         .single()
     );
 
-    // Audit log
+    if (!asset) throw new Error("Failed to create asset");
+
     await supabase.from("asset_audit_log").insert({
       asset_id: asset.id,
       yearbook_id: data.yearbookId,
@@ -675,11 +676,12 @@ export const updateAssetStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const oldAsset = unwrap(await supabase.from("assets").select("status, yearbook_id").eq("id", data.assetId).single());
+    if (!oldAsset) throw new Error("Asset not found");
     
     const asset = unwrap(
       await supabase
         .from("assets")
-        .update({ status: data.status, notes: data.notes })
+        .update({ status: data.status, notes: data.notes ?? null })
         .eq("id", data.assetId)
         .select()
         .single()
@@ -714,14 +716,12 @@ export const associateAssetToPage = createServerFn({ method: "POST" })
         .upsert({
           asset_id: data.assetId,
           page_id: data.pageId,
-          requirement_id: data.requirementId,
+          requirement_id: data.requirementId ?? null,
         })
         .select()
         .single()
     );
 
-    // If requirementId is provided, we should probably update the requirement's "have" count
-    // This is a simplified implementation for now
     if (data.requirementId) {
         const countRes = await supabase
             .from("page_assets")
