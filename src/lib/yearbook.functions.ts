@@ -19,13 +19,26 @@ function unwrap<T>(res: { data: T | null; error: { message: string } | null }): 
   return res.data as T;
 }
 
-type YearbookAsset = {
+export type YearbookAsset = {
   id: string;
   yearbook_id: string;
   file_name: string;
+  file_type?: string;
+  file_size?: number;
+  storage_path: string;
+  asset_type: 'photo' | 'document' | 'pdf' | 'logo' | 'artwork' | 'message' | 'other';
   status: string;
-  [key: string]: any;
+  created_at: string;
+  uploaded_by?: string;
+  is_current: boolean;
+  version: number;
+  student_id?: string;
+  category?: string;
+  uploaded_by_profile?: { full_name: string };
+  student?: { first_name: string; last_name: string };
+  pages?: Array<{ page: { id: string; page_number: number; title: string } }>;
 };
+
 
 /* ---------------- Dashboard ---------------- */
 
