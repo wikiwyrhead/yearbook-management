@@ -658,7 +658,7 @@ export const createAsset = createServerFn({ method: "POST" })
         })
         .select()
         .single()
-    );
+    ) as YearbookAsset;
 
     if (!asset) throw new Error("Failed to create asset");
 
