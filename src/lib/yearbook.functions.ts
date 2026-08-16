@@ -1007,4 +1007,265 @@ export const getProofs = createServerFn({ method: "GET" })
     return proofs ?? [];
   });
 
+/* ---------------- Corrections & Approvals (Phase 4) ---------------- */
+
+export const getCorrections = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ 
+    yearbookId: z.string(),
+    proofId: z.string().optional(),
+    pageId: z.string().optional()
+  }))
+  .handler(async ({ data, context }): Promise<any> => {
+    const { supabase } = context;
+    let query = (supabase as any)
+      .from("corrections")
+      .select(`
+        *,
+        created_by_profile:profiles!corrections_created_by_fkey(full_name),
+        assigned_to_profile:profiles!corrections_assigned_to_fkey(full_name),
+        resolved_by_profile:profiles!corrections_resolved_by_fkey(full_name),
+        verified_by_profile:profiles!corrections_verified_by_fkey(full_name),
+        comments:correction_comments(*, user_profile:profiles(full_name))
+      `)
+      .eq("yearbook_id", data.yearbookId)
+      .order("created_at", { ascending: false });
+    
+    if (data.proofId) query = query.eq("proof_id", data.proofId);
+    if (data.pageId) query = query.eq("page_id", data.pageId);
+
+    const res = await query;
+    return unwrap(res);
+  });
+
+export const createCorrection = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    yearbookId: z.string(),
+    proofId: z.string(),
+    pageId: z.string(),
+    annotationType: z.enum(['point', 'rectangle', 'highlight', 'comment']),
+    coordinates: z.record(z.any()),
+    title: z.string(),
+    description: z.string().optional(),
+    category: z.string(),
+    priority: z.string().optional(),
+    assignedTo: z.string().optional()
+  }))
+  .handler(async ({ data, context }): Promise<any> => {
+    const { supabase, userId } = context;
+    const correctionRes = await (supabase as any)
+        .from("corrections")
+        .insert({
+          yearbook_id: data.yearbookId,
+          proof_id: data.proofId,
+          page_id: data.pageId,
+          annotation_type: data.annotationType,
+          coordinates: data.coordinates,
+          title: data.title,
+          description: data.description ?? null,
+          category: data.category as any,
+          priority: data.priority ?? 'medium',
+          assigned_to: data.assignedTo ?? null,
+          created_by: userId,
+          status: 'open'
+        })
+        .select()
+        .single();
+    
+    const correction = unwrap(correctionRes) as any;
+
+    await (supabase as any).from("production_audit_log").insert({
+      yearbook_id: data.yearbookId,
+      user_id: userId,
+      action: 'created',
+      entity_type: 'correction',
+      entity_id: correction.id,
+      metadata: { proof_id: data.proofId, page_id: data.pageId }
+    });
+
+    return correction;
+  });
+
+export const updateCorrectionStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    correctionId: z.string(),
+    status: z.enum(['open', 'acknowledged', 'in_progress', 'resolved', 'awaiting_verification', 'verified', 'closed', 'rejected', 'cancelled']),
+    resolutionNotes: z.string().optional(),
+  }))
+  .handler(async ({ data, context }): Promise<any> => {
+    const { supabase, userId } = context;
+    
+    const update: any = { status: data.status };
+    if (data.status === 'resolved') {
+      update.resolved_by = userId;
+      update.resolved_at = new Date().toISOString();
+      update.resolution_notes = data.resolutionNotes ?? null;
+    } else if (data.status === 'verified') {
+      update.verified_by = userId;
+      update.verified_at = new Date().toISOString();
+    }
+
+    const res = await (supabase as any)
+      .from("corrections")
+      .update(update)
+      .eq("id", data.correctionId)
+      .select()
+      .single();
+    
+    const correction = unwrap(res) as any;
+
+    await (supabase as any).from("production_audit_log").insert({
+      yearbook_id: correction.yearbook_id,
+      user_id: userId,
+      action: 'status_change',
+      entity_type: 'correction',
+      entity_id: correction.id,
+      metadata: { new_status: data.status }
+    });
+
+    return correction;
+  });
+
+export const addCorrectionComment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    correctionId: z.string(),
+    content: z.string()
+  }))
+  .handler(async ({ data, context }): Promise<any> => {
+    const { supabase, userId } = context;
+    const res = await (supabase as any)
+        .from("correction_comments")
+        .insert({
+          correction_id: data.correctionId,
+          user_id: userId,
+          content: data.content
+        })
+        .select()
+        .single();
+    return unwrap(res);
+  });
+
+export const approvePage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    pageId: z.string(),
+    proofId: z.string(),
+    yearbookId: z.string()
+  }))
+  .handler(async ({ data, context }): Promise<any> => {
+    const { supabase, userId } = context;
+    
+    // Check for open corrections
+    const { count } = await (supabase as any)
+      .from("corrections")
+      .select("id", { count: 'exact', head: true })
+      .eq("page_id", data.pageId)
+      .eq("proof_id", data.proofId)
+      .not("status", "in", "('verified', 'closed', 'rejected', 'cancelled')");
+
+    if (count && count > 0) {
+      throw new Error("Cannot approve page with open corrections.");
+    }
+
+    const approval = unwrap(
+      await (supabase as any)
+        .from("page_approvals")
+        .upsert({
+          page_id: data.pageId,
+          proof_id: data.proofId,
+          yearbook_id: data.yearbookId,
+          approved_by: userId,
+          approved_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+    );
+
+    await (supabase as any).from("production_audit_log").insert({
+      yearbook_id: data.yearbookId,
+      user_id: userId,
+      action: 'approved',
+      entity_type: 'page',
+      entity_id: data.pageId,
+      metadata: { proof_id: data.proofId }
+    });
+
+    return approval;
+  });
+
+export const lockYearbook = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    yearbookId: z.string(),
+    proofId: z.string(),
+    notes: z.string().optional()
+  }))
+  .handler(async ({ data, context }): Promise<any> => {
+    const { supabase, userId } = context;
+    
+    const approval = unwrap(
+      await (supabase as any)
+        .from("yearbook_approvals")
+        .insert({
+          yearbook_id: data.yearbookId,
+          proof_id: data.proofId,
+          status: 'locked',
+          notes: data.notes ?? null,
+          created_by: userId
+        })
+        .select()
+        .single()
+    );
+
+    await (supabase as any).from("production_audit_log").insert({
+      yearbook_id: data.yearbookId,
+      user_id: userId,
+      action: 'locked',
+      entity_type: 'yearbook',
+      entity_id: data.yearbookId,
+      metadata: { proof_id: data.proofId }
+    });
+
+    return approval;
+  });
+
+export const unlockYearbook = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    yearbookId: z.string(),
+    proofId: z.string(),
+    reason: z.string()
+  }))
+  .handler(async ({ data, context }): Promise<any> => {
+    const { supabase, userId } = context;
+    
+    const approval = unwrap(
+      await (supabase as any)
+        .from("yearbook_approvals")
+        .insert({
+          yearbook_id: data.yearbookId,
+          proof_id: data.proofId,
+          status: 'unlocked_revision',
+          reason: data.reason,
+          created_by: userId
+        })
+        .select()
+        .single()
+    );
+
+    await (supabase as any).from("production_audit_log").insert({
+      yearbook_id: data.yearbookId,
+      user_id: userId,
+      action: 'unlocked',
+      entity_type: 'yearbook',
+      entity_id: data.yearbookId,
+      metadata: { proof_id: data.proofId, reason: data.reason }
+    });
+
+    return approval;
+  });
+
 
