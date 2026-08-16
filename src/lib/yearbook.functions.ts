@@ -858,7 +858,7 @@ export const getInvitations = createServerFn({ method: "GET" })
 export const getCanvaConfig = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ yearbookId: z.string() }))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<any> => {
     const { supabase } = context;
     return unwrap(
       await (supabase as any)
