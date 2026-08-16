@@ -221,19 +221,20 @@ export const getYearbook = createServerFn({ method: "GET" })
       : [];
 
 
-    const myStudentRecords = unwrap(
-      await supabase
-        .from("students")
-        .select("id")
-        .eq("email", yearbook.profiles?.email || "")
-        .eq("yearbook_id", id)
-        .eq("is_active", true)
-    );
+    const myStudentRecords = myEmail 
+      ? unwrap(
+          await supabase
+            .from("students")
+            .select("id")
+            .eq("email", myEmail)
+            .eq("yearbook_id", id)
+        )
+      : [];
 
     return {
       yearbook,
       myRoles: isSuperAdmin ? [...myRoles, "super_admin"] : myRoles,
-      myStudentId: myStudentRecords?.[0]?.id || null,
+      myStudentId: (myStudentRecords as any[])?.[0]?.id || null,
       canManage: isSuperAdmin || myRoles.includes("coordinator"),
       canEdit: isSuperAdmin || myRoles.includes("coordinator") || myRoles.includes("staff"),
       sections: unwrap(sections) ?? [],
@@ -244,6 +245,7 @@ export const getYearbook = createServerFn({ method: "GET" })
         profile: profiles.find((p) => p.id === m.user_id) ?? null,
       })),
     };
+
 
   });
 
