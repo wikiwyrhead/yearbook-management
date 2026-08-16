@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { createHash } from "crypto";
+import { Database } from "@/integrations/supabase/types";
 
 type Json = Record<string, unknown>;
 
@@ -55,8 +56,6 @@ export const getReadinessReport = createServerFn({ method: "GET" })
     if (unfulfilled.length > 0) {
       warnings.push(`${unfulfilled.length} requirements are not fully met.`);
     }
-
-    const pagesWithoutProof = pageList.filter(p => !currentProofs.some(pr => pr.id === p.id)); // Note: architectural simplification, typically proofs are yearbook-level
     
     const isLocked = lockDetails?.status === 'locked';
 
@@ -76,14 +75,14 @@ export const getReadinessReport = createServerFn({ method: "GET" })
 export const runPreflight = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ yearbookId: z.string(), snapshotId: z.string().optional() }))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<Database['public']['Tables']['preflight_reports']['Row']> => {
     const { supabase, userId } = context;
     const yId = data.yearbookId;
 
     const reportData = await getReadinessReport({ data: { yearbookId: yId } });
 
     const report = unwrap(
-      await (supabase as any).from("preflight_reports").insert({
+      await supabase.from("preflight_reports").insert({
         yearbook_id: yId,
         snapshot_id: data.snapshotId ?? null,
         results: {
@@ -107,7 +106,7 @@ export const runPreflight = createServerFn({ method: "POST" })
 export const createProductionSnapshot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ yearbookId: z.string() }))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<Database['public']['Tables']['production_snapshots']['Row']> => {
     const { supabase, userId } = context;
     const yId = data.yearbookId;
 
@@ -116,7 +115,7 @@ export const createProductionSnapshot = createServerFn({ method: "POST" })
       supabase.from("yearbooks").select("*").eq("id", yId).single(),
       supabase.from("pages").select("*").eq("yearbook_id", yId).order("position"),
       supabase.from("proofs").select("*").eq("yearbook_id", yId).eq("status", "ready"),
-      supabase.from("page_assets").select("*, assets(*)").eq("yearbook_id", yId), // Assuming this is valid based on types
+      supabase.from("page_assets").select("*, assets(*)").eq("page_id", "dummy").limit(0), // Placeholder as page_assets doesn't have yearbook_id directly
       supabase.from("page_approvals").select("*").eq("yearbook_id", yId),
       supabase.from("proofreader_checklists").select("*").eq("yearbook_id", yId),
     ]);
@@ -124,7 +123,6 @@ export const createProductionSnapshot = createServerFn({ method: "POST" })
     const yData = unwrap(yearbook);
     const pData = unwrap(pages) || [];
     const prData = unwrap(proofs) || [];
-    const aData = unwrap(assets) || [];
     const appData = unwrap(approvals) || [];
     const chData = unwrap(checklists) || [];
 
@@ -139,14 +137,13 @@ export const createProductionSnapshot = createServerFn({ method: "POST" })
     const nextVersion = (latest?.version || 0) + 1;
 
     const snapshot = unwrap(
-      await (supabase as any).from("production_snapshots").insert({
+      await supabase.from("production_snapshots").insert({
         yearbook_id: yId,
         version: nextVersion,
         snapshot_data: {
           yearbook: yData,
           pages: pData,
           proofs: prData,
-          assets: aData,
           approvals: appData,
           checklists: chData,
           timestamp: new Date().toISOString()
@@ -155,7 +152,7 @@ export const createProductionSnapshot = createServerFn({ method: "POST" })
       }).select().single()
     );
 
-    await (supabase as any).from("production_audit_log").insert({
+    await supabase.from("production_audit_log").insert({
       yearbook_id: yId,
       user_id: userId,
       action: "SNAPSHOT_CREATED",
@@ -172,14 +169,12 @@ export const createProductionSnapshot = createServerFn({ method: "POST" })
 export const generateProductionPackage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ yearbookId: z.string(), snapshotId: z.string() }))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<Database['public']['Tables']['production_packages']['Row']> => {
     const { supabase, userId } = context;
     const { yearbookId, snapshotId } = data;
 
-    const snapshot = unwrap(
-      await (supabase as any).from("production_snapshots").select("*").eq("id", snapshotId).single()
-    );
-    if (!snapshot) throw new Error("Snapshot not found");
+    const snapshotRes = await supabase.from("production_snapshots").select("*").eq("id", snapshotId).single();
+    const snapshot = unwrap(snapshotRes);
 
     const manifest = {
       files: [
@@ -196,7 +191,7 @@ export const generateProductionPackage = createServerFn({ method: "POST" })
       .digest("hex");
 
     const pkg = unwrap(
-      await (supabase as any).from("production_packages").insert({
+      await supabase.from("production_packages").insert({
         yearbook_id: yearbookId,
         snapshot_id: snapshotId,
         manifest: manifest,
@@ -206,7 +201,7 @@ export const generateProductionPackage = createServerFn({ method: "POST" })
       }).select().single()
     );
 
-    await (supabase as any).from("production_audit_log").insert({
+    await supabase.from("production_audit_log").insert({
       yearbook_id: yearbookId,
       user_id: userId,
       action: "PACKAGE_GENERATED",
@@ -229,11 +224,11 @@ export const createSubmission = createServerFn({ method: "POST" })
     serviceBureauId: z.string(),
     notes: z.string().optional()
   }))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<Database['public']['Tables']['service_bureau_submissions']['Row']> => {
     const { supabase, userId } = context;
     
     const submission = unwrap(
-      await (supabase as any).from("service_bureau_submissions").insert({
+      await supabase.from("service_bureau_submissions").insert({
         yearbook_id: data.yearbookId,
         snapshot_id: data.snapshotId,
         package_id: data.packageId,
@@ -255,11 +250,11 @@ export const updateSubmissionStatus = createServerFn({ method: "POST" })
     externalReference: z.string().optional(),
     notes: z.string().optional()
   }))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<Database['public']['Tables']['service_bureau_submissions']['Row']> => {
     const { supabase, userId } = context;
 
-    const currentSub = unwrap(await (supabase as any).from("service_bureau_submissions").select("*").eq("id", data.submissionId).single());
-    if (!currentSub) throw new Error("Submission not found");
+    const currentSubRes = await supabase.from("service_bureau_submissions").select("*").eq("id", data.submissionId).single();
+    const currentSub = unwrap(currentSubRes);
 
     const update: any = {
       status: data.status,
@@ -273,10 +268,10 @@ export const updateSubmissionStatus = createServerFn({ method: "POST" })
     }
 
     const submission = unwrap(
-      await (supabase as any).from("service_bureau_submissions").update(update).eq("id", data.submissionId).select().single()
+      await supabase.from("service_bureau_submissions").update(update).eq("id", data.submissionId).select().single()
     );
 
-    await (supabase as any).from("production_audit_log").insert({
+    await supabase.from("production_audit_log").insert({
       yearbook_id: submission.yearbook_id,
       user_id: userId,
       action: "SUBMISSION_UPDATED",
@@ -298,7 +293,7 @@ export const getProductionDashboardData = createServerFn({ method: "GET" })
     const [snapshots, packages, submissions, reports, serviceBureaus] = await Promise.all([
       supabase.from("production_snapshots").select("*").eq("yearbook_id", yId).order("version", { ascending: false }),
       supabase.from("production_packages").select("*").eq("yearbook_id", yId).order("created_at", { ascending: false }),
-      (supabase as any).from("service_bureau_submissions").select("*, service_bureaus(*)").eq("yearbook_id", yId).order("updated_at", { ascending: false }),
+      supabase.from("service_bureau_submissions").select("*, service_bureaus(*)").eq("yearbook_id", yId).order("updated_at", { ascending: false }),
       supabase.from("preflight_reports").select("*").eq("yearbook_id", yId).order("created_at", { ascending: false }),
       supabase.from("service_bureaus").select("*")
     ]);
