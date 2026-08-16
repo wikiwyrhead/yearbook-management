@@ -806,9 +806,153 @@ function PageDialog({
               </div>
             )}
           </div>
+          </div>
+
+          {/* Asset Section */}
+          <div className="space-y-6">
+            <h3 className="font-display text-lg">Requirements & Assets</h3>
+            
+            <div className="rounded-md border p-4 space-y-4">
+              <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <ImageIcon className="size-4" /> Asset Linker
+              </h4>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search assets to link..."
+                  className="pl-8"
+                  value={assetSearch}
+                  onChange={(e) => setAssetSearch(e.target.value)}
+                />
+              </div>
+              
+              <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2">
+                {assets?.map((asset: any) => (
+                  <div key={asset.id} className="flex items-center justify-between gap-3 p-2 bg-muted/30 rounded-lg group">
+                    <div className="flex items-center gap-3 truncate">
+                      {asset.asset_type === 'photo' ? (
+                        <img src={asset.storage_path} className="size-10 rounded object-cover" />
+                      ) : (
+                        <div className="size-10 rounded bg-muted flex items-center justify-center">
+                          <ImageIcon className="size-5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="truncate">
+                        <p className="text-xs font-medium truncate">{asset.file_name}</p>
+                        <p className="text-[10px] text-muted-foreground capitalize">{asset.status}</p>
+                      </div>
+                    </div>
+                    
+                    <Select onValueChange={(rid) => handleLink(rid, asset.id)}>
+                      <SelectTrigger className="w-[120px] h-8 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">
+                        <SelectValue placeholder="Link to..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {requirements.map((r) => (
+                          <SelectItem key={r.id} value={r.id} className="text-xs">
+                            {r.label} ({r.have}/{r.needed})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-md border p-4">
+              <h4 className="font-display text-lg">Active Requirements</h4>
+              <div className="mt-4 space-y-3">
+                {requirements.map((r) => (
+                  <div key={r.id} className="space-y-2 bg-muted/20 p-3 rounded-lg border border-border/50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {r.have >= r.needed ? (
+                          <CheckCircle2 className="size-4 text-green-500" />
+                        ) : (
+                          <div className="size-4 rounded-full border-2 border-muted" />
+                        )}
+                        <span className="text-sm font-medium">{r.label}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                         <span className="text-xs font-bold">{r.have} / {r.needed}</span>
+                         {canEdit && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="size-6"
+                              onClick={() =>
+                                doDelReq({ data: { id: r.id } })
+                                  .then(onDone)
+                                  .catch((err: Error) => toast.error(err.message))
+                              }
+                            >
+                              <Trash2 className="size-4 text-destructive" />
+                            </Button>
+                         )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {requirements.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic text-center py-4">
+                    No requirements yet — e.g. “8 portraits”, “1 class photo”.
+                  </p>
+                )}
+                
+                {canEdit && (
+                  <>
+                    <Separator className="my-4" />
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Add new requirement</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Label (e.g. Portrait)"
+                          value={newLabel}
+                          onChange={(e) => setNewLabel(e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                        <Input
+                          className="w-16 h-8 text-xs"
+                          type="number"
+                          value={newNeeded}
+                          onChange={(e) => setNewNeeded(Number(e.target.value))}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs px-2"
+                          onClick={() => {
+                            if (!newLabel.trim()) return;
+                            doSaveReq({
+                              data: {
+                                pageId: page.id,
+                                yearbookId,
+                                label: newLabel.trim(),
+                                needed: newNeeded,
+                                have: 0,
+                                position: requirements.length + 1,
+                              },
+                            })
+                              .then(() => {
+                                setNewLabel("");
+                                onDone();
+                              })
+                              .catch((err: Error) => toast.error(err.message));
+                          }}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="mt-6 border-t pt-4">
           <Button
             disabled={!canEdit}
             onClick={() =>
@@ -837,10 +981,11 @@ function PageDialog({
                 .catch((e: Error) => toast.error(e.message))
             }
           >
-            Save page
+            Save all changes
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
