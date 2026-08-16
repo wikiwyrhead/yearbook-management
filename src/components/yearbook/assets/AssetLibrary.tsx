@@ -131,11 +131,29 @@ export function AssetLibrary({
               <SelectItem value="rejected">Rejected</SelectItem>
             </SelectContent>
           </Select>
+          {studentId && (
+            <div className="flex items-center gap-2">
+              <Label htmlFor="mine-only" className="text-xs">My submissions</Label>
+              <input 
+                id="mine-only"
+                type="checkbox" 
+                checked={showOnlyMine}
+                onChange={(e) => setShowOnlyMine(e.target.checked)}
+                className="size-4 rounded border-gray-300"
+              />
+            </div>
+          )}
         </div>
-        {canEdit && (
-          <BulkUpload yearbookId={yearbookId} onDone={refresh} />
-        )}
+        <div className="flex gap-2">
+          {canEdit && (
+            <BulkUpload yearbookId={yearbookId} onDone={refresh} />
+          )}
+          {studentId && (
+             <BulkUpload yearbookId={yearbookId} onDone={refresh} studentId={studentId} label="Upload Portrait" />
+          )}
+        </div>
       </div>
+
 
       {isLoading ? (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
