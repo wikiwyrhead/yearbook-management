@@ -31,8 +31,13 @@ export type ConnectionState = {
  * A member ref can NEVER be used for yearbook production storage writes.
  */
 export type CredentialRef =
-  | { scope: "organization"; connectionKey?: string; accessToken?: string }
-  | { scope: "member"; userId: string; connectionKey?: string; accessToken?: string };
+  | { scope: "organization"; connectionKey?: string | undefined; accessToken?: string | undefined }
+  | {
+      scope: "member";
+      userId: string;
+      connectionKey?: string | undefined;
+      accessToken?: string | undefined;
+    };
 
 export type RemoteFolder = {
   id: string;
