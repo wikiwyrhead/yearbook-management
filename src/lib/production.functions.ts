@@ -43,10 +43,11 @@ export const getReadinessReport = createServerFn({ method: "GET" })
       .maybeSingle();
 
     const totalPages = pages?.length || 0;
-    const completePages = pages?.filter(p => p.design_status === 'complete').length || 0;
+    const completePages = pages?.filter((p: any) => p.design_status === 'complete').length || 0;
     const openCorrections = corrections?.length || 0;
-    const neededAssets = requirements?.reduce((a, b) => a + b.needed, 0) || 0;
-    const haveAssets = requirements?.reduce((a, b) => a + b.have, 0) || 0;
+    const neededAssets = requirements?.reduce((a: number, b: any) => a + b.needed, 0) || 0;
+    const haveAssets = requirements?.reduce((a: number, b: any) => a + b.have, 0) || 0;
+
 
     return {
       totalPages,
