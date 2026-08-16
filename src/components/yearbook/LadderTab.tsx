@@ -726,7 +726,9 @@ function PageDialog({
             </div>
           </div>
 
+            </div>
           </div>
+
 
           {/* Asset Section */}
           <div className="space-y-6">
