@@ -82,26 +82,46 @@ function Dashboard() {
 
       {data.myStudentRecords.length > 0 && (
         <section className="mt-8">
-          <h2 className="font-display text-xl">My student profile</h2>
+          <h2 className="font-display text-xl">My Yearbook Submission</h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {data.myStudentRecords.map((s) => (
               <div key={s.id} className="plate p-4">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <GraduationCap className="size-4 text-accent" />
-                  {s.preferred_name || s.first_name} {s.last_name}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <GraduationCap className="size-4 text-accent" />
+                    {s.preferred_name || s.first_name} {s.last_name}
+                  </div>
+                  <Badge variant="secondary" className="capitalize text-[10px]">
+                    {s.submission_status.replace('_', ' ')}
+                  </Badge>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {s.grade ? `Grade ${s.grade} · ` : ""}
-                  {s.student_number ? `ID ${s.student_number}` : "No student ID"}
-                </p>
-                <Badge className="mt-3 capitalize" variant="secondary">
-                  {s.submission_status}
-                </Badge>
+                
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground italic">Required Portrait</span>
+                    {s.submission_status === 'submitted' ? (
+                      <span className="text-green-600 font-bold">✓ Uploaded</span>
+                    ) : (
+                      <span className="text-amber-600 font-bold">⚠ Missing</span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground italic">Student Information</span>
+                    <span className="text-green-600 font-bold">✓ Complete</span>
+                  </div>
+                </div>
+
+                <Button variant="outline" size="sm" className="w-full mt-4 h-8 text-xs" asChild>
+                  <Link to="/yearbooks/$yearbookId" params={{ yearbookId: s.yearbook_id }}>
+                    Manage My Assets
+                  </Link>
+                </Button>
               </div>
             ))}
           </div>
         </section>
       )}
+
 
       <section className="mt-10">
         <h2 className="font-display text-xl">Yearbooks</h2>
