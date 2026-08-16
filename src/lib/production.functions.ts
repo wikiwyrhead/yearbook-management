@@ -80,8 +80,7 @@ export const runPreflight = createServerFn({ method: "POST" })
 
     const reportData = await getReadinessReport({ data: { yearbookId: yId } });
 
-    const report = unwrap(
-      await supabase.from("preflight_reports").insert({
+    const reportRes = await supabase.from("preflight_reports").insert({
         yearbook_id: yId,
         snapshot_id: data.snapshotId ?? null,
         results: {
@@ -94,10 +93,9 @@ export const runPreflight = createServerFn({ method: "POST" })
         warnings: reportData.warnings,
         status: reportData.ready ? "PASS" : "BLOCKED",
         run_by: userId
-      }).select().single()
-    );
+      }).select().single();
 
-    return report;
+    return unwrap(reportRes);
   });
 
 /* ---------------- Snapshots ---------------- */
@@ -133,8 +131,7 @@ export const createProductionSnapshot = createServerFn({ method: "POST" })
     
     const nextVersion = (latest?.version || 0) + 1;
 
-    const snapshot = unwrap(
-      await supabase.from("production_snapshots").insert({
+    const snapshotRes = await supabase.from("production_snapshots").insert({
         yearbook_id: yId,
         version: nextVersion,
         snapshot_data: {
@@ -146,8 +143,9 @@ export const createProductionSnapshot = createServerFn({ method: "POST" })
           timestamp: new Date().toISOString()
         },
         created_by: userId
-      }).select().single()
-    );
+      }).select().single();
+
+    const snapshot = unwrap(snapshotRes);
 
     await supabase.from("production_audit_log").insert({
       yearbook_id: yId,
@@ -170,9 +168,8 @@ export const generateProductionPackage = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { yearbookId, snapshotId } = data;
 
-    const snapshot = unwrap(
-      await supabase.from("production_snapshots").select("*").eq("id", snapshotId).single()
-    );
+    const snapshotRes = await supabase.from("production_snapshots").select("*").eq("id", snapshotId).single();
+    const snapshot = unwrap(snapshotRes);
 
     const manifest = {
       files: [
@@ -188,16 +185,16 @@ export const generateProductionPackage = createServerFn({ method: "POST" })
       .update(JSON.stringify(manifest))
       .digest("hex");
 
-    const pkg = unwrap(
-      await supabase.from("production_packages").insert({
+    const pkgRes = await supabase.from("production_packages").insert({
         yearbook_id: yearbookId,
         snapshot_id: snapshotId,
         manifest: manifest as any,
         storage_path: `yearbooks/${yearbookId}/production/v${snapshot.version}/`,
         checksum_sha256: checksum,
         generated_by: userId
-      }).select().single()
-    );
+      }).select().single();
+    
+    const pkg = unwrap(pkgRes);
 
     await supabase.from("production_audit_log").insert({
       yearbook_id: yearbookId,
@@ -225,8 +222,7 @@ export const createSubmission = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<Database['public']['Tables']['service_bureau_submissions']['Row']> => {
     const { supabase, userId } = context;
     
-    const submission = unwrap(
-      await supabase.from("service_bureau_submissions").insert({
+    const submissionRes = await supabase.from("service_bureau_submissions").insert({
         yearbook_id: data.yearbookId,
         snapshot_id: data.snapshotId,
         package_id: data.packageId,
@@ -234,10 +230,9 @@ export const createSubmission = createServerFn({ method: "POST" })
         status: "READY",
         notes: data.notes ?? null,
         submitted_by: userId
-      }).select().single()
-    );
+      }).select().single();
 
-    return submission;
+    return unwrap(submissionRes);
   });
 
 export const updateSubmissionStatus = createServerFn({ method: "POST" })
@@ -251,9 +246,8 @@ export const updateSubmissionStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<Database['public']['Tables']['service_bureau_submissions']['Row']> => {
     const { supabase, userId } = context;
 
-    const currentSub = unwrap(
-      await supabase.from("service_bureau_submissions").select("*").eq("id", data.submissionId).single()
-    );
+    const currentSubRes = await supabase.from("service_bureau_submissions").select("*").eq("id", data.submissionId).single();
+    const currentSub = unwrap(currentSubRes);
 
     const update: any = {
       status: data.status,
@@ -266,9 +260,8 @@ export const updateSubmissionStatus = createServerFn({ method: "POST" })
       update.submitted_at = new Date().toISOString();
     }
 
-    const submission = unwrap(
-      await supabase.from("service_bureau_submissions").update(update).eq("id", data.submissionId).select().single()
-    );
+    const submissionRes = await supabase.from("service_bureau_submissions").update(update).eq("id", data.submissionId).select().single();
+    const submission = unwrap(submissionRes);
 
     await supabase.from("production_audit_log").insert({
       yearbook_id: submission.yearbook_id,
