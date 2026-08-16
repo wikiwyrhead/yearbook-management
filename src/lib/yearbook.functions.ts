@@ -1016,7 +1016,7 @@ export const getCorrections = createServerFn({ method: "GET" })
     proofId: z.string().optional(),
     pageId: z.string().optional()
   }))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<any> => {
     const { supabase } = context;
     let query = (supabase as any)
       .from("corrections")
@@ -1034,7 +1034,8 @@ export const getCorrections = createServerFn({ method: "GET" })
     if (data.proofId) query = query.eq("proof_id", data.proofId);
     if (data.pageId) query = query.eq("page_id", data.pageId);
 
-    return unwrap(await query);
+    const res = await query;
+    return unwrap(res);
   });
 
 export const createCorrection = createServerFn({ method: "POST" })
@@ -1051,10 +1052,9 @@ export const createCorrection = createServerFn({ method: "POST" })
     priority: z.string().optional(),
     assignedTo: z.string().optional()
   }))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<any> => {
     const { supabase, userId } = context;
-    const correction = unwrap(
-      await (supabase as any)
+    const correctionRes = await (supabase as any)
         .from("corrections")
         .insert({
           yearbook_id: data.yearbookId,
@@ -1071,8 +1071,9 @@ export const createCorrection = createServerFn({ method: "POST" })
           status: 'open'
         })
         .select()
-        .single()
-    );
+        .single();
+    
+    const correction = unwrap(correctionRes) as any;
 
     await (supabase as any).from("production_audit_log").insert({
       yearbook_id: data.yearbookId,
@@ -1093,7 +1094,7 @@ export const updateCorrectionStatus = createServerFn({ method: "POST" })
     status: z.enum(['open', 'acknowledged', 'in_progress', 'resolved', 'awaiting_verification', 'verified', 'closed', 'rejected', 'cancelled']),
     resolutionNotes: z.string().optional(),
   }))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<any> => {
     const { supabase, userId } = context;
     
     const update: any = { status: data.status };
@@ -1113,7 +1114,7 @@ export const updateCorrectionStatus = createServerFn({ method: "POST" })
       .select()
       .single();
     
-    const correction = unwrap(res);
+    const correction = unwrap(res) as any;
 
     await (supabase as any).from("production_audit_log").insert({
       yearbook_id: correction.yearbook_id,
@@ -1133,10 +1134,9 @@ export const addCorrectionComment = createServerFn({ method: "POST" })
     correctionId: z.string(),
     content: z.string()
   }))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<any> => {
     const { supabase, userId } = context;
-    return unwrap(
-      await (supabase as any)
+    const res = await (supabase as any)
         .from("correction_comments")
         .insert({
           correction_id: data.correctionId,
@@ -1144,8 +1144,8 @@ export const addCorrectionComment = createServerFn({ method: "POST" })
           content: data.content
         })
         .select()
-        .single()
-    );
+        .single();
+    return unwrap(res);
   });
 
 export const approvePage = createServerFn({ method: "POST" })
@@ -1155,7 +1155,7 @@ export const approvePage = createServerFn({ method: "POST" })
     proofId: z.string(),
     yearbookId: z.string()
   }))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<any> => {
     const { supabase, userId } = context;
     
     // Check for open corrections
@@ -1203,10 +1203,8 @@ export const lockYearbook = createServerFn({ method: "POST" })
     proofId: z.string(),
     notes: z.string().optional()
   }))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<any> => {
     const { supabase, userId } = context;
-    
-    // In a real app, we'd verify all pages are approved here
     
     const approval = unwrap(
       await (supabase as any)
@@ -1241,7 +1239,7 @@ export const unlockYearbook = createServerFn({ method: "POST" })
     proofId: z.string(),
     reason: z.string()
   }))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<any> => {
     const { supabase, userId } = context;
     
     const approval = unwrap(
@@ -1269,4 +1267,5 @@ export const unlockYearbook = createServerFn({ method: "POST" })
 
     return approval;
   });
+
 
