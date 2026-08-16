@@ -83,7 +83,7 @@ export const getControlCenter = createServerFn({ method: "GET" })
         const myRoles = roleByYearbook[y.id] ?? (isSuperAdmin ? ["super_admin"] : []);
         const isPrivileged = myRoles.includes('coordinator') || isSuperAdmin;
         
-        let metrics = { assetCompletion: 0, pageProgress: "0 / 0" };
+        let metrics = { assetCompletion: 0, pageProgress: "0 / 0", designStats: { total: 0, ready: 0, designing: 0, complete: 0 } };
         
         if (isPrivileged) {
           const { data: reqs } = await supabase
