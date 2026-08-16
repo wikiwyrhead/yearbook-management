@@ -117,12 +117,13 @@ export function ProofreadingCenter({ yearbookId, canManage, onViewProof }: Proof
                   size="sm" 
                   className="w-full gap-2" 
                   disabled={!report?.ready}
-                  onClick={() => mLock.mutate()}
+                  onClick={() => mLock.mutate("")}
                 >
                   <Lock className="size-4" /> Lock Production
                 </Button>
               )}
             </div>
+
           )}
         </div>
       </div>
