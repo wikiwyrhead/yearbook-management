@@ -812,7 +812,9 @@ function PageDialog({
                               <Trash2 className="size-4 text-destructive" />
                             </Button>
                          )}
-                      </div>
+          </div>
+        </div>
+
                     </div>
                   </div>
                 ))}
