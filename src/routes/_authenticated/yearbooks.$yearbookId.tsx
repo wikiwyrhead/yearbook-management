@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DesignWorkspace } from "@/components/yearbook/DesignWorkspace";
 import {
   Select,
   SelectContent,
@@ -132,6 +133,7 @@ function Workspace() {
       <Tabs defaultValue="ladder" className="mt-8">
         <TabsList>
           <TabsTrigger value="ladder">Page ladder</TabsTrigger>
+          <TabsTrigger value="design">Design</TabsTrigger>
           <TabsTrigger value="assets">Assets</TabsTrigger>
           <TabsTrigger value="people">People</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
@@ -148,6 +150,13 @@ function Workspace() {
             canEdit={data.canEdit}
             canManage={data.canManage}
             userId={user?.id ?? ""}
+          />
+        </TabsContent>
+
+        <TabsContent value="design" className="mt-6">
+          <DesignWorkspace 
+            yearbookId={yearbookId} 
+            canEdit={data.canEdit} 
           />
         </TabsContent>
 

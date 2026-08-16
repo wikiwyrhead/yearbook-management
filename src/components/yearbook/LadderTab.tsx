@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, Plus, Trash2, ExternalLink, ListOrdered, UserPlus, ImageIcon, CheckCircle2, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Trash2, ExternalLink, ListOrdered, UserPlus, ImageIcon, CheckCircle2, Search, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -274,15 +274,21 @@ export function LadderTab({
               </Select>
 
               {p.canva_design_url && (
-                <a
-                  href={p.canva_design_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-muted-foreground hover:text-foreground"
-                  aria-label="Open Canva design"
-                >
-                  <ExternalLink className="size-4" />
-                </a>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={p.canva_design_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded"
+                  >
+                    <ExternalLink className="size-3" /> Canva
+                  </a>
+                  {(p as any).design_status === 'needs_review' && (
+                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-5">
+                      <AlertCircle className="size-3 mr-1" /> RE-PROOF
+                    </Badge>
+                  )}
+                </div>
               )}
 
               {canEdit && (

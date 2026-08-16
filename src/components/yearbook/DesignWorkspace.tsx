@@ -40,6 +40,7 @@ import {
   createProof,
   getProofs
 } from "@/lib/yearbook.functions";
+import { ProofUploadDialog } from "./ProofUploadDialog";
 
 type DesignStatus = 'waiting_for_assets' | 'ready_for_design' | 'designing' | 'complete' | 'needs_review' | 'ready_for_proof';
 
@@ -379,10 +380,11 @@ function DesignDetailDialog({ yearbookId, pageId, onClose, onUpdate, canEdit }: 
                 
                 <Separator />
                 
-                <Button variant="secondary" size="sm" className="w-full" onClick={() => toast.info("Manual upload coming in next step")}>
-                  <Upload className="mr-2 size-3" />
-                  Upload PDF Proof
-                </Button>
+                <ProofUploadDialog 
+                  yearbookId={yearbookId}
+                  pageIds={[pageId]}
+                  onDone={onUpdate}
+                />
               </div>
             </div>
           </div>
