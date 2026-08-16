@@ -683,7 +683,7 @@ export const updateAssetStatus = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const oldAsset = unwrap(await supabase.from("assets").select("status, yearbook_id").eq("id", data.assetId).single());
+    const oldAsset = unwrap(await supabase.from("assets").select("status, yearbook_id").eq("id", data.assetId).single()) as YearbookAsset;
     if (!oldAsset) throw new Error("Asset not found");
     
     const asset = unwrap(
