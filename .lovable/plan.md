@@ -33,12 +33,13 @@ This phase establishes the final lifecycle of a yearbook, transforming approved 
 - `service_bureau_submissions`: Lifecycle tracking for external submission.
 
 ### Server Functions
-- `createProductionSnapshot`: Deep-copies current yearbook metadata into an immutable record.
-- `runPreflight`: Validates business rules (no open corrections, all pages approved, assets linked).
-- `generateProductionPackage`: Creates a manifest and bundles assets (simulation of bundling).
+- `createProductionSnapshot`: Deep-copies current yearbook state (page order, numbers, exact proof versions, asset versions, approvals, and checklist results) into an immutable record.
+- `runPreflight`: Validates business rules (no open corrections, all pages approved, assets linked) and generates a persistent report.
+- `generateProductionPackage`: Generates actual production package manifest, computes SHA-256 checksums for files, and bundles them in storage.
 - `updateSubmissionStatus`: Manages the state machine for Service Bureau progress.
 
 ### Security & RLS
+- Enforced immutability: Production snapshots, packages, and reports are read-only once created (except for submission status updates by authorized roles).
 - All new tables scoped by `yearbook_id`.
 - Storage paths for snapshots/packages isolated under `yearbooks/{yearbook_id}/production/`.
 - Strict RLS ensuring only Coordinators/Super Admins can trigger snapshots or submissions.
@@ -46,5 +47,6 @@ This phase establishes the final lifecycle of a yearbook, transforming approved 
 
 ## Constraints & Assumptions
 - **Manual Submission**: The initial implementation supports manual tracking (user downloads package, uploads to printer, records ID). No direct printer API integrations.
-- **Mocked Prepress**: Advanced PDF validation (CMYK, font embedding) is architecturally prepared but reported as "Application Validation" only.
-- **Immutability**: Once a snapshot is created, it cannot be edited. Corrections require a new snapshot.
+- **Real Package Generation**: Generates actual manifests and checksums for the production record.
+- **Application Validation**: Checks are focused on business logic and presence; professional prepress (CMYK, font embedding) is not included.
+- **Immutability**: Once a snapshot or package is created, it cannot be edited or deleted by normal users. Revisions require a new snapshot.
