@@ -102,8 +102,9 @@ export function BulkUpload({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Upload className="mr-2 size-4" /> Bulk Upload
+          <Upload className="mr-2 size-4" /> {label}
         </Button>
+
       </DialogTrigger>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
