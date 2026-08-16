@@ -19,6 +19,14 @@ function unwrap<T>(res: { data: T | null; error: { message: string } | null }): 
   return res.data as T;
 }
 
+type YearbookAsset = {
+  id: string;
+  yearbook_id: string;
+  file_name: string;
+  status: string;
+  [key: string]: any;
+};
+
 /* ---------------- Dashboard ---------------- */
 
 export const getControlCenter = createServerFn({ method: "GET" })
