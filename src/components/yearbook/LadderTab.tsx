@@ -593,12 +593,33 @@ function PageDialog({
   const set = (k: keyof PageRow, v: string | number | null) =>
     setForm((f) => ({ ...f, [k]: v }));
 
+  const fetchAssets = useServerFn(getAssets);
+  const associate = useServerFn(associateAssetToPage);
+  const [assetSearch, setAssetSearch] = useState("");
+  
+  const { data: assets } = useQuery({
+    queryKey: ["assets", yearbookId, assetSearch],
+    queryFn: () => fetchAssets({ data: { yearbookId, filters: { search: assetSearch || undefined } } }),
+    enabled: !!page.id
+  });
+
+  const handleLink = async (requirementId: string, assetId: string) => {
+    try {
+      await associate({ data: { yearbookId, pageId: page.id, requirementId, assetId } });
+      toast.success("Asset linked to requirement");
+      onDone();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
-          <DialogTitle>Page {page.page_number ?? ""}</DialogTitle>
+          <DialogTitle>Page {page.page_number ?? ""} - {page.title || 'Untitled'}</DialogTitle>
         </DialogHeader>
+
 
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
