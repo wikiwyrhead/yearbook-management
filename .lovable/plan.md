@@ -27,6 +27,7 @@ This phase implements a production-grade proofreading workflow, focusing on visu
 - Approval is **version-locked**: Approving v5 doesn't automatically approve v6.
 - Invalidation triggers: Changing source assets or reopening a correction revokes approval.
 - **Production Lock**: Final coordinator action to freeze the yearbook for manufacture.
+- **Unlock for Revision**: Reversible only by a Coordinator or Super Admin. Requires a recorded reason, creates an immutable audit record, and flags the yearbook for re-review without deleting historical data.
 
 ---
 
@@ -76,4 +77,4 @@ Build the interactive PDF viewer with annotation capabilities.
 Create the dashboard, correction lists, and approval interfaces.
 
 ### Step 5: Production Readiness & Locking
-Implement the final checks and the yearbook lock mechanism.
+Implement the final checks, the yearbook lock mechanism, and the "Unlock for Revision" workflow with audit logging.
