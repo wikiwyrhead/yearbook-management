@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, Plus, Trash2, ExternalLink, ListOrdered, UserPlus, ImageIcon, CheckCircle2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Trash2, ExternalLink, ListOrdered, UserPlus, ImageIcon, CheckCircle2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
