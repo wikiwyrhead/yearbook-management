@@ -578,7 +578,7 @@ export const getAssetDetails = createServerFn({ method: "GET" })
         .select("*, pages:page_assets(page:pages(id, page_number, title))")
         .eq("id", data.assetId)
         .single()
-    );
+    ) as YearbookAsset;
 
     if (!asset) throw new Error("Asset not found");
 
