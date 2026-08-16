@@ -322,7 +322,7 @@ export function LadderTab({
       {openPage && (
         <PageDialog
           key={openPage}
-          page={pages.find((p) => p.id === openPage)!}
+          page={pages.find((p) => p.id === openPage) as any}
           requirements={(data?.requirements ?? []).filter((r) => r.page_id === openPage)}
           sections={sections}
           pageTypes={pageTypes}
