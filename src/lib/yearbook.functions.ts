@@ -187,6 +187,9 @@ export const getYearbook = createServerFn({ method: "GET" })
     const yearbook = unwrap(
       await supabase.from("yearbooks").select("*, schools(*)").eq("id", id).single(),
     );
+    const myProfileRes = await supabase.from("profiles").select("email").eq("id", userId).single();
+    const myEmail = myProfileRes.data?.email || "";
+
     const myRoles = (
       unwrap(
         await supabase
@@ -216,6 +219,7 @@ export const getYearbook = createServerFn({ method: "GET" })
             .in("id", memberRows.map((m) => m.user_id)),
         ) ?? [])
       : [];
+
 
     const myStudentRecords = unwrap(
       await supabase
