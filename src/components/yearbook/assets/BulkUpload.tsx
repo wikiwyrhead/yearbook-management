@@ -24,12 +24,23 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { createAsset } from "@/lib/yearbook.functions";
 
-export function BulkUpload({ yearbookId, onDone }: { yearbookId: string; onDone: () => void }) {
+export function BulkUpload({ 
+  yearbookId, 
+  onDone,
+  studentId,
+  label = "Bulk Upload"
+}: { 
+  yearbookId: string; 
+  onDone: () => void;
+  studentId?: string;
+  label?: string;
+}) {
   const uploadAsset = useServerFn(createAsset);
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
