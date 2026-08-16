@@ -173,6 +173,47 @@ export type Database = {
           },
         ]
       }
+      canva_integrations: {
+        Row: {
+          access_token_encrypted: string | null
+          created_at: string
+          folder_id: string | null
+          id: string
+          refresh_token_encrypted: string | null
+          team_id: string | null
+          updated_at: string
+          yearbook_id: string
+        }
+        Insert: {
+          access_token_encrypted?: string | null
+          created_at?: string
+          folder_id?: string | null
+          id?: string
+          refresh_token_encrypted?: string | null
+          team_id?: string | null
+          updated_at?: string
+          yearbook_id: string
+        }
+        Update: {
+          access_token_encrypted?: string | null
+          created_at?: string
+          folder_id?: string | null
+          id?: string
+          refresh_token_encrypted?: string | null
+          team_id?: string | null
+          updated_at?: string
+          yearbook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canva_integrations_yearbook_id_fkey"
+            columns: ["yearbook_id"]
+            isOneToOne: true
+            referencedRelation: "yearbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       classes: {
         Row: {
           created_at: string
@@ -204,6 +245,126 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "classes_yearbook_id_fkey"
+            columns: ["yearbook_id"]
+            isOneToOne: false
+            referencedRelation: "yearbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      correction_comments: {
+        Row: {
+          content: string
+          correction_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          correction_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          correction_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "correction_comments_correction_id_fkey"
+            columns: ["correction_id"]
+            isOneToOne: false
+            referencedRelation: "corrections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      corrections: {
+        Row: {
+          annotation_type: Database["public"]["Enums"]["annotation_type"]
+          assigned_to: string | null
+          category: Database["public"]["Enums"]["correction_category"]
+          coordinates: Json
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          page_id: string
+          priority: string | null
+          proof_id: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: Database["public"]["Enums"]["correction_status"]
+          title: string
+          verified_at: string | null
+          verified_by: string | null
+          yearbook_id: string
+        }
+        Insert: {
+          annotation_type: Database["public"]["Enums"]["annotation_type"]
+          assigned_to?: string | null
+          category?: Database["public"]["Enums"]["correction_category"]
+          coordinates: Json
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          page_id: string
+          priority?: string | null
+          proof_id: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["correction_status"]
+          title: string
+          verified_at?: string | null
+          verified_by?: string | null
+          yearbook_id: string
+        }
+        Update: {
+          annotation_type?: Database["public"]["Enums"]["annotation_type"]
+          assigned_to?: string | null
+          category?: Database["public"]["Enums"]["correction_category"]
+          coordinates?: Json
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          page_id?: string
+          priority?: string | null
+          proof_id?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["correction_status"]
+          title?: string
+          verified_at?: string | null
+          verified_by?: string | null
+          yearbook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "corrections_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "corrections_proof_id_fkey"
+            columns: ["proof_id"]
+            isOneToOne: false
+            referencedRelation: "proofs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "corrections_yearbook_id_fkey"
             columns: ["yearbook_id"]
             isOneToOne: false
             referencedRelation: "yearbooks"
@@ -260,6 +421,55 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "faculty_yearbook_id_fkey"
+            columns: ["yearbook_id"]
+            isOneToOne: false
+            referencedRelation: "yearbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      page_approvals: {
+        Row: {
+          approved_at: string
+          approved_by: string
+          id: string
+          page_id: string
+          proof_id: string
+          yearbook_id: string
+        }
+        Insert: {
+          approved_at?: string
+          approved_by: string
+          id?: string
+          page_id: string
+          proof_id: string
+          yearbook_id: string
+        }
+        Update: {
+          approved_at?: string
+          approved_by?: string
+          id?: string
+          page_id?: string
+          proof_id?: string
+          yearbook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "page_approvals_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "page_approvals_proof_id_fkey"
+            columns: ["proof_id"]
+            isOneToOne: false
+            referencedRelation: "proofs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "page_approvals_yearbook_id_fkey"
             columns: ["yearbook_id"]
             isOneToOne: false
             referencedRelation: "yearbooks"
@@ -351,6 +561,58 @@ export type Database = {
             columns: ["yearbook_id"]
             isOneToOne: false
             referencedRelation: "yearbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      page_checklist_responses: {
+        Row: {
+          checklist_id: string
+          id: string
+          is_checked: boolean
+          page_id: string
+          proof_id: string
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          checklist_id: string
+          id?: string
+          is_checked?: boolean
+          page_id: string
+          proof_id: string
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          checklist_id?: string
+          id?: string
+          is_checked?: boolean
+          page_id?: string
+          proof_id?: string
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "page_checklist_responses_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "proofreader_checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "page_checklist_responses_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "page_checklist_responses_proof_id_fkey"
+            columns: ["proof_id"]
+            isOneToOne: false
+            referencedRelation: "proofs"
             referencedColumns: ["id"]
           },
         ]
@@ -568,6 +830,47 @@ export type Database = {
           },
         ]
       }
+      production_audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          metadata: Json | null
+          user_id: string
+          yearbook_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+          user_id: string
+          yearbook_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string
+          yearbook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_audit_log_yearbook_id_fkey"
+            columns: ["yearbook_id"]
+            isOneToOne: false
+            referencedRelation: "yearbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -594,6 +897,128 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      proof_pages: {
+        Row: {
+          created_at: string
+          id: string
+          page_id: string
+          proof_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          page_id: string
+          proof_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          page_id?: string
+          proof_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proof_pages_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proof_pages_proof_id_fkey"
+            columns: ["proof_id"]
+            isOneToOne: false
+            referencedRelation: "proofs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proofreader_checklists: {
+        Row: {
+          category: string | null
+          id: string
+          item_text: string
+          page_type_id: string | null
+          position: number | null
+          yearbook_id: string
+        }
+        Insert: {
+          category?: string | null
+          id?: string
+          item_text: string
+          page_type_id?: string | null
+          position?: number | null
+          yearbook_id: string
+        }
+        Update: {
+          category?: string | null
+          id?: string
+          item_text?: string
+          page_type_id?: string | null
+          position?: number | null
+          yearbook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proofreader_checklists_page_type_id_fkey"
+            columns: ["page_type_id"]
+            isOneToOne: false
+            referencedRelation: "page_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proofreader_checklists_yearbook_id_fkey"
+            columns: ["yearbook_id"]
+            isOneToOne: false
+            referencedRelation: "yearbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proofs: {
+        Row: {
+          canva_export_id: string | null
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          status: string
+          storage_path: string
+          version: number
+          yearbook_id: string
+        }
+        Insert: {
+          canva_export_id?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          status?: string
+          storage_path: string
+          version: number
+          yearbook_id: string
+        }
+        Update: {
+          canva_export_id?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          storage_path?: string
+          version?: number
+          yearbook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proofs_yearbook_id_fkey"
+            columns: ["yearbook_id"]
+            isOneToOne: false
+            referencedRelation: "yearbooks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       schools: {
         Row: {
@@ -768,6 +1193,54 @@ export type Database = {
         }
         Relationships: []
       }
+      yearbook_approvals: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          proof_id: string
+          reason: string | null
+          status: string
+          yearbook_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          proof_id: string
+          reason?: string | null
+          status?: string
+          yearbook_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          proof_id?: string
+          reason?: string | null
+          status?: string
+          yearbook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "yearbook_approvals_proof_id_fkey"
+            columns: ["proof_id"]
+            isOneToOne: false
+            referencedRelation: "proofs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "yearbook_approvals_yearbook_id_fkey"
+            columns: ["yearbook_id"]
+            isOneToOne: false
+            referencedRelation: "yearbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       yearbook_invitations: {
         Row: {
           created_at: string
@@ -934,6 +1407,7 @@ export type Database = {
       }
     }
     Enums: {
+      annotation_type: "point" | "rectangle" | "highlight" | "comment"
       app_role: "super_admin"
       asset_status:
         | "missing"
@@ -952,6 +1426,29 @@ export type Database = {
         | "artwork"
         | "message"
         | "other"
+      correction_category:
+        | "typographical"
+        | "name"
+        | "date"
+        | "caption"
+        | "image"
+        | "missing_asset"
+        | "wrong_asset"
+        | "layout"
+        | "alignment"
+        | "content"
+        | "requirement"
+        | "other"
+      correction_status:
+        | "open"
+        | "acknowledged"
+        | "in_progress"
+        | "resolved"
+        | "awaiting_verification"
+        | "verified"
+        | "closed"
+        | "rejected"
+        | "cancelled"
       storage_provider:
         | "lovable"
         | "google_drive"
@@ -1091,6 +1588,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      annotation_type: ["point", "rectangle", "highlight", "comment"],
       app_role: ["super_admin"],
       asset_status: [
         "missing",
@@ -1110,6 +1608,31 @@ export const Constants = {
         "artwork",
         "message",
         "other",
+      ],
+      correction_category: [
+        "typographical",
+        "name",
+        "date",
+        "caption",
+        "image",
+        "missing_asset",
+        "wrong_asset",
+        "layout",
+        "alignment",
+        "content",
+        "requirement",
+        "other",
+      ],
+      correction_status: [
+        "open",
+        "acknowledged",
+        "in_progress",
+        "resolved",
+        "awaiting_verification",
+        "verified",
+        "closed",
+        "rejected",
+        "cancelled",
       ],
       storage_provider: [
         "lovable",
