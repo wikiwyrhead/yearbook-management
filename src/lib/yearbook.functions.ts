@@ -852,3 +852,144 @@ export const getInvitations = createServerFn({ method: "GET" })
         .order("created_at", { ascending: false })
     );
   });
+
+/* ---------------- Design & Canva ---------------- */
+
+export const getCanvaConfig = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ yearbookId: z.string() }))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    return unwrap(
+      await supabase
+        .from("canva_integrations")
+        .select("*")
+        .eq("yearbook_id", data.yearbookId)
+        .maybeSingle()
+    );
+  });
+
+export const updateDesignStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    pageId: z.string(),
+    status: z.enum(['waiting_for_assets', 'ready_for_design', 'designing', 'complete', 'needs_review', 'ready_for_proof']),
+    override: z.boolean().optional(),
+  }))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    return unwrap(
+      await supabase
+        .from("pages")
+        .update({ 
+          design_status: data.status,
+          design_readiness_override: data.override ?? false
+        })
+        .eq("id", data.pageId)
+        .select()
+        .single()
+    );
+  });
+
+export const connectCanvaDesign = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    pageId: z.string(),
+    canvaDesignId: z.string(),
+  }))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { canvaService } = await import("./canva.server");
+    const design = await canvaService.connectDesign(data.canvaDesignId);
+    
+    return unwrap(
+      await supabase
+        .from("pages")
+        .update({
+          canva_design_id: design.id,
+          canva_design_url: design.url,
+          canva_design_name: design.name,
+          canva_synced_at: design.lastSyncedAt
+        })
+        .eq("id", data.pageId)
+        .select()
+        .single()
+    );
+  });
+
+export const createProof = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    yearbookId: z.string(),
+    pageIds: z.array(z.string()),
+    storagePath: z.string(),
+    notes: z.string().optional(),
+    canvaExportId: z.string().optional(),
+  }))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    
+    // Get latest version
+    const lastProof = await supabase
+      .from("proofs")
+      .select("version")
+      .eq("yearbook_id", data.yearbookId)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+      
+    const version = (lastProof.data?.version ?? 0) + 1;
+    
+    const proof = unwrap(
+      await supabase
+        .from("proofs")
+        .insert({
+          yearbook_id: data.yearbookId,
+          version,
+          storage_path: data.storagePath,
+          canva_export_id: data.canvaExportId ?? null,
+          notes: data.notes ?? null,
+          created_by: userId,
+          status: 'ready'
+        })
+        .select()
+        .single()
+    );
+    
+    if (proof && data.pageIds.length > 0) {
+      await supabase
+        .from("proof_pages")
+        .insert(data.pageIds.map(id => ({
+          proof_id: proof.id,
+          page_id: id
+        })));
+    }
+    
+    return proof;
+  });
+
+export const getProofs = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ 
+    yearbookId: z.string(),
+    pageId: z.string().optional()
+  }))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    let query = supabase
+      .from("proofs")
+      .select("*, created_by_profile:profiles!proofs_created_by_fkey(full_name), pages:proof_pages(page_id)")
+      .eq("yearbook_id", data.yearbookId)
+      .order("version", { ascending: false });
+      
+    const proofs = unwrap(await query);
+    
+    if (data.pageId) {
+      return (proofs ?? []).filter(p => 
+        (p.pages as any[]).some(pg => pg.page_id === data.pageId)
+      );
+    }
+    
+    return proofs ?? [];
+  });
+
