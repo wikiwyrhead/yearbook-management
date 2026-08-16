@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { 
-  X, 
   Download, 
   History, 
   FileText, 
@@ -11,8 +10,6 @@ import {
   Calendar, 
   Info,
   CheckCircle2,
-  XCircle,
-  AlertCircle,
   Clock,
   ExternalLink
 } from "lucide-react";
@@ -20,11 +17,11 @@ import {
   Dialog, 
   DialogContent, 
   DialogHeader, 
-  DialogTitle,
-  DialogFooter
+  DialogTitle
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { getAssetDetails, updateAssetStatus } from "@/lib/yearbook.functions";
@@ -50,6 +47,7 @@ export function AssetDetail({
     queryKey: ["asset-details", assetId],
     queryFn: () => fetchDetails({ data: { assetId } })
   });
+
 
   const handleStatusUpdate = async (status: string) => {
     try {
