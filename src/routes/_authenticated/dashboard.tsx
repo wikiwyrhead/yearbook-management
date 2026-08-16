@@ -158,13 +158,14 @@ function Dashboard() {
                 <div className="mt-4 grid grid-cols-2 gap-4 border-t border-border/50 pt-4">
                   <div className="space-y-1">
                     <p className="text-[10px] uppercase font-bold text-muted-foreground">Asset Completion</p>
-                    <p className="text-sm font-display">84%</p>
+                    <p className="text-sm font-display">{(y as any).metrics?.assetCompletion ?? 0}%</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[10px] uppercase font-bold text-muted-foreground">Page Progress</p>
-                    <p className="text-sm font-display">12 / 120</p>
+                    <p className="text-sm font-display">{(y as any).metrics?.pageProgress ?? "0 / 0"}</p>
                   </div>
                 </div>
+
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap gap-1.5">
