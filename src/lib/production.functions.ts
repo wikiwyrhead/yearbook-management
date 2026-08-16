@@ -8,7 +8,8 @@ type Json = Record<string, unknown>;
 
 function unwrap<T>(res: { data: T | null; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message);
-  return res.data as T;
+  if (!res.data) throw new Error("Expected data but received null");
+  return res.data;
 }
 
 /* ---------------- Preflight ---------------- */
@@ -20,7 +21,6 @@ export const getReadinessReport = createServerFn({ method: "GET" })
     const { supabase } = context;
     const yId = data.yearbookId;
 
-    // 1. Fetch current yearbook state for preflight
     const [pages, corrections, reqs, proofs, approvals, lockRes] = await Promise.all([
       supabase.from("pages").select("*").eq("yearbook_id", yId).order("position"),
       supabase.from("corrections").select("*").eq("yearbook_id", yId).in("status", ["open", "acknowledged", "in_progress"]),
@@ -33,14 +33,13 @@ export const getReadinessReport = createServerFn({ method: "GET" })
     const blockers: string[] = [];
     const warnings: string[] = [];
     
-    const pageList = unwrap(pages) || [];
-    const openCorrections = unwrap(corrections) || [];
-    const requirements = unwrap(reqs) || [];
-    const currentProofs = unwrap(proofs) || [];
-    const pageApprovals = unwrap(approvals) || [];
+    const pageList = unwrap(pages);
+    const openCorrections = unwrap(corrections);
+    const requirements = unwrap(reqs);
+    const currentProofs = unwrap(proofs);
+    const pageApprovals = unwrap(approvals);
     const lockDetails = lockRes.data;
 
-    // Logic for readiness
     if (pageList.length === 0) blockers.push("Yearbook has no pages.");
     
     const unapprovedPages = pageList.filter(p => !pageApprovals.some(a => a.page_id === p.id));
@@ -110,21 +109,19 @@ export const createProductionSnapshot = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const yId = data.yearbookId;
 
-    // Capture everything
-    const [yearbook, pages, proofs, assets, approvals, checklists] = await Promise.all([
+    const [yearbook, pages, proofs, approvals, checklists] = await Promise.all([
       supabase.from("yearbooks").select("*").eq("id", yId).single(),
       supabase.from("pages").select("*").eq("yearbook_id", yId).order("position"),
       supabase.from("proofs").select("*").eq("yearbook_id", yId).eq("status", "ready"),
-      supabase.from("page_assets").select("*, assets(*)").eq("page_id", "dummy").limit(0), // Placeholder as page_assets doesn't have yearbook_id directly
       supabase.from("page_approvals").select("*").eq("yearbook_id", yId),
       supabase.from("proofreader_checklists").select("*").eq("yearbook_id", yId),
     ]);
 
     const yData = unwrap(yearbook);
-    const pData = unwrap(pages) || [];
-    const prData = unwrap(proofs) || [];
-    const appData = unwrap(approvals) || [];
-    const chData = unwrap(checklists) || [];
+    const pData = unwrap(pages);
+    const prData = unwrap(proofs);
+    const appData = unwrap(approvals);
+    const chData = unwrap(checklists);
 
     const { data: latest } = await supabase
       .from("production_snapshots")
@@ -173,8 +170,9 @@ export const generateProductionPackage = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { yearbookId, snapshotId } = data;
 
-    const snapshotRes = await supabase.from("production_snapshots").select("*").eq("id", snapshotId).single();
-    const snapshot = unwrap(snapshotRes);
+    const snapshot = unwrap(
+      await supabase.from("production_snapshots").select("*").eq("id", snapshotId).single()
+    );
 
     const manifest = {
       files: [
@@ -194,7 +192,7 @@ export const generateProductionPackage = createServerFn({ method: "POST" })
       await supabase.from("production_packages").insert({
         yearbook_id: yearbookId,
         snapshot_id: snapshotId,
-        manifest: manifest,
+        manifest: manifest as any,
         storage_path: `yearbooks/${yearbookId}/production/v${snapshot.version}/`,
         checksum_sha256: checksum,
         generated_by: userId
@@ -253,8 +251,9 @@ export const updateSubmissionStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<Database['public']['Tables']['service_bureau_submissions']['Row']> => {
     const { supabase, userId } = context;
 
-    const currentSubRes = await supabase.from("service_bureau_submissions").select("*").eq("id", data.submissionId).single();
-    const currentSub = unwrap(currentSubRes);
+    const currentSub = unwrap(
+      await supabase.from("service_bureau_submissions").select("*").eq("id", data.submissionId).single()
+    );
 
     const update: any = {
       status: data.status,
@@ -299,10 +298,10 @@ export const getProductionDashboardData = createServerFn({ method: "GET" })
     ]);
 
     return {
-      snapshots: unwrap(snapshots) || [],
-      packages: unwrap(packages) || [],
-      submissions: unwrap(submissions) || [],
-      reports: unwrap(reports) || [],
-      serviceBureaus: unwrap(serviceBureaus) || []
+      snapshots: unwrap(snapshots),
+      packages: unwrap(packages),
+      submissions: unwrap(submissions),
+      reports: unwrap(reports),
+      serviceBureaus: unwrap(serviceBureaus)
     };
   });
