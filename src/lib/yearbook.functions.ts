@@ -700,7 +700,7 @@ export const updateAssetStatus = createServerFn({ method: "POST" })
       yearbook_id: oldAsset.yearbook_id,
       action: 'status_changed',
       performed_by: userId,
-      old_status: oldAsset.status,
+      old_status: oldAsset.status as any,
       new_status: data.status,
       metadata: { notes: data.notes }
     });
