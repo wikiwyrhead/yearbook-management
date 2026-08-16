@@ -1,0 +1,18 @@
+REVOKE EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.is_super_admin(uuid) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.has_yearbook_role(uuid, uuid, public.yearbook_role) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.is_yearbook_member(uuid, uuid) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.can_manage_yearbook(uuid, uuid) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.can_edit_yearbook(uuid, uuid) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.is_yearbook_staff_member(uuid, uuid) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.can_access_school(uuid, uuid) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.handle_new_yearbook() FROM anon, public;
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_super_admin(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.has_yearbook_role(uuid, uuid, public.yearbook_role) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_yearbook_member(uuid, uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.can_manage_yearbook(uuid, uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.can_edit_yearbook(uuid, uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_yearbook_staff_member(uuid, uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.can_access_school(uuid, uuid) TO authenticated, service_role;

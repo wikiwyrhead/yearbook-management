@@ -1,0 +1,813 @@
+import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { ArrowDown, ArrowUp, Plus, Trash2, ExternalLink, ListOrdered, UserPlus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  getLadder,
+  createPages,
+  updatePage,
+  deletePage,
+  reorderPages,
+  renumberPages,
+  assignPages,
+  unassignPage,
+  saveRequirement,
+  deleteRequirement,
+} from "@/lib/yearbook.functions";
+
+type Lookup = { id: string; name: string; color?: string };
+type Member = { user_id: string; role: string; profile: { full_name: string | null; email: string | null } | null };
+
+export function LadderTab({
+  yearbookId,
+  sections,
+  pageTypes,
+  statuses,
+  members,
+  canEdit,
+  canManage,
+  userId,
+}: {
+  yearbookId: string;
+  sections: Lookup[];
+  pageTypes: Lookup[];
+  statuses: (Lookup & { color: string })[];
+  members: Member[];
+  canEdit: boolean;
+  canManage: boolean;
+  userId: string;
+}) {
+  const fetchLadder = useServerFn(getLadder);
+  const qc = useQueryClient();
+  const key = ["ladder", yearbookId];
+  const { data } = useQuery({ queryKey: key, queryFn: () => fetchLadder({ data: { yearbookId } }) });
+  const refresh = () => qc.invalidateQueries({ queryKey: key });
+
+  const [fSection, setFSection] = useState("all");
+  const [fStatus, setFStatus] = useState("all");
+  const [fAssignee, setFAssignee] = useState("all");
+  const [openPage, setOpenPage] = useState<string | null>(null);
+
+  const doUpdate = useServerFn(updatePage);
+  const doDelete = useServerFn(deletePage);
+  const doReorder = useServerFn(reorderPages);
+  const doRenumber = useServerFn(renumberPages);
+  const doUnassign = useServerFn(unassignPage);
+
+  const mUpdate = useMutation({
+    mutationFn: (v: { id: string; patch: Record<string, unknown> }) => doUpdate({ data: v }),
+    onSuccess: refresh,
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const pages = data?.pages ?? [];
+  const nameOf = (uid: string) => {
+    const m = members.find((x) => x.user_id === uid);
+    return m?.profile?.full_name || m?.profile?.email || "Unknown";
+  };
+
+  const filtered = useMemo(
+    () =>
+      pages.filter((p) => {
+        if (fSection !== "all" && p.section_id !== fSection) return false;
+        if (fStatus !== "all" && p.status_id !== fStatus) return false;
+        if (fAssignee !== "all") {
+          const as = (data?.assignments ?? []).filter((a) => a.page_id === p.id);
+          if (!as.some((a) => a.user_id === fAssignee)) return false;
+        }
+        return true;
+      }),
+    [pages, fSection, fStatus, fAssignee, data],
+  );
+
+  const statusById = Object.fromEntries(statuses.map((s) => [s.id, s]));
+  const sectionById = Object.fromEntries(sections.map((s) => [s.id, s]));
+
+  function move(pageId: string, dir: -1 | 1) {
+    const ids = pages.map((p) => p.id);
+    const i = ids.indexOf(pageId);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j]!, ids[i]!];
+    doReorder({ data: { orderedIds: ids } })
+      .then(refresh)
+      .catch((e: Error) => toast.error(e.message));
+  }
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-end gap-3">
+        <FilterSelect label="Section" value={fSection} onChange={setFSection} options={sections} />
+        <FilterSelect label="Status" value={fStatus} onChange={setFStatus} options={statuses} />
+        <div className="space-y-1.5">
+          <Label className="text-xs">Assignee</Label>
+          <Select value={fAssignee} onValueChange={setFAssignee}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Everyone</SelectItem>
+              {members.map((m) => (
+                <SelectItem key={m.user_id} value={m.user_id}>
+                  {nameOf(m.user_id)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="ml-auto flex gap-2">
+          {canEdit && (
+            <>
+              <AssignRangeDialog yearbookId={yearbookId} members={members} onDone={refresh} />
+              <AddPagesDialog
+                yearbookId={yearbookId}
+                sections={sections}
+                pageTypes={pageTypes}
+                onDone={refresh}
+              />
+            </>
+          )}
+          {canManage && (
+            <Button
+              variant="outline"
+              onClick={() =>
+                doRenumber({ data: { yearbookId, startAt: 1 } })
+                  .then(() => {
+                    toast.success("Pages renumbered from 1");
+                    refresh();
+                  })
+                  .catch((e: Error) => toast.error(e.message))
+              }
+            >
+              <ListOrdered className="size-4" /> Renumber
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {statuses.map((s) => {
+          const count = pages.filter((p) => p.status_id === s.id).length;
+          return (
+            <span
+              key={s.id}
+              className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
+            >
+              <span className="size-2 rounded-full" style={{ backgroundColor: s.color }} />
+              {s.name} · {count}
+            </span>
+          );
+        })}
+      </div>
+
+      <div className="plate mt-4 divide-y overflow-hidden">
+        {filtered.length === 0 && (
+          <p className="p-8 text-center text-sm text-muted-foreground">
+            No pages match. Add pages to start building the ladder.
+          </p>
+        )}
+        {filtered.map((p) => {
+          const st = p.status_id ? statusById[p.status_id] : undefined;
+          const sec = p.section_id ? sectionById[p.section_id] : undefined;
+          const reqs = (data?.requirements ?? []).filter((r) => r.page_id === p.id);
+          const need = reqs.reduce((a, r) => a + r.needed, 0);
+          const have = reqs.reduce((a, r) => a + r.have, 0);
+          const as = (data?.assignments ?? []).filter((a) => a.page_id === p.id);
+          const mine = as.some((a) => a.user_id === userId);
+          return (
+            <div
+              key={p.id}
+              className={`flex flex-wrap items-center gap-3 p-3 ${mine ? "bg-accent/10" : ""}`}
+              style={{ borderLeft: `4px solid ${st?.color ?? "transparent"}` }}
+            >
+              <span className="w-10 text-center font-display text-lg">{p.page_number ?? "—"}</span>
+              <div className="min-w-52 flex-1">
+                <button
+                  className="text-left font-medium hover:underline"
+                  onClick={() => setOpenPage(p.id)}
+                >
+                  {p.title || "Untitled page"}
+                </button>
+                <p className="text-xs text-muted-foreground">
+                  {sec?.name ?? "No section"}
+                  {p.description ? ` · ${p.description}` : ""}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-xs">
+                <span
+                  className={
+                    need > 0 && have < need
+                      ? "rounded bg-destructive/10 px-2 py-1 text-destructive"
+                      : "rounded bg-muted px-2 py-1 text-muted-foreground"
+                  }
+                >
+                  {have}/{need} assets
+                </span>
+                {p.blocking_reason && (
+                  <span className="rounded bg-destructive/10 px-2 py-1 text-destructive">
+                    {p.blocking_reason}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-1">
+                {as.map((a) => (
+                  <Badge key={a.id} variant="secondary" className="gap-1">
+                    {a.kind === "designer" ? "D" : "P"}: {nameOf(a.user_id)}
+                    {canEdit && (
+                      <button
+                        onClick={() =>
+                          doUnassign({ data: { id: a.id } })
+                            .then(refresh)
+                            .catch((e: Error) => toast.error(e.message))
+                        }
+                        aria-label="Remove assignment"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </Badge>
+                ))}
+              </div>
+
+              <Select
+                value={p.status_id ?? ""}
+                onValueChange={(v) => mUpdate.mutate({ id: p.id, patch: { status_id: v } })}
+              >
+                <SelectTrigger className="w-56">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {statuses.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {p.canva_design_url && (
+                <a
+                  href={p.canva_design_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-muted-foreground hover:text-foreground"
+                  aria-label="Open Canva design"
+                >
+                  <ExternalLink className="size-4" />
+                </a>
+              )}
+
+              {canEdit && (
+                <div className="flex gap-1">
+                  <Button size="icon" variant="ghost" onClick={() => move(p.id, -1)}>
+                    <ArrowUp className="size-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" onClick={() => move(p.id, 1)}>
+                    <ArrowDown className="size-4" />
+                  </Button>
+                  {canManage && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() =>
+                        doDelete({ data: { id: p.id } })
+                          .then(refresh)
+                          .catch((e: Error) => toast.error(e.message))
+                      }
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {openPage && (
+        <PageDialog
+          key={openPage}
+          page={pages.find((p) => p.id === openPage)!}
+          requirements={(data?.requirements ?? []).filter((r) => r.page_id === openPage)}
+          sections={sections}
+          pageTypes={pageTypes}
+          yearbookId={yearbookId}
+          canEdit={canEdit}
+          onClose={() => setOpenPage(null)}
+          onDone={refresh}
+        />
+      )}
+    </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: Lookup[];
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="w-48">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All</SelectItem>
+          {options.map((o) => (
+            <SelectItem key={o.id} value={o.id}>
+              {o.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function AddPagesDialog({
+  yearbookId,
+  sections,
+  pageTypes,
+  onDone,
+}: {
+  yearbookId: string;
+  sections: Lookup[];
+  pageTypes: Lookup[];
+  onDone: () => void;
+}) {
+  const create = useServerFn(createPages);
+  const [open, setOpen] = useState(false);
+  const [sectionId, setSectionId] = useState("");
+  const [typeId, setTypeId] = useState("");
+  const [count, setCount] = useState(1);
+  const [title, setTitle] = useState("");
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button>
+          <Plus className="size-4" /> Pages
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add pages</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>How many</Label>
+            <Input
+              type="number"
+              min={1}
+              max={200}
+              value={count}
+              onChange={(e) => setCount(Number(e.target.value))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Section</Label>
+            <Select value={sectionId} onValueChange={setSectionId}>
+              <SelectTrigger>
+                <SelectValue placeholder="No section" />
+              </SelectTrigger>
+              <SelectContent>
+                {sections.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Page type</Label>
+            <Select value={typeId} onValueChange={setTypeId}>
+              <SelectTrigger>
+                <SelectValue placeholder="No type" />
+              </SelectTrigger>
+              <SelectContent>
+                {pageTypes.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Title (optional)</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            onClick={() =>
+              create({
+                data: { yearbookId, count, sectionId: sectionId || null, pageTypeId: typeId || null, title },
+              })
+                .then(() => {
+                  setOpen(false);
+                  onDone();
+                })
+                .catch((e: Error) => toast.error(e.message))
+            }
+          >
+            Add to ladder
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AssignRangeDialog({
+  yearbookId,
+  members,
+  onDone,
+}: {
+  yearbookId: string;
+  members: Member[];
+  onDone: () => void;
+}) {
+  const assign = useServerFn(assignPages);
+  const [open, setOpen] = useState(false);
+  const [from, setFrom] = useState(1);
+  const [to, setTo] = useState(1);
+  const [uid, setUid] = useState("");
+  const [kind, setKind] = useState<"designer" | "proofreader">("designer");
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline">
+          <UserPlus className="size-4" /> Assign
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Assign a page range</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Range uses ladder position (order), not printed page number.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>From position</Label>
+              <Input type="number" value={from} onChange={(e) => setFrom(Number(e.target.value))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>To position</Label>
+              <Input type="number" value={to} onChange={(e) => setTo(Number(e.target.value))} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Person</Label>
+            <Select value={uid} onValueChange={setUid}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select member" />
+              </SelectTrigger>
+              <SelectContent>
+                {members.map((m) => (
+                  <SelectItem key={m.user_id} value={m.user_id}>
+                    {m.profile?.full_name || m.profile?.email} · {m.role}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>As</Label>
+            <Select value={kind} onValueChange={(v) => setKind(v as "designer" | "proofreader")}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="designer">Designer</SelectItem>
+                <SelectItem value="proofreader">Proofreader</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            onClick={() => {
+              if (!uid) {
+                toast.error("Pick a person");
+                return;
+              }
+              assign({ data: { yearbookId, fromPosition: from, toPosition: to, userId: uid, kind } })
+                .then((r) => {
+                  toast.success(`Assigned ${r.assigned} pages`);
+                  setOpen(false);
+                  onDone();
+                })
+                .catch((e: Error) => toast.error(e.message));
+            }}
+          >
+            Assign
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type PageRow = {
+  id: string;
+  title: string | null;
+  description: string | null;
+  section_id: string | null;
+  page_type_id: string | null;
+  page_number: number | null;
+  required_assets: string | null;
+  notes: string | null;
+  blocking_reason: string | null;
+  canva_design_id: string | null;
+  canva_design_url: string | null;
+};
+
+function PageDialog({
+  page,
+  requirements,
+  sections,
+  pageTypes,
+  yearbookId,
+  canEdit,
+  onClose,
+  onDone,
+}: {
+  page: PageRow;
+  requirements: { id: string; label: string; needed: number; have: number }[];
+  sections: Lookup[];
+  pageTypes: Lookup[];
+  yearbookId: string;
+  canEdit: boolean;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const doUpdate = useServerFn(updatePage);
+  const doSaveReq = useServerFn(saveRequirement);
+  const doDelReq = useServerFn(deleteRequirement);
+  const [form, setForm] = useState(page);
+  const [newLabel, setNewLabel] = useState("");
+  const [newNeeded, setNewNeeded] = useState(1);
+
+  const set = (k: keyof PageRow, v: string | number | null) =>
+    setForm((f) => ({ ...f, [k]: v }));
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Page {page.page_number ?? ""}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Title</Label>
+              <Input value={form.title ?? ""} onChange={(e) => set("title", e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Printed page number</Label>
+              <Input
+                type="number"
+                value={form.page_number ?? ""}
+                onChange={(e) => set("page_number", e.target.value ? Number(e.target.value) : null)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Section</Label>
+              <Select
+                value={form.section_id ?? ""}
+                onValueChange={(v) => set("section_id", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="No section" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sections.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Page type</Label>
+              <Select
+                value={form.page_type_id ?? ""}
+                onValueChange={(v) => set("page_type_id", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="No type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {pageTypes.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Description</Label>
+            <Textarea
+              rows={2}
+              value={form.description ?? ""}
+              onChange={(e) => set("description", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Required assets</Label>
+            <Textarea
+              rows={2}
+              value={form.required_assets ?? ""}
+              onChange={(e) => set("required_assets", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Notes</Label>
+            <Textarea
+              rows={2}
+              value={form.notes ?? ""}
+              onChange={(e) => set("notes", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Blocking reason</Label>
+            <Input
+              value={form.blocking_reason ?? ""}
+              onChange={(e) => set("blocking_reason", e.target.value)}
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Canva design ID</Label>
+              <Input
+                value={form.canva_design_id ?? ""}
+                onChange={(e) => set("canva_design_id", e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Canva design URL</Label>
+              <Input
+                value={form.canva_design_url ?? ""}
+                onChange={(e) => set("canva_design_url", e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-md border p-3">
+            <h4 className="font-display text-lg">Requirements</h4>
+            <div className="mt-2 space-y-2">
+              {requirements.map((r) => (
+                <div key={r.id} className="flex items-center gap-2">
+                  <span className="flex-1 text-sm">{r.label}</span>
+                  <Input
+                    className="w-20"
+                    type="number"
+                    defaultValue={r.have}
+                    disabled={!canEdit}
+                    onBlur={(e) =>
+                      doSaveReq({ data: { id: r.id, have: Number(e.target.value) } })
+                        .then(onDone)
+                        .catch((err: Error) => toast.error(err.message))
+                    }
+                  />
+                  <span className="text-sm text-muted-foreground">/ {r.needed}</span>
+                  {canEdit && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() =>
+                        doDelReq({ data: { id: r.id } })
+                          .then(onDone)
+                          .catch((err: Error) => toast.error(err.message))
+                      }
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              {requirements.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No requirements yet — e.g. “8 portraits”, “1 class photo”.
+                </p>
+              )}
+            </div>
+            {canEdit && (
+              <div className="mt-3 flex gap-2">
+                <Input
+                  placeholder="Requirement label"
+                  value={newLabel}
+                  onChange={(e) => setNewLabel(e.target.value)}
+                />
+                <Input
+                  className="w-24"
+                  type="number"
+                  value={newNeeded}
+                  onChange={(e) => setNewNeeded(Number(e.target.value))}
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (!newLabel.trim()) return;
+                    doSaveReq({
+                      data: {
+                        pageId: page.id,
+                        yearbookId,
+                        label: newLabel.trim(),
+                        needed: newNeeded,
+                        have: 0,
+                        position: requirements.length + 1,
+                      },
+                    })
+                      .then(() => {
+                        setNewLabel("");
+                        onDone();
+                      })
+                      .catch((err: Error) => toast.error(err.message));
+                  }}
+                >
+                  Add
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            disabled={!canEdit}
+            onClick={() =>
+              doUpdate({
+                data: {
+                  id: page.id,
+                  patch: {
+                    title: form.title,
+                    description: form.description,
+                    section_id: form.section_id,
+                    page_type_id: form.page_type_id,
+                    page_number: form.page_number,
+                    required_assets: form.required_assets,
+                    notes: form.notes,
+                    blocking_reason: form.blocking_reason,
+                    canva_design_id: form.canva_design_id,
+                    canva_design_url: form.canva_design_url,
+                  },
+                },
+              })
+                .then(() => {
+                  toast.success("Page saved");
+                  onDone();
+                  onClose();
+                })
+                .catch((e: Error) => toast.error(e.message))
+            }
+          >
+            Save page
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
