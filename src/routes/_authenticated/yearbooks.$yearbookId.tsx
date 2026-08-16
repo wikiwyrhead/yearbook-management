@@ -155,7 +155,7 @@ function Workspace() {
           <AssetLibrary 
             yearbookId={yearbookId} 
             canEdit={data.canEdit} 
-            studentId={data.myStudentId || undefined} 
+            studentId={data.myStudentId ?? undefined} 
           />
         </TabsContent>
 
