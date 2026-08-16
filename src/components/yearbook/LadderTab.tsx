@@ -622,6 +622,11 @@ function PageDialog({
           <DialogTitle>Page {page.page_number ?? ""} - {page.title || 'Untitled'}</DialogTitle>
         </DialogHeader>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="space-y-4">
+            <h3 className="font-display text-lg">Page Details</h3>
+
+
 
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
