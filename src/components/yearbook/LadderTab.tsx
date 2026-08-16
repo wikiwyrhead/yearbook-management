@@ -810,14 +810,13 @@ function PageDialog({
                               }
                             >
                               <Trash2 className="size-4 text-destructive" />
-                            </Button>
-                         )}
-          </div>
-        </div>
-
+                             </Button>
+                          )}
+                       </div>
                     </div>
                   </div>
                 ))}
+
                 {requirements.length === 0 && (
                   <p className="text-xs text-muted-foreground italic text-center py-4">
                     No requirements yet — e.g. “8 portraits”, “1 class photo”.
