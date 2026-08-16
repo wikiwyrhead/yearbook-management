@@ -33,8 +33,10 @@ import { PeopleTab } from "@/components/yearbook/PeopleTab";
 import { AssetLibrary } from "@/components/yearbook/assets/AssetLibrary";
 import { TeamInvitations } from "@/components/yearbook/TeamInvitations";
 import { ProofreadingCenter } from "@/components/yearbook/production/ProofreadingCenter";
+import { ProductionDashboard } from "@/components/yearbook/production/ProductionDashboard";
 import { PDFProofViewer } from "@/components/yearbook/production/PDFProofViewer";
 import { getYearbook, addMember, removeMember, getProofs, getCorrections } from "@/lib/yearbook.functions";
+
 
 
 
