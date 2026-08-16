@@ -87,7 +87,7 @@ function Workspace() {
     );
   }
 
-  const yb = data.yearbook as {
+  const yb = data.yearbook as unknown as {
     id: string;
     year: number;
     title: string | null;
