@@ -830,6 +830,57 @@ export type Database = {
           },
         ]
       }
+      preflight_reports: {
+        Row: {
+          blocking_issues: string[] | null
+          created_at: string | null
+          id: string
+          results: Json
+          run_by: string
+          snapshot_id: string | null
+          status: string
+          warnings: string[] | null
+          yearbook_id: string
+        }
+        Insert: {
+          blocking_issues?: string[] | null
+          created_at?: string | null
+          id?: string
+          results: Json
+          run_by: string
+          snapshot_id?: string | null
+          status: string
+          warnings?: string[] | null
+          yearbook_id: string
+        }
+        Update: {
+          blocking_issues?: string[] | null
+          created_at?: string | null
+          id?: string
+          results?: Json
+          run_by?: string
+          snapshot_id?: string | null
+          status?: string
+          warnings?: string[] | null
+          yearbook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preflight_reports_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "production_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preflight_reports_yearbook_id_fkey"
+            columns: ["yearbook_id"]
+            isOneToOne: false
+            referencedRelation: "yearbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       production_audit_log: {
         Row: {
           action: string
@@ -864,6 +915,89 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "production_audit_log_yearbook_id_fkey"
+            columns: ["yearbook_id"]
+            isOneToOne: false
+            referencedRelation: "yearbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      production_packages: {
+        Row: {
+          checksum_sha256: string
+          created_at: string | null
+          generated_by: string
+          id: string
+          manifest: Json
+          snapshot_id: string
+          storage_path: string
+          yearbook_id: string
+        }
+        Insert: {
+          checksum_sha256: string
+          created_at?: string | null
+          generated_by: string
+          id?: string
+          manifest: Json
+          snapshot_id: string
+          storage_path: string
+          yearbook_id: string
+        }
+        Update: {
+          checksum_sha256?: string
+          created_at?: string | null
+          generated_by?: string
+          id?: string
+          manifest?: Json
+          snapshot_id?: string
+          storage_path?: string
+          yearbook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_packages_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "production_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_packages_yearbook_id_fkey"
+            columns: ["yearbook_id"]
+            isOneToOne: false
+            referencedRelation: "yearbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      production_snapshots: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          id: string
+          snapshot_data: Json
+          version: number
+          yearbook_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          id?: string
+          snapshot_data: Json
+          version: number
+          yearbook_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          snapshot_data?: Json
+          version?: number
+          yearbook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_snapshots_yearbook_id_fkey"
             columns: ["yearbook_id"]
             isOneToOne: false
             referencedRelation: "yearbooks"
@@ -1099,6 +1233,119 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      service_bureau_submissions: {
+        Row: {
+          created_at: string | null
+          external_reference: string | null
+          id: string
+          notes: string | null
+          package_id: string
+          service_bureau_id: string | null
+          snapshot_id: string
+          status: string
+          submitted_at: string | null
+          submitted_by: string | null
+          updated_at: string | null
+          yearbook_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          external_reference?: string | null
+          id?: string
+          notes?: string | null
+          package_id: string
+          service_bureau_id?: string | null
+          snapshot_id: string
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          updated_at?: string | null
+          yearbook_id: string
+        }
+        Update: {
+          created_at?: string | null
+          external_reference?: string | null
+          id?: string
+          notes?: string | null
+          package_id?: string
+          service_bureau_id?: string | null
+          snapshot_id?: string
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          updated_at?: string | null
+          yearbook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_bureau_submissions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "production_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_bureau_submissions_service_bureau_id_fkey"
+            columns: ["service_bureau_id"]
+            isOneToOne: false
+            referencedRelation: "service_bureaus"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_bureau_submissions_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "production_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_bureau_submissions_yearbook_id_fkey"
+            columns: ["yearbook_id"]
+            isOneToOne: false
+            referencedRelation: "yearbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_bureaus: {
+        Row: {
+          contact_name: string | null
+          created_at: string | null
+          email: string | null
+          file_requirements: Json | null
+          id: string
+          name: string
+          notes: string | null
+          submission_method: string | null
+          updated_at: string | null
+          website: string | null
+        }
+        Insert: {
+          contact_name?: string | null
+          created_at?: string | null
+          email?: string | null
+          file_requirements?: Json | null
+          id?: string
+          name: string
+          notes?: string | null
+          submission_method?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Update: {
+          contact_name?: string | null
+          created_at?: string | null
+          email?: string | null
+          file_requirements?: Json | null
+          id?: string
+          name?: string
+          notes?: string | null
+          submission_method?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Relationships: []
       }
       students: {
         Row: {
