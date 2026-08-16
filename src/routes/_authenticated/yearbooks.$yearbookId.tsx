@@ -28,7 +28,10 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { LadderTab } from "@/components/yearbook/LadderTab";
 import { PeopleTab } from "@/components/yearbook/PeopleTab";
+import { AssetLibrary } from "@/components/yearbook/assets/AssetLibrary";
+import { TeamInvitations } from "@/components/yearbook/TeamInvitations";
 import { getYearbook, addMember, removeMember } from "@/lib/yearbook.functions";
+
 
 export const Route = createFileRoute("/_authenticated/yearbooks/$yearbookId")({
   head: () => ({
