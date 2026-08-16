@@ -568,6 +568,7 @@ type PageRow = {
   blocking_reason: string | null;
   canva_design_id: string | null;
   canva_design_url: string | null;
+  design_status: string | null;
 };
 
 function PageDialog({
