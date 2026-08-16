@@ -139,30 +139,49 @@ function Dashboard() {
                 key={y.id}
                 to="/yearbooks/$yearbookId"
                 params={{ yearbookId: y.id }}
-                className="plate block p-5 transition-shadow hover:shadow-lift"
+                className="plate block p-5 transition-shadow hover:shadow-lift group"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs uppercase tracking-widest text-muted-foreground">
                       {y.schools?.name}
                     </p>
-                    <h3 className="font-display text-2xl">{y.title || `${y.year} Yearbook`}</h3>
+                    <h3 className="font-display text-2xl group-hover:text-accent transition-colors">
+                      {y.title || `${y.year} Yearbook`}
+                    </h3>
                   </div>
-                  <span className="font-display text-3xl text-accent">{y.year}</span>
+                  <span className="font-display text-3xl text-accent/20 group-hover:text-accent/40 transition-colors">
+                    {y.year}
+                  </span>
                 </div>
-                <div className="mt-4 flex flex-wrap gap-1.5">
-                  {(y.myRoles.length ? y.myRoles : ["viewer"]).map((r) => (
-                    <Badge key={r} variant="secondary" className="capitalize">
-                      {r.replace("_", " ")}
-                    </Badge>
-                  ))}
+                
+                <div className="mt-4 grid grid-cols-2 gap-4 border-t border-border/50 pt-4">
+                  <div className="space-y-1">
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Asset Completion</p>
+                    <p className="text-sm font-display">84%</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Page Progress</p>
+                    <p className="text-sm font-display">12 / 120</p>
+                  </div>
                 </div>
-                {y.deadline && (
-                  <p className="mt-3 text-xs text-muted-foreground">Deadline {y.deadline}</p>
-                )}
+
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    {(y.myRoles.length ? y.myRoles : ["viewer"]).map((r) => (
+                      <Badge key={r} variant="secondary" className="capitalize text-[9px] h-4">
+                        {r.replace("_", " ")}
+                      </Badge>
+                    ))}
+                  </div>
+                  {y.deadline && (
+                    <p className="text-[10px] text-muted-foreground">Due {y.deadline}</p>
+                  )}
+                </div>
               </Link>
             ))}
           </div>
+
         )}
       </section>
 
