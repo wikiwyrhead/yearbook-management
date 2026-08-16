@@ -55,7 +55,7 @@ export function AssetLibrary({
   const [showOnlyMine, setShowOnlyMine] = useState(!!studentId);
 
 
-  const queryKey = ["assets", yearbookId, { search, type, status }];
+  const queryKey = ["assets", yearbookId, { search, type, status, showOnlyMine }];
   const { data: assets, isLoading } = useQuery({
     queryKey,
     queryFn: () => fetchAssets({ 
@@ -65,10 +65,12 @@ export function AssetLibrary({
           search: search || undefined,
           type: type === "all" ? undefined : type,
           status: status === "all" ? undefined : status,
+          studentId: showOnlyMine ? studentId : undefined,
         }
       } 
     })
   });
+
 
   const refresh = () => qc.invalidateQueries({ queryKey });
 
