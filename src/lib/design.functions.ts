@@ -49,15 +49,27 @@ export const saveCanvaConnection = createServerFn({ method: "POST" })
     return upsertCanvaConnection(params);
   });
 
-export const disconnectCanva = createServerFn({ method: "POST" })
+export const startCanvaOAuth = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ yearbookId: z.string() }))
   .handler(async ({ data, context }) => {
-    const { requireYearbookCoordinator } = await import("./storage/access.server");
-    const { deleteCanvaConnection } = await import("./design/canva.server");
-    await requireYearbookCoordinator(context.supabase as any, context.userId, data.yearbookId);
-    return deleteCanvaConnection(data.yearbookId);
+    const { generateOAuthState } = await import("./storage/oauth-state.server");
+    const clientId = process.env["CANVA_CLIENT_ID"];
+    if (!clientId) throw new Error("Canva client ID not configured");
+    
+    const state = generateOAuthState({
+      provider: "canva",
+      scope: "organization", // Canva currently scoped to yearbook which acts like org-level for that book
+      userId: context.userId,
+      yearbookId: data.yearbookId,
+    });
+
+    return {
+      url: `https://www.canva.com/api/oauth/authorize?response_type=code&client_id=${clientId}&scope=design:content:read design:meta:read&state=${state}`
+    };
   });
+
+export const disconnectCanva = createServerFn({ method: "POST" })
 
 export const listCanvaDesigns = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

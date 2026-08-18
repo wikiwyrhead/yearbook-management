@@ -1,14 +1,14 @@
 /**
  * GoogleDriveProvider — real Google Drive API v3 access via the Lovable connector gateway.
  *
- * Two credential scopes share one code path because the gateway distinguishes
- * them by connection key:
- *  - organization: the workspace App connector key (GOOGLE_DRIVE_API_KEY)
- *  - member:       an app-user connection key (lovack_*) issued per member
+ * AUTHENTICATION ARCHITECTURE:
+ * This provider uses the "Lovable Managed Connector" model.
+ * 1. Organization: Uses GOOGLE_DRIVE_API_KEY (Managed project-level key).
+ * 2. Member: Uses lovack_* keys (Managed app-user connection keys).
  *
- * Verified against the current Google Drive API v3 reference:
- *  files.list (q, fields, pageSize, pageToken, orderBy, supportsAllDrives,
- *  includeItemsFromAllDrives, corpora), files.get (fields / alt=media).
+ * Milestone does not handle Google OAuth tokens or Client Secrets directly; the 
+ * gateway performs token exchange and refresh. Milestone only stores the opaque
+ * connection keys.
  */
 import {
   assertProviderResponse,
@@ -43,12 +43,12 @@ function connectionKey(ref: CredentialRef): string {
     if (key) return key;
     throw new ProviderNotConfiguredError(
       "google_drive",
-      "no organization Google Drive connection is linked to this project",
+      "Managed Google Drive connector is not enabled for this project.",
     );
   }
   throw new ProviderNotConfiguredError(
     "google_drive",
-    "this member has not connected their Google Drive",
+    "This member has not connected their Google Drive via the managed connector.",
   );
 }
 

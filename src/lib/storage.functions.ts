@@ -123,13 +123,34 @@ export const saveMyStorageConnection = createServerFn({ method: "POST" })
     return upsertMemberConnection({ ...data, userId: context.userId, connectionKey: data.connectionKey ?? null, accessToken: data.accessToken ?? null, refreshToken: data.refreshToken ?? null, accountEmail: data.accountEmail ?? null });
   });
 
-export const disconnectMyStorage = createServerFn({ method: "POST" })
+export const startOAuthFlow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ provider: providerEnum }))
+  .inputValidator(z.object({ provider: providerEnum, scope: scopeEnum, yearbookId: z.string().optional() }))
   .handler(async ({ data, context }) => {
-    const { disconnectMember } = await import("./storage/settings.server");
-    return disconnectMember(context.userId, data.provider);
+    const { generateOAuthState } = await import("./storage/oauth-state.server");
+    const state = generateOAuthState({
+      provider: data.provider,
+      scope: data.scope,
+      userId: context.userId,
+      yearbookId: data.yearbookId ?? null,
+    });
+
+    const protocol = process.env['NODE_ENV'] === "production" ? "https" : "http";
+    // We can't easily get the origin here in a server fn, so we'll need to pass it or use a default
+    // For now, return the partial URL or expect the client to append the origin if needed.
+    
+    if (data.provider === "box") {
+      const clientId = process.env["BOX_CLIENT_ID"];
+      if (!clientId) throw new Error("Box client ID not configured");
+      return { 
+        url: `https://account.box.com/api/oauth2/authorize?response_type=code&client_id=${clientId}&state=${state}`
+      };
+    }
+    
+    throw new Error(`OAuth not implemented for ${data.provider}`);
   });
+
+export const disconnectMyStorage = createServerFn({ method: "POST" })
 
 export const browseProvider = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
