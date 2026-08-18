@@ -3,14 +3,14 @@
  */
 import { getStorageProvider, resolveRef } from "./registry.server";
 import type { StorageProviderId } from "./storage-provider";
-import { runImport as executeImport } from "./import.server";
+import { importExternalFile } from "./import.server";
 
 export async function browse(data: {
   userId: string;
   provider: StorageProviderId;
   scope: "organization" | "member";
-  folderId?: string;
-  search?: string;
+  folderId?: string | undefined;
+  search?: string | undefined;
 }) {
   const provider = getStorageProvider(data.provider);
   const ref = await resolveRef(data.scope, data.provider, data.userId);

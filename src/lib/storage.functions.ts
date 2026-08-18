@@ -40,7 +40,7 @@ export const saveOrganizationConnection = createServerFn({ method: "POST" })
     const { requireSuperAdmin } = await import("./storage/access.server");
     const { upsertOrganizationConnection } = await import("./storage/settings.server");
     await requireSuperAdmin(context.supabase as any, context.userId);
-    return upsertOrganizationConnection({ ...data, userId: context.userId });
+    return upsertOrganizationConnection({ ...data, userId: context.userId, displayName: data.displayName ?? null, rootFolderId: data.rootFolderId ?? null, rootFolderPath: data.rootFolderPath ?? null, connectionKey: data.connectionKey ?? null, accessToken: data.accessToken ?? null, refreshToken: data.refreshToken ?? null });
   });
 
 export const disconnectOrganizationProvider = createServerFn({ method: "POST" })
@@ -80,7 +80,7 @@ export const saveYearbookStorage = createServerFn({ method: "POST" })
     const { requireYearbookCoordinator } = await import("./storage/access.server");
     const { writeYearbookStorage } = await import("./storage/settings.server");
     await requireYearbookCoordinator(context.supabase as any, context.userId, data.yearbookId);
-    return writeYearbookStorage(data);
+    return writeYearbookStorage({ ...data, provider: data.provider ?? null, folderId: data.folderId ?? null, folderPath: data.folderPath ?? null });
   });
 
 export const getMyStorageConnections = createServerFn({ method: "GET" })
@@ -103,7 +103,7 @@ export const saveMyStorageConnection = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { upsertMemberConnection } = await import("./storage/settings.server");
-    return upsertMemberConnection({ ...data, userId: context.userId });
+    return upsertMemberConnection({ ...data, userId: context.userId, connectionKey: data.connectionKey ?? null, accessToken: data.accessToken ?? null, refreshToken: data.refreshToken ?? null, accountEmail: data.accountEmail ?? null });
   });
 
 export const disconnectMyStorage = createServerFn({ method: "POST" })
