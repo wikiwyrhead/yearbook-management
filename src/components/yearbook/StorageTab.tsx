@@ -1,7 +1,8 @@
 import { StorageSettings } from "./storage/StorageSettings";
 import { MemberConnections } from "./storage/MemberConnections";
+import { CanvaSettings } from "./storage/CanvaSettings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Database, Shield, User } from "lucide-react";
+import { Database, Shield, User, Layout } from "lucide-react";
 
 export type StorageTabProps = {
   yearbookId: string;
@@ -40,6 +41,11 @@ export function StorageTab({ yearbookId, canManage }: StorageTabProps) {
             </p>
             <StorageSettings />
           </div>
+
+          <CanvaSettings 
+            yearbookId={yearbookId}
+            canManage={canManage}
+          />
         </TabsContent>
 
         <TabsContent value="member" className="mt-6">
