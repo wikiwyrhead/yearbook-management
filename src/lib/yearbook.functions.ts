@@ -923,8 +923,8 @@ export const connectCanvaDesign = createServerFn({ method: "POST" })
         .from("pages")
         .update({
           canva_design_id: design.id,
-          canva_design_url: design.url,
-          canva_design_name: design.name as any,
+          canva_design_url: data.designUrl || design.url,
+          canva_design_name: (data.designName || design.name) as any,
           canva_synced_at: design.lastSyncedAt
         } as any)
         .eq("id", data.pageId)
