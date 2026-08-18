@@ -109,7 +109,7 @@ export function StorageSettings() {
                     {status === "connected" ? (
                       <span className="flex items-center gap-1 text-green-600">
                         <CheckCircle2 className="size-3" /> 
-                        Connected as {conn.account_email || "Organization Workspace"}
+                        Connected as {conn?.account_email || "Organization Workspace"}
                       </span>
                     ) : status === "needs_reauthorization" ? (
                       <span className="flex items-center gap-1 text-amber-600">
@@ -119,7 +119,7 @@ export function StorageSettings() {
                     ) : status === "error" ? (
                       <span className="flex items-center gap-1 text-destructive">
                         <AlertCircle className="size-3" /> 
-                        {conn.last_error || "Configuration Error"}
+                        {conn?.last_error || "Configuration Error"}
                       </span>
                     ) : (
                       "Not connected"
