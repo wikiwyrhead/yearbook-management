@@ -135,15 +135,23 @@ export const startOAuthFlow = createServerFn({ method: "POST" })
       yearbookId: data.yearbookId ?? null,
     });
 
-    const protocol = process.env['NODE_ENV'] === "production" ? "https" : "http";
-    // We can't easily get the origin here in a server fn, so we'll need to pass it or use a default
-    // For now, return the partial URL or expect the client to append the origin if needed.
-    
     if (data.provider === "box") {
       const clientId = process.env["BOX_CLIENT_ID"];
       if (!clientId) throw new Error("Box client ID not configured");
       return { 
         url: `https://account.box.com/api/oauth2/authorize?response_type=code&client_id=${clientId}&state=${state}`
+      };
+    }
+
+    if (data.provider === "google_drive") {
+      // For Google Drive, we use the managed connector gateway.
+      // The gateway handles the client secret and token exchange.
+      // We just need to send the user to the authorize endpoint with the state.
+      const projectId = process.env["LOVABLE_PROJECT_ID"];
+      if (!projectId) throw new Error("LOVABLE_PROJECT_ID not set");
+      
+      return {
+        url: `https://connector-gateway.lovable.dev/google_drive/oauth/authorize?project_id=${projectId}&state=${state}`
       };
     }
     
