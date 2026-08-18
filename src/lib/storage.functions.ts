@@ -151,6 +151,12 @@ export const startOAuthFlow = createServerFn({ method: "POST" })
   });
 
 export const disconnectMyStorage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ provider: providerEnum }))
+  .handler(async ({ data, context }) => {
+    const { disconnectMember } = await import("./storage/settings.server");
+    return disconnectMember(context.userId, data.provider);
+  });
 
 export const browseProvider = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
