@@ -26,9 +26,9 @@ export type ProviderBrowserProps = {
   yearbookId: string;
   provider: "google_drive" | "box";
   scope: "organization" | "member";
-  studentId?: string;
-  sectionId?: string;
-  category?: string;
+  studentId: string | undefined;
+  sectionId?: string | undefined;
+  category?: string | undefined;
   onImportComplete?: () => void;
 };
 
