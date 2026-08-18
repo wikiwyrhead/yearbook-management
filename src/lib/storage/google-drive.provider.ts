@@ -119,11 +119,11 @@ export const googleDriveProvider: StorageProvider = {
   displayName: "Google Drive",
 
   isConfigured() {
-    return Boolean(process.env["LOVABLE_API_KEY"]);
+    return Boolean(process.env['LOVABLE_API_KEY']);
   },
 
   configurationHint() {
-    return "Link the Google Drive connector to this project to enable organization storage.";
+    return "The Google Drive Managed Connector is enabled by default. Organization-level access requires the GOOGLE_DRIVE_API_KEY environment variable.";
   },
 
   async getConnectionStatus(ref: CredentialRef): Promise<ConnectionState> {
