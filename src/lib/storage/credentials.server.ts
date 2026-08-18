@@ -30,11 +30,11 @@ export function decryptSecret(stored: string): string {
 
 export type StoredCredentials = {
   /** Lovable connector-gateway connection key (Google Drive app-user flow). */
-  connectionKey?: string;
+  connectionKey?: string | undefined;
   /** Raw OAuth access token (Box / Canva direct API). */
-  accessToken?: string;
-  refreshToken?: string;
-  expiresAt?: string;
+  accessToken?: string | undefined;
+  refreshToken?: string | undefined;
+  expiresAt?: string | undefined;
 };
 
 export function sealCredentials(creds: StoredCredentials): Record<string, string> {
