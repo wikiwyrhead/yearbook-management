@@ -32,6 +32,7 @@ import { LadderTab } from "@/components/yearbook/LadderTab";
 import { PeopleTab } from "@/components/yearbook/PeopleTab";
 import { AssetLibrary } from "@/components/yearbook/assets/AssetLibrary";
 import { TeamInvitations } from "@/components/yearbook/TeamInvitations";
+import { StorageTab } from "@/components/yearbook/StorageTab";
 import { ProofreadingCenter } from "@/components/yearbook/production/ProofreadingCenter";
 import { ProductionDashboard } from "@/components/yearbook/production/ProductionDashboard";
 import { PDFProofViewer } from "@/components/yearbook/production/PDFProofViewer";
