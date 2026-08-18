@@ -1,19 +1,13 @@
 /**
  * BoxProvider — real Box Content API v2 access.
  *
- * Box has no Lovable managed connector, so this provider calls api.box.com
- * directly with an OAuth 2.0 access token held server-side in
- * organization_storage_connections.credentials / member_storage_connections.credentials.
- *
- * Verified against the current Box Content API v2 reference:
- *  GET /2.0/folders/{id}/items (fields, limit, offset)
- *  GET /2.0/files/{id}
- *  GET /2.0/files/{id}/content (302 -> download)
- *  GET /2.0/search (query, type, limit, offset)
- *  GET /2.0/users/me
- *
- * Until a Box developer app (client id/secret) is registered, isConfigured()
- * is false and every call reports "disconnected" rather than returning fake data.
+ * AUTHENTICATION ARCHITECTURE:
+ * This provider uses custom OAuth 2.0.
+ * 1. Milestone generates a signed OAuth state token (HMAC-SHA256).
+ * 2. User authorizes at Box.com.
+ * 3. Callback route (/api/public/auth/callback) validates state.
+ * 4. Milestone exchanges code for access/refresh tokens.
+ * 5. Tokens are stored AES-256-GCM encrypted in the DB.
  */
 import {
   assertProviderResponse,

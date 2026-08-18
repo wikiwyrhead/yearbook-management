@@ -1,18 +1,11 @@
 /**
  * CanvaProvider — real Canva Connect API client.
  *
- * Verified against the current Canva Connect API reference (api.canva.com/rest/v1):
- *   GET  /v1/users/me                  -> team_id of the authorized user
- *   GET  /v1/designs/{designId}        -> design metadata + urls.view_url
- *   GET  /v1/designs?query=            -> list designs
- *   POST /v1/exports                   -> create an async export job (format.type "pdf")
- *   GET  /v1/exports/{exportId}        -> poll job; returns job.urls when success
- *
- * Canva issues short-lived download URLs, so the caller must copy the PDF into
- * Milestone's protected proof storage immediately (see createProofFromCanvaExport).
- *
- * This provider replaces the Phase 3 mock. When no Canva Connect app has been
- * registered it reports "disconnected" — it never fabricates designs or exports.
+ * AUTHENTICATION ARCHITECTURE:
+ * This provider uses custom OAuth 2.0 with PKCE.
+ * 1. Milestone generates signed state.
+ * 2. Callback route exchanges code for tokens.
+ * 3. Tokens stored encrypted at the yearbook level.
  */
 import {
   DesignProviderNotConfiguredError,
