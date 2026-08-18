@@ -334,22 +334,27 @@ function DesignDetailDialog({ yearbookId, pageId, onClose, onUpdate, canEdit }: 
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Canva Design ID</Label>
-                      <Input 
-                        placeholder="e.g. DAGF..." 
-                        value={canvaId}
-                        onChange={(e) => setCanvaId(e.target.value)}
-                      />
-                    </div>
-                    <Button 
-                      className="w-full bg-[#00C4CC] hover:bg-[#00B4BC] text-white" 
-                      onClick={handleLinkCanva}
-                      disabled={!canvaId || isLinking}
-                    >
-                      {isLinking ? "Linking..." : "Connect Canva Design"}
-                    </Button>
+                  <div className="space-y-4">
+                    <CanvaDesignPicker 
+                      yearbookId={yearbookId}
+                      selectedDesignId={page.canva_design_id}
+                      onSelect={async (id, url, title) => {
+                        try {
+                          await connectCanva({ 
+                            data: { 
+                              pageId, 
+                              canvaDesignId: id,
+                              designUrl: url,
+                              designName: title
+                            } 
+                          });
+                          toast.success("Canva design linked");
+                          onUpdate();
+                        } catch (e: any) {
+                          toast.error(e.message);
+                        }
+                      }}
+                    />
                   </div>
                 )}
               </div>
