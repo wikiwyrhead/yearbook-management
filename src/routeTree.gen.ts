@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedYearbooksYearbookIdRouteImport } from './routes/_authenticated/yearbooks.$yearbookId'
+import { Route as ApiPublicAuthCallbackRouteImport } from './routes/api/public/auth.callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,18 +41,25 @@ const AuthenticatedYearbooksYearbookIdRoute =
     path: '/yearbooks/$yearbookId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicAuthCallbackRoute = ApiPublicAuthCallbackRouteImport.update({
+  id: '/api/public/auth/callback',
+  path: '/api/public/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/yearbooks/$yearbookId': typeof AuthenticatedYearbooksYearbookIdRoute
+  '/api/public/auth/callback': typeof ApiPublicAuthCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/yearbooks/$yearbookId': typeof AuthenticatedYearbooksYearbookIdRoute
+  '/api/public/auth/callback': typeof ApiPublicAuthCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -60,12 +68,23 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/yearbooks/$yearbookId': typeof AuthenticatedYearbooksYearbookIdRoute
+  '/api/public/auth/callback': typeof ApiPublicAuthCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/dashboard' | '/yearbooks/$yearbookId'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/yearbooks/$yearbookId'
+    | '/api/public/auth/callback'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/dashboard' | '/yearbooks/$yearbookId'
+  to:
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/yearbooks/$yearbookId'
+    | '/api/public/auth/callback'
   id:
     | '__root__'
     | '/'
@@ -73,12 +92,14 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/dashboard'
     | '/_authenticated/yearbooks/$yearbookId'
+    | '/api/public/auth/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicAuthCallbackRoute: typeof ApiPublicAuthCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -118,6 +139,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedYearbooksYearbookIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/auth/callback': {
+      id: '/api/public/auth/callback'
+      path: '/api/public/auth/callback'
+      fullPath: '/api/public/auth/callback'
+      preLoaderRoute: typeof ApiPublicAuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -138,6 +166,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicAuthCallbackRoute: ApiPublicAuthCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -132,10 +132,10 @@ export const startOAuthFlow = createServerFn({ method: "POST" })
       provider: data.provider,
       scope: data.scope,
       userId: context.userId,
-      yearbookId: data.yearbookId,
+      yearbookId: data.yearbookId ?? null,
     });
 
-    const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+    const protocol = process.env['NODE_ENV'] === "production" ? "https" : "http";
     // We can't easily get the origin here in a server fn, so we'll need to pass it or use a default
     // For now, return the partial URL or expect the client to append the origin if needed.
     

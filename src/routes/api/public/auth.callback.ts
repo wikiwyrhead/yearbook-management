@@ -90,8 +90,8 @@ export const Route = createFileRoute("/api/public/auth/callback")({
              // Canva is yearbook-level in our current schema
              await supabaseAdmin.from("canva_integrations").upsert({
                yearbook_id: state.yearbookId,
-               access_token_encrypted: sealed["accessToken"],
-               refresh_token_encrypted: sealed["refreshToken"],
+               access_token_encrypted: sealed["accessToken"] ?? null,
+               refresh_token_encrypted: sealed["refreshToken"] ?? null,
                updated_at: new Date().toISOString(),
              });
           }

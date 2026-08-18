@@ -10,7 +10,7 @@ export type OAuthState = {
   provider: "google_drive" | "box" | "canva";
   scope: "organization" | "member";
   userId: string;
-  yearbookId?: string;
+  yearbookId?: string | null;
   timestamp: number;
 };
 
