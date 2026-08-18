@@ -34,6 +34,7 @@ import {
 import { getAssets, updateAssetStatus } from "@/lib/yearbook.functions";
 import { BulkUpload } from "./BulkUpload";
 import { AssetDetail } from "./AssetDetail";
+import { ProviderImportDialog } from "../storage/ProviderImportDialog";
 
 export function AssetLibrary({ 
   yearbookId, 
@@ -146,10 +147,23 @@ export function AssetLibrary({
         </div>
         <div className="flex gap-2">
           {canEdit && (
-            <BulkUpload yearbookId={yearbookId} onDone={refresh} />
+            <>
+              <ProviderImportDialog 
+                yearbookId={yearbookId} 
+                onDone={refresh} 
+              />
+              <BulkUpload yearbookId={yearbookId} onDone={refresh} />
+            </>
           )}
           {studentId && (
-             <BulkUpload yearbookId={yearbookId} onDone={refresh} studentId={studentId} label="Upload Portrait" />
+            <>
+              <ProviderImportDialog 
+                yearbookId={yearbookId} 
+                studentId={studentId}
+                onDone={refresh} 
+              />
+              <BulkUpload yearbookId={yearbookId} onDone={refresh} studentId={studentId} label="Upload Portrait" />
+            </>
           )}
         </div>
       </div>
