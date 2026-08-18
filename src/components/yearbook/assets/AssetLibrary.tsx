@@ -34,6 +34,7 @@ import {
 import { getAssets, updateAssetStatus } from "@/lib/yearbook.functions";
 import { BulkUpload } from "./BulkUpload";
 import { AssetDetail } from "./AssetDetail";
+import { ProviderImportDialog } from "../storage/ProviderImportDialog";
 
 export function AssetLibrary({ 
   yearbookId, 
