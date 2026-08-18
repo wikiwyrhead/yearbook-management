@@ -1,26 +1,40 @@
-# Phase 6A: OAuth & Provider Connection Foundation
+# Phase 6B: Provider Settings & Browse UI Implementation Plan
 
-Implement the secure OAuth lifecycle for external providers (Box, Canva) and clarify the Google Drive managed connection.
+Build the UI for managing external storage (Google Drive, Box) and Canva design integration, leveraging the existing Phase 6A server-side architecture.
 
-## 1. Unified OAuth State Management
-- Create `src/lib/storage/oauth-state.server.ts` to manage signed state tokens (HMAC-SHA256).
-- Protect against CSRF and ensure correct routing of callbacks back to the initiating user/yearbook.
+## 1. Provider Settings & Management
+- **Organization Settings**: Create `StorageSettings` component for Super Admins to manage authoritative yearbook storage.
+- **Member Settings**: Add "My Connections" section in the Team/Profile tab for personal import-only Drive/Box connections.
+- **Connection Logic**: Wire up `startOAuthFlow`, `disconnectOrganizationProvider`, and `disconnectMyStorage` server functions.
+- **Canva Integration**: Add Canva connection management to the Design Workspace.
 
-## 2. Public Auth Callback Route
-- Create `src/routes/api/public/auth.callback.ts` as the unified redirect URI.
-- Handle code exchange for Box and Canva.
-- Securely encrypt and store tokens using the existing AES-256-GCM vault.
+## 2. Browse & Import UI
+- **Unified Browser**: Create `ProviderBrowser` component that supports both Org and Member scopes.
+- **Import Flow**: Integrate with `browseProvider` and `importProviderFiles` server functions.
+- **Progress Tracking**: Show visual feedback during multi-file imports.
 
-## 3. Provider Specific Wiring
-- **Google Drive:** Clarify in code that it uses the Lovable Managed Connector (API keys vs User connection keys).
-- **Box:** Implement authorization URL generation and token exchange logic.
-- **Canva:** Implement authorization URL generation (with PKCE) and token exchange logic.
-
-## 4. Connection Ownership Enforcement
-- Verify RLS and application logic distinguish between Org-level storage and Member-level import sources.
-- Ensure Super Admin access is explicitly audited and RLS-checked.
+## 3. Canva Design Integration
+- **Design Selection**: Implement `CanvaDesignPicker` to list designs via `listCanvaDesigns`.
+- **Linking**: Replace manual ID input with a visual picker in the Design Workspace.
 
 ## Technical Details
-- **Encryption:** Requires `MILESTONE_PROVIDER_SECRET` in the environment.
-- **RLS:** Super Admin access is authorized via `is_super_admin` in policies, not by bypassing the DB security layer entirely.
-- **Storage:** Milestone remains the source of truth; imports are copies of external bytes.
+
+### Components to Create/Update
+- `src/components/yearbook/storage/StorageSettings.tsx`: Org-level storage config.
+- `src/components/yearbook/storage/MemberConnections.tsx`: User-level import sources.
+- `src/components/yearbook/storage/ProviderBrowser.tsx`: Folder/file navigation and selection.
+- `src/components/yearbook/design/CanvaDesignPicker.tsx`: Visual selection of Canva designs.
+- Update `src/components/yearbook/DesignWorkspace.tsx`: Integrate Canva picker and connection status.
+- Update `src/routes/_authenticated/yearbooks.$yearbookId.tsx`: Add "Storage" tab (or integrate into Team/Settings).
+
+### UX States
+- `CONNECTED`: Active session, show account email.
+- `DISCONNECTED`: Not linked, show "Connect" button.
+- `AWAITING CREDENTIALS`: Provider implementation present but missing API keys in environment.
+- `REAUTHORIZATION REQUIRED`: 401/Expired token state.
+- `ERROR`: General API failure.
+
+### Security
+- RLS enforced via existing server functions.
+- Organization storage (Google Drive/Box) only manageable by Super Admins.
+- Member storage is strictly IMPORT-ONLY.
