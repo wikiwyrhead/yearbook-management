@@ -95,7 +95,7 @@ export function ProviderImportDialog({
                   yearbookId={yearbookId}
                   provider={activeOrgConn.provider as any}
                   scope="organization"
-                  studentId={studentId}
+                  studentId={studentId || undefined}
                   onImportComplete={() => {
                     onDone();
                     setOpen(false);
@@ -129,7 +129,7 @@ export function ProviderImportDialog({
                   yearbookId={yearbookId}
                   provider={activeMyConn.provider as any}
                   scope="member"
-                  studentId={studentId}
+                  studentId={studentId || undefined}
                   onImportComplete={() => {
                     onDone();
                     setOpen(false);
