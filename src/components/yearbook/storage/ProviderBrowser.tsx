@@ -51,8 +51,9 @@ export function ProviderBrowser({
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
 
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["browse", provider, scope, currentFolderId, search],
+  const queryKey = ["browse", provider, scope, currentFolderId, search];
+  const { data: rawData, isLoading, error, refetch } = useQuery({
+    queryKey,
     queryFn: () => browse({ 
       data: { 
         yearbookId, 
@@ -63,6 +64,15 @@ export function ProviderBrowser({
       } 
     }),
   });
+
+  const data = useMemo(() => {
+    if (!rawData) return { folders: [], files: [] };
+    if ("folders" in rawData) {
+      return { folders: rawData.folders, files: rawData.files };
+    }
+    // Search result is ListResult<RemoteFile>
+    return { folders: [], files: rawData.items };
+  }, [rawData]);
 
   const navigateTo = (folderId: string) => {
     if (currentFolderId) {
