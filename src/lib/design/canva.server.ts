@@ -44,8 +44,8 @@ export async function upsertCanvaConnection(data: {
 
   const { error } = await supabaseAdmin.from("canva_integrations").upsert({
     yearbook_id: data.yearbookId,
-    access_token_encrypted: credentials.accessToken ?? null,
-    refresh_token_encrypted: credentials.refreshToken ?? null,
+    access_token_encrypted: credentials["accessToken"] ?? null,
+    refresh_token_encrypted: credentials["refreshToken"] ?? null,
     updated_at: new Date().toISOString(),
   });
 

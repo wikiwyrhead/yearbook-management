@@ -32,12 +32,21 @@ export const saveCanvaConnection = createServerFn({ method: "POST" })
     const { requireYearbookCoordinator } = await import("./storage/access.server");
     const { upsertCanvaConnection } = await import("./design/canva.server");
     await requireYearbookCoordinator(context.supabase as any, context.userId, data.yearbookId);
-    return upsertCanvaConnection({
-      ...data,
+    
+    // Explicit type mapping to satisfy exact optional properties
+    const params: {
+      yearbookId: string;
+      accessToken: string | null;
+      refreshToken: string | null;
+      expiresIn?: number;
+    } = {
+      yearbookId: data.yearbookId,
       accessToken: data.accessToken ?? null,
       refreshToken: data.refreshToken ?? null,
-      expiresIn: data.expiresIn ?? undefined,
-    });
+    };
+    if (data.expiresIn !== undefined) params.expiresIn = data.expiresIn;
+    
+    return upsertCanvaConnection(params);
   });
 
 export const disconnectCanva = createServerFn({ method: "POST" })
