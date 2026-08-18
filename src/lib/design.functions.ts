@@ -36,6 +36,7 @@ export const saveCanvaConnection = createServerFn({ method: "POST" })
       ...data,
       accessToken: data.accessToken ?? null,
       refreshToken: data.refreshToken ?? null,
+      expiresIn: data.expiresIn ?? undefined,
     });
   });
 
