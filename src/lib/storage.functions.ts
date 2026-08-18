@@ -96,6 +96,7 @@ export const saveYearbookStorage = createServerFn({ method: "POST" })
       folderId: data.folderId ?? null,
       folderPath: data.folderPath ?? null,
       allowMemberSources: data.allowMemberSources ?? true,
+      additionalProviders: data.additionalProviders || [],
     });
   });
 
