@@ -41,6 +41,7 @@ import {
   getProofs
 } from "@/lib/yearbook.functions";
 import { ProofUploadDialog } from "./ProofUploadDialog";
+import { CanvaDesignPicker } from "./design/CanvaDesignPicker";
 
 type DesignStatus = 'waiting_for_assets' | 'ready_for_design' | 'designing' | 'complete' | 'needs_review' | 'ready_for_proof';
 
