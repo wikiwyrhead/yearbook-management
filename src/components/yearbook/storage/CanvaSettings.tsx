@@ -7,24 +7,15 @@ import {
   Trash2, 
   RefreshCw,
   Layout,
-  ExternalLink,
-  Link as LinkIcon
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { 
   getCanvaConnection, 
   startCanvaOAuth,
   disconnectCanva
 } from "@/lib/design.functions";
-import { CanvaDesignPicker } from "./CanvaDesignPicker";
-import { connectCanvaDesign } from "@/lib/yearbook.functions";
 
 export type CanvaSettingsProps = {
   yearbookId: string;
@@ -54,7 +45,7 @@ export function CanvaSettings({ yearbookId, canManage }: CanvaSettingsProps) {
     mutationFn: () => disconnect({ data: { yearbookId } }),
     onSuccess: () => {
       toast.success("Canva disconnected");
-      qc.invalidateQueries({ queryKey: ["canva-connection"] });
+      qc.invalidateQueries({ queryKey: ["canva-connection", yearbookId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -102,10 +93,47 @@ export function CanvaSettings({ yearbookId, canManage }: CanvaSettingsProps) {
           </p>
           <p className="text-xs text-muted-foreground">
             {status === "connected" 
-              ? connection.account_email || "Linked to Canva Workspace"
+              ? "Design sync enabled"
               : "Authorize Milestone to access your Canva designs."}
           </p>
         </div>
+        
+        <div className="flex items-center gap-2">
+          {status === "disconnected" ? (
+            <Button 
+              className="bg-[#00C4CC] hover:bg-[#00B4BC] text-white"
+              onClick={() => mutationStartOAuth.mutate()}
+              disabled={mutationStartOAuth.isPending}
+            >
+              Connect Canva
+            </Button>
+          ) : (
+            <>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => mutationStartOAuth.mutate()}
+                disabled={mutationStartOAuth.isPending}
+              >
+                <RefreshCw className="mr-2 size-3" /> Reconnect
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => mutationDisconnect.mutate()}
+                disabled={mutationDisconnect.isPending}
+              >
+                <Trash2 className="mr-2 size-4" /> Disconnect
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
         
         <div className="flex items-center gap-2">
           {status === "disconnected" ? (
