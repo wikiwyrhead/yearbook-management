@@ -169,6 +169,7 @@ function Workspace() {
             <BookCheck className="size-4" /> Proofreading
           </TabsTrigger>
           <TabsTrigger value="assets">Assets</TabsTrigger>
+          <TabsTrigger value="storage">Storage</TabsTrigger>
           <TabsTrigger value="production">Production</TabsTrigger>
           <TabsTrigger value="people">People</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
@@ -210,6 +211,13 @@ function Workspace() {
             yearbookId={yearbookId} 
             canEdit={data.canEdit} 
             studentId={data.myStudentId ?? undefined} 
+          />
+        </TabsContent>
+
+        <TabsContent value="storage" className="mt-6">
+          <StorageTab 
+            yearbookId={yearbookId}
+            canManage={data.canManage}
           />
         </TabsContent>
 
