@@ -37,25 +37,30 @@ export async function runImport(data: {
   provider: StorageProviderId;
   scope: "organization" | "member";
   fileIds: string[];
-  folderId?: string;
-  studentId?: string;
-  sectionId?: string;
-  category?: string;
-  replacesAssetId?: string;
+  folderId?: string | undefined;
+  studentId?: string | undefined;
+  sectionId?: string | undefined;
+  category?: string | undefined;
+  replacesAssetId?: string | undefined;
 }) {
-  const provider = getStorageProvider(data.provider);
   const ref = await resolveRef(data.scope, data.provider, data.userId);
 
-  return executeImport({
-    supabase: (await import("@/integrations/supabase/client.server")).supabaseAdmin,
-    userId: data.userId,
-    yearbookId: data.yearbookId,
-    provider,
-    ref,
-    fileIds: data.fileIds,
-    studentId: data.studentId,
-    sectionId: data.sectionId,
-    category: data.category,
-    replacesAssetId: data.replacesAssetId,
-  });
+  // For multi-file import, we iterate.
+  const results = await Promise.all(
+    data.fileIds.map((fileId) =>
+      importExternalFile({
+        yearbookId: data.yearbookId,
+        provider: data.provider,
+        ref,
+        fileId,
+        userId: data.userId,
+        folderId: data.folderId,
+        studentId: data.studentId,
+        sectionId: data.sectionId,
+        category: data.category,
+        replacesAssetId: data.replacesAssetId,
+      }),
+    ),
+  );
+  return results[0];
 }
