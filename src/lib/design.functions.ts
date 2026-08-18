@@ -70,6 +70,14 @@ export const startCanvaOAuth = createServerFn({ method: "POST" })
   });
 
 export const disconnectCanva = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ yearbookId: z.string() }))
+  .handler(async ({ data, context }) => {
+    const { requireYearbookCoordinator } = await import("./storage/access.server");
+    const { deleteCanvaConnection } = await import("./design/canva.server");
+    await requireYearbookCoordinator(context.supabase as any, context.userId, data.yearbookId);
+    return deleteCanvaConnection(data.yearbookId);
+  });
 
 export const listCanvaDesigns = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
