@@ -27,32 +27,32 @@ export async function listOrganizationStorage() {
         accountEmail: state.accountEmail,
         detail: state.detail,
       };
-    })
+    }),
   );
 }
 
 export async function upsertOrganizationConnection(data: {
   provider: StorageProviderId;
-  displayName?: string;
-  rootFolderId?: string;
-  rootFolderPath?: string;
+  displayName?: string | null;
+  rootFolderId?: string | null;
+  rootFolderPath?: string | null;
   isDefault?: boolean;
-  connectionKey?: string;
-  accessToken?: string;
-  refreshToken?: string;
+  connectionKey?: string | null;
+  accessToken?: string | null;
+  refreshToken?: string | null;
   userId: string;
 }) {
   const credentials = sealCredentials({
-    connectionKey: data.connectionKey,
-    accessToken: data.accessToken,
-    refreshToken: data.refreshToken,
+    connectionKey: data.connectionKey ?? undefined,
+    accessToken: data.accessToken ?? undefined,
+    refreshToken: data.refreshToken ?? undefined,
   });
 
   const { error } = await supabaseAdmin.from("organization_storage_connections").upsert({
     provider: data.provider,
     display_name: data.displayName || data.provider,
-    root_folder_id: data.rootFolderId,
-    root_folder_path: data.rootFolderPath,
+    root_folder_id: data.rootFolderId ?? null,
+    root_folder_path: data.rootFolderPath ?? null,
     is_default: data.isDefault ?? false,
     credentials,
     updated_at: new Date().toISOString(),
@@ -84,18 +84,18 @@ export async function readYearbookStorage(yearbookId: string) {
 export async function writeYearbookStorage(data: {
   yearbookId: string;
   mode: "inherit_organization" | "provider" | "milestone";
-  provider?: StorageProviderId;
-  folderId?: string;
-  folderPath?: string;
+  provider?: StorageProviderId | null;
+  folderId?: string | null;
+  folderPath?: string | null;
   allowMemberSources?: boolean;
   additionalProviders?: StorageProviderId[];
 }) {
   const { error } = await supabaseAdmin.from("yearbook_storage_config").upsert({
     yearbook_id: data.yearbookId,
     mode: data.mode,
-    provider: data.provider,
-    folder_id: data.folderId,
-    folder_path: data.folderPath,
+    provider: data.provider ?? null,
+    folder_id: data.folderId ?? null,
+    folder_path: data.folderPath ?? null,
     allow_member_sources: data.allowMemberSources ?? true,
     additional_providers: data.additionalProviders || [],
     updated_at: new Date().toISOString(),
@@ -122,29 +122,29 @@ export async function listMemberConnections(userId: string) {
         accountEmail: state.accountEmail,
         detail: state.detail,
       };
-    })
+    }),
   );
 }
 
 export async function upsertMemberConnection(data: {
   provider: StorageProviderId;
   userId: string;
-  connectionKey?: string;
-  accessToken?: string;
-  refreshToken?: string;
-  accountEmail?: string;
+  connectionKey?: string | null;
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  accountEmail?: string | null;
 }) {
   const credentials = sealCredentials({
-    connectionKey: data.connectionKey,
-    accessToken: data.accessToken,
-    refreshToken: data.refreshToken,
+    connectionKey: data.connectionKey ?? undefined,
+    accessToken: data.accessToken ?? undefined,
+    refreshToken: data.refreshToken ?? undefined,
   });
 
   const { error } = await supabaseAdmin.from("member_storage_connections").upsert({
     user_id: data.userId,
     provider: data.provider,
     credentials,
-    account_email: data.accountEmail,
+    account_email: data.accountEmail ?? null,
     updated_at: new Date().toISOString(),
   });
 
