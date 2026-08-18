@@ -910,6 +910,8 @@ export const connectCanvaDesign = createServerFn({ method: "POST" })
   .inputValidator(z.object({
     pageId: z.string(),
     canvaDesignId: z.string(),
+    designUrl: z.string().optional(),
+    designName: z.string().optional()
   }))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
