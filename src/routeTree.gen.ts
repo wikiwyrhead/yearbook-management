@@ -14,7 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedYearbooksYearbookIdRouteImport } from './routes/_authenticated/yearbooks.$yearbookId'
-import { Route as ApiPublicAuthCallbackRouteImport } from './routes/api/public/auth/callback'
+import { Route as ApiPublicAuthCallbackRouteImport } from './routes/api/public/auth.callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
