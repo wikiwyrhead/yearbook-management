@@ -1,7 +1,11 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { validateOAuthState } from "@/lib/storage/oauth-state.server";
+import { createFileRoute } from "@tanstack/react-router";
+import {
+  validateOAuthState,
+  deriveCodeVerifier,
+} from "@/lib/storage/oauth-state.server";
 import { sealCredentials } from "@/lib/storage/credentials.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+
 
 export const Route = createFileRoute("/api/public/auth/callback")({
   server: {
