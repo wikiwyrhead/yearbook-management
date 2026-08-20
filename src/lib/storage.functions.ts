@@ -127,44 +127,121 @@ export const startOAuthFlow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ provider: providerEnum, scope: scopeEnum, yearbookId: z.string().optional() }))
   .handler(async ({ data, context }) => {
+    const { getRequest } = await import("@tanstack/react-start/server");
     const { generateOAuthState } = await import("./storage/oauth-state.server");
-    const state = generateOAuthState({
-      provider: data.provider,
-      scope: data.scope,
-      userId: context.userId,
-      yearbookId: data.yearbookId ?? null,
-    });
+    const origin = new URL(getRequest()!.url).origin;
 
     if (data.provider === "box") {
+      const state = generateOAuthState({
+        provider: "box",
+        scope: data.scope,
+        userId: context.userId,
+        yearbookId: data.yearbookId ?? null,
+      });
       const clientId = process.env["BOX_CLIENT_ID"];
       if (!clientId) throw new Error("Box client ID not configured");
-      return { 
-        url: `https://account.box.com/api/oauth2/authorize?response_type=code&client_id=${clientId}&state=${state}`
-      };
+      const url = new URL("https://account.box.com/api/oauth2/authorize");
+      url.searchParams.set("response_type", "code");
+      url.searchParams.set("client_id", clientId);
+      url.searchParams.set("state", state);
+      url.searchParams.set("redirect_uri", `${origin}/api/public/auth/callback`);
+      return { url: url.toString(), mode: "redirect" as const };
     }
 
     if (data.provider === "google_drive") {
-      // For Google Drive, we use the managed connector gateway.
-      // The gateway handles the client secret and token exchange.
-      // We just need to send the user to the authorize endpoint with the state.
-      const projectId = process.env["LOVABLE_PROJECT_ID"];
-      if (!projectId) throw new Error("LOVABLE_PROJECT_ID not set");
-      
-      return {
-        url: `https://connector-gateway.lovable.dev/google_drive/oauth/authorize?project_id=${projectId}&state=${state}`
-      };
+      // Member-scope Google Drive uses the Lovable App User Connector: each
+      // member consents with their own Google account and the gateway issues
+      // an opaque per-user connection key. Organization-scope Google Drive is
+      // configured by linking a workspace App connector, not through OAuth here.
+      if (data.scope !== "member") {
+        throw new Error(
+          "Organization Google Drive is configured by linking the workspace Google Drive connector, not through this OAuth flow.",
+        );
+      }
+      const clientAPIKey = process.env["GOOGLE_DRIVE_APP_USER_CONNECTOR_CLIENT_API_KEY"];
+      if (!clientAPIKey) {
+        throw new Error(
+          "Google Drive App User Connector is not configured for this project (missing client API key).",
+        );
+      }
+      const { authorizeAppUserOAuth } = await import("@/integrations/lovable/appUserConnector");
+      const { getMemberConnectionKey } = await import("./storage/settings.server");
+      const existingKey = await getMemberConnectionKey(context.userId, "google_drive");
+
+      const { authorizationUrl } = await authorizeAppUserOAuth({
+        gatewayBaseUrl: "https://connector-gateway.lovable.dev",
+        connectorId: "google_drive",
+        appUserId: context.userId,
+        clientAPIKey,
+        returnUrl: `${origin}/oauth/google-drive/return`,
+        connectionAPIKey: existingKey ?? undefined,
+        credentialsConfiguration: {
+          scopes: [
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile",
+            "https://www.googleapis.com/auth/drive.readonly",
+          ],
+        },
+      });
+      return { url: authorizationUrl, mode: "popup" as const };
     }
-    
+
     throw new Error(`OAuth not implemented for ${data.provider}`);
+  });
+
+/**
+ * Complete the member Google Drive connection: exchange the one-time code from
+ * the connector-gateway redirect for the per-user connection key and store it
+ * encrypted against the signed-in member.
+ */
+export const completeGoogleDriveConnection = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ code: z.string().min(1) }))
+  .handler(async ({ data, context }) => {
+    const { exchangeAppUserOAuthCode } = await import("@/integrations/lovable/appUserConnector");
+    const { upsertMemberConnection } = await import("./storage/settings.server");
+    const { connectionAPIKey, connectorId } = await exchangeAppUserOAuthCode(
+      "https://connector-gateway.lovable.dev",
+      data.code,
+    );
+    if (connectorId !== "google_drive") {
+      throw new Error("OAuth completion returned the wrong connector");
+    }
+    await upsertMemberConnection({
+      userId: context.userId,
+      provider: "google_drive",
+      connectionKey: connectionAPIKey,
+      accessToken: null,
+      refreshToken: null,
+      accountEmail: null,
+    });
+    return { success: true };
   });
 
 export const disconnectMyStorage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ provider: providerEnum }))
   .handler(async ({ data, context }) => {
-    const { disconnectMember } = await import("./storage/settings.server");
+    const { disconnectMember, getMemberConnectionKey } = await import("./storage/settings.server");
+    if (data.provider === "google_drive") {
+      const key = await getMemberConnectionKey(context.userId, "google_drive");
+      if (key) {
+        const { disconnectAppUser } = await import("@/integrations/lovable/appUserConnector");
+        try {
+          await disconnectAppUser({
+            gatewayBaseUrl: "https://connector-gateway.lovable.dev",
+            connectionAPIKey: key,
+            connectorId: "google_drive",
+          });
+        } catch (err) {
+          // Gateway-side revocation failure must not strand the local row.
+          console.error("Google Drive gateway disconnect failed:", err);
+        }
+      }
+    }
     return disconnectMember(context.userId, data.provider);
   });
+
 
 export const browseProvider = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

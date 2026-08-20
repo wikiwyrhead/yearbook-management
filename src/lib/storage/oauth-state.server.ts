@@ -4,7 +4,7 @@
  * This module handles generation and validation of OAuth 'state' parameters,
  * ensuring that callbacks are correctly routed and authorized.
  */
-import { randomBytes, createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 export type OAuthState = {
   provider: "google_drive" | "box" | "canva";
@@ -50,4 +50,21 @@ export function validateOAuthState(token: string): OAuthState {
   }
 
   return state;
+}
+
+/**
+ * PKCE (RFC 7636) support for providers that require it (Canva Connect).
+ *
+ * The verifier is DERIVED from the signed state token with the server secret,
+ * so it never travels in a URL, cookie, or database row: only this server can
+ * recompute it in the callback from the state it issued.
+ */
+export function deriveCodeVerifier(stateToken: string): string {
+  const payload = stateToken.split(".")[0];
+  if (!payload) throw new Error("Invalid state format");
+  return createHmac("sha256", secret()).update(`pkce:${payload}`).digest("base64url");
+}
+
+export function codeChallengeS256(verifier: string): string {
+  return createHash("sha256").update(verifier).digest("base64url");
 }

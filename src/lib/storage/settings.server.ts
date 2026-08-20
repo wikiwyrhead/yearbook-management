@@ -161,3 +161,24 @@ export async function disconnectMember(userId: string, provider: StorageProvider
   if (error) throw error;
   return { success: true };
 }
+
+/**
+ * Server-only read of a member's decrypted connection key (lovack_*).
+ * Never returned to the browser — used to authorize gateway calls and
+ * gateway-side revocation.
+ */
+export async function getMemberConnectionKey(
+  userId: string,
+  provider: StorageProviderId,
+): Promise<string | null> {
+  const { openCredentials } = await import("./credentials.server");
+  const { data, error } = await supabaseAdmin
+    .from("member_storage_connections")
+    .select("credentials")
+    .eq("user_id", userId)
+    .eq("provider", provider)
+    .maybeSingle();
+  if (error) throw error;
+  const creds = openCredentials((data as any)?.credentials);
+  return creds.connectionKey ?? null;
+}

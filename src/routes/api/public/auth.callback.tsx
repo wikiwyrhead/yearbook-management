@@ -1,7 +1,11 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { validateOAuthState } from "@/lib/storage/oauth-state.server";
+import { createFileRoute } from "@tanstack/react-router";
+import {
+  validateOAuthState,
+  deriveCodeVerifier,
+} from "@/lib/storage/oauth-state.server";
 import { sealCredentials } from "@/lib/storage/credentials.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+
 
 export const Route = createFileRoute("/api/public/auth/callback")({
   server: {
@@ -38,6 +42,7 @@ export const Route = createFileRoute("/api/public/auth/callback")({
                 code,
                 client_id: process.env["BOX_CLIENT_ID"]!,
                 client_secret: process.env["BOX_CLIENT_SECRET"]!,
+                redirect_uri: `${url.origin}/api/public/auth/callback`,
               }),
             });
             if (!res.ok) throw new Error(`Box token exchange failed: ${await res.text()}`);
@@ -55,15 +60,19 @@ export const Route = createFileRoute("/api/public/auth/callback")({
               body: new URLSearchParams({
                 grant_type: "authorization_code",
                 code,
-                code_verifier: "TODO_PKCE_VERIFIER", // Canva requires PKCE
+                // PKCE (S256) verifier, recomputed from the signed state token.
+                code_verifier: deriveCodeVerifier(stateToken),
                 redirect_uri: `${url.origin}/api/public/auth/callback`,
               }),
             });
             if (!res.ok) throw new Error(`Canva token exchange failed: ${await res.text()}`);
             tokens = await res.json();
           } else {
+            // Google Drive uses the Lovable App User Connector gateway and
+            // completes at /oauth/google-drive/return, never here.
             throw new Error(`Unsupported provider for custom OAuth callback: ${state.provider}`);
           }
+
 
           // 3. Encrypt and store tokens
           const sealed = sealCredentials({
