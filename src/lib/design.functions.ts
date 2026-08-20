@@ -53,10 +53,13 @@ export const startCanvaOAuth = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ yearbookId: z.string() }))
   .handler(async ({ data, context }) => {
-    const { generateOAuthState } = await import("./storage/oauth-state.server");
+    const { getRequest } = await import("@tanstack/react-start/server");
+    const { generateOAuthState, deriveCodeVerifier, codeChallengeS256 } = await import(
+      "./storage/oauth-state.server"
+    );
     const clientId = process.env["CANVA_CLIENT_ID"];
     if (!clientId) throw new Error("Canva client ID not configured");
-    
+
     const state = generateOAuthState({
       provider: "canva",
       scope: "organization", // Canva currently scoped to yearbook which acts like org-level for that book
@@ -64,9 +67,24 @@ export const startCanvaOAuth = createServerFn({ method: "POST" })
       yearbookId: data.yearbookId,
     });
 
-    return {
-      url: `https://www.canva.com/api/oauth/authorize?response_type=code&client_id=${clientId}&scope=design:content:read design:meta:read&state=${state}`
-    };
+    // Canva Connect mandates PKCE (S256). The verifier is derived from the
+    // signed state, so the callback can recompute it without storing it.
+    const challenge = codeChallengeS256(deriveCodeVerifier(state));
+
+    const request = getRequest();
+    const origin = new URL(request!.url).origin;
+    const redirectUri = `${origin}/api/public/auth/callback`;
+
+    const url = new URL("https://www.canva.com/api/oauth/authorize");
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("client_id", clientId);
+    url.searchParams.set("scope", "design:content:read design:meta:read");
+    url.searchParams.set("state", state);
+    url.searchParams.set("code_challenge", challenge);
+    url.searchParams.set("code_challenge_method", "S256");
+    url.searchParams.set("redirect_uri", redirectUri);
+
+    return { url: url.toString() };
   });
 
 export const disconnectCanva = createServerFn({ method: "POST" })
