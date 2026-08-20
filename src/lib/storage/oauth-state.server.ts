@@ -4,7 +4,7 @@
  * This module handles generation and validation of OAuth 'state' parameters,
  * ensuring that callbacks are correctly routed and authorized.
  */
-import { randomBytes, createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 export type OAuthState = {
   provider: "google_drive" | "box" | "canva";
