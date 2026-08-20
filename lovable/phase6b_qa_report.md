@@ -9,10 +9,10 @@ Phase 6B ("Provider Settings & Browse UI") has been implemented and successfully
 
 | Test | Status | Notes |
 | :--- | :--- | :--- |
-| **Google Drive Organization** | AWAITING CREDENTIALS | Requires `GOOGLE_DRIVE_API_KEY`. |
-| **Google Drive Member Import** | AWAITING CREDENTIALS | Requires `LOVABLE_API_KEY` (Present) + User Auth. |
+| **Google Drive Organization** | AWAITING CREDENTIALS | Requires linked Google Drive App Connector. |
+| **Google Drive Member Import** | AWAITING CREDENTIALS | Requires `GOOGLE_DRIVE_APP_USER_CONNECTOR_CLIENT_API_KEY`. |
 | **Box Organization** | AWAITING CREDENTIALS | Requires `BOX_CLIENT_ID` and `BOX_CLIENT_SECRET`. |
-| **Canva OAuth** | AWAITING CREDENTIALS | Requires `CANVA_CLIENT_ID` and `CANVA_CLIENT_SECRET`. |
+| **Canva OAuth** | AWAITING CREDENTIALS | PKCE (S256) verified. Requires `CANVA_CLIENT_ID` and `CANVA_CLIENT_SECRET`. |
 | **Canva Design Picker** | AWAITING CREDENTIALS | Requires valid Canva access token. |
 | **Cloud Import** | PASS (Logic Only) | Verified file-to-Milestone asset conversion logic. |
 | **Connection States** | PASS | Verified UI handles CONNECTED/DISCONNECTED/ERROR states. |
