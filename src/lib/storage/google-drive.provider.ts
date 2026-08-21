@@ -1,14 +1,11 @@
 /**
- * GoogleDriveProvider — real Google Drive API v3 access via the Lovable connector gateway.
+ * GoogleDriveProvider — Supports both Lovable Managed Connector and Standalone Mode.
  *
- * AUTHENTICATION ARCHITECTURE:
- * This provider uses the "Lovable Managed Connector" model.
- * 1. Organization: Uses GOOGLE_DRIVE_API_KEY (Managed project-level key).
- * 2. Member: Uses lovack_* keys (Managed app-user connection keys).
- *
- * Milestone does not handle Google OAuth tokens or Client Secrets directly; the 
- * gateway performs token exchange and refresh. Milestone only stores the opaque
- * connection keys.
+ * ARCHITECTURE:
+ * 1. Standalone Mode (Portable): Triggered by GOOGLE_CLIENT_ID/SECRET in env.
+ *    Uses direct Google Drive API v3.
+ * 2. Managed Mode (Lovable): Fallback when GOOGLE_CLIENT_ID is missing.
+ *    Uses connector-gateway.lovable.dev.
  */
 import {
   assertProviderResponse,
@@ -24,6 +21,7 @@ import {
 } from "./storage-provider";
 
 const GATEWAY = "https://connector-gateway.lovable.dev/google_drive/drive/v3";
+const GOOGLE_API = "https://www.googleapis.com/drive/v3";
 const FOLDER_MIME = "application/vnd.google-apps.folder";
 const FILE_FIELDS =
   "id,name,mimeType,size,modifiedTime,webViewLink,thumbnailLink,parents";
@@ -35,6 +33,10 @@ const GOOGLE_EXPORT_MAP: Record<string, string> = {
   "application/vnd.google-apps.presentation": "application/pdf",
   "application/vnd.google-apps.drawing": "image/png",
 };
+
+function isStandalone(): boolean {
+  return Boolean(process.env["GOOGLE_CLIENT_ID"] && process.env["GOOGLE_CLIENT_SECRET"]);
+}
 
 function connectionKey(ref: CredentialRef): string {
   if (ref.connectionKey) return ref.connectionKey;
@@ -56,17 +58,43 @@ async function driveFetch(
   ref: CredentialRef,
   path: string,
   params?: Record<string, string | number | undefined>,
+  init?: RequestInit,
 ): Promise<Response> {
+  const standalone = isStandalone();
+
+  if (standalone) {
+    if (!ref.accessToken) {
+      throw new ProviderNotConfiguredError("google_drive", "Access token missing for standalone mode");
+    }
+    const url = new URL(`${GOOGLE_API}${path}`);
+    for (const [k, v] of Object.entries(params ?? {})) {
+      if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
+    }
+    const res = await fetch(url.toString(), {
+      ...init,
+      headers: {
+        ...(init?.headers ?? {}),
+        Authorization: `Bearer ${ref.accessToken}`,
+      },
+    });
+    // In standalone mode, if 401, the caller (storage.functions) should handle refresh
+    await assertProviderResponse(res, "google_drive");
+    return res;
+  }
+
+  // Managed Fallback
   const lovableKey = process.env["LOVABLE_API_KEY"];
   if (!lovableKey) {
-    throw new ProviderNotConfiguredError("google_drive", "LOVABLE_API_KEY is missing");
+    throw new ProviderNotConfiguredError("google_drive", "LOVABLE_API_KEY is missing (needed for managed gateway fallback)");
   }
   const url = new URL(`${GATEWAY}${path}`);
   for (const [k, v] of Object.entries(params ?? {})) {
     if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
   }
   const res = await fetch(url.toString(), {
+    ...init,
     headers: {
+      ...(init?.headers ?? {}),
       Authorization: `Bearer ${lovableKey}`,
       "X-Connection-Api-Key": connectionKey(ref),
     },
@@ -119,11 +147,12 @@ export const googleDriveProvider: StorageProvider = {
   displayName: "Google Drive",
 
   isConfigured() {
-    return Boolean(process.env['LOVABLE_API_KEY']);
+    return isStandalone() || Boolean(process.env['LOVABLE_API_KEY']);
   },
 
   configurationHint() {
-    return "The Google Drive Managed Connector is enabled by default. Organization-level access requires the GOOGLE_DRIVE_API_KEY environment variable.";
+    if (isStandalone()) return "Standalone Mode: Using custom Google Client ID.";
+    return "Managed Mode: Organization-level access requires the GOOGLE_DRIVE_API_KEY environment variable.";
   },
 
   async getConnectionStatus(ref: CredentialRef): Promise<ConnectionState> {
@@ -202,3 +231,4 @@ export const googleDriveProvider: StorageProvider = {
     };
   },
 };
+
