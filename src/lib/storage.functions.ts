@@ -140,7 +140,7 @@ export const startOAuthFlow = createServerFn({ method: "POST" })
 
     if (data.provider === "box") {
       const clientId = process.env["BOX_CLIENT_ID"];
-      if (!clientId) throw new Error("Box client ID not configured");
+      if (!clientId) throw new Error("Box client ID is not configured in environment variables.");
       const url = new URL("https://account.box.com/api/oauth2/authorize");
       url.searchParams.set("response_type", "code");
       url.searchParams.set("client_id", clientId);
@@ -151,107 +151,35 @@ export const startOAuthFlow = createServerFn({ method: "POST" })
 
     if (data.provider === "google_drive") {
       const clientId = process.env["GOOGLE_CLIENT_ID"];
-      
-      // Standalone Mode
-      if (clientId) {
-        const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-        url.searchParams.set("response_type", "code");
-        url.searchParams.set("client_id", clientId);
-        url.searchParams.set("state", state);
-        url.searchParams.set("redirect_uri", `${origin}/api/public/auth/callback`);
-        url.searchParams.set("access_type", "offline");
-        url.searchParams.set("prompt", "consent");
-        url.searchParams.set("scope", [
-          "https://www.googleapis.com/auth/userinfo.email",
-          "https://www.googleapis.com/auth/userinfo.profile",
-          "https://www.googleapis.com/auth/drive.readonly",
-        ].join(" "));
-        return { url: url.toString(), mode: "redirect" as const };
+      const clientSecret = process.env["GOOGLE_CLIENT_SECRET"];
+
+      if (!clientId || !clientSecret) {
+        throw new Error("Google Drive is not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.");
       }
 
-      // Managed Fallback (Lovable)
-      if (data.scope !== "member") {
-        throw new Error("Organization Google Drive is configured by linking the workspace Google Drive connector, not through this OAuth flow.");
-      }
-      const clientAPIKey = process.env["GOOGLE_DRIVE_APP_USER_CONNECTOR_CLIENT_API_KEY"];
-      if (!clientAPIKey) throw new Error("Google Drive App User Connector is not configured.");
-
-      const { authorizeAppUserOAuth } = await import("@/integrations/lovable/appUserConnector");
-      const { getMemberConnectionKey } = await import("./storage/settings.server");
-      const existingKey = await getMemberConnectionKey(context.userId, "google_drive");
-
-      const { authorizationUrl } = await authorizeAppUserOAuth({
-        gatewayBaseUrl: "https://connector-gateway.lovable.dev",
-        connectorId: "google_drive",
-        appUserId: context.userId,
-        clientAPIKey,
-        returnUrl: `${origin}/oauth/google-drive/return`,
-        connectionAPIKey: existingKey ?? undefined,
-        credentialsConfiguration: {
-          scopes: [
-            "https://www.googleapis.com/auth/userinfo.email",
-            "https://www.googleapis.com/auth/userinfo.profile",
-            "https://www.googleapis.com/auth/drive.readonly",
-          ],
-        },
-      });
-      return { url: authorizationUrl, mode: "popup" as const };
+      const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+      url.searchParams.set("response_type", "code");
+      url.searchParams.set("client_id", clientId);
+      url.searchParams.set("state", state);
+      url.searchParams.set("redirect_uri", `${origin}/api/public/auth/callback`);
+      url.searchParams.set("access_type", "offline");
+      url.searchParams.set("prompt", "consent");
+      url.searchParams.set("scope", [
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/userinfo.profile",
+        "https://www.googleapis.com/auth/drive.readonly",
+      ].join(" "));
+      return { url: url.toString(), mode: "redirect" as const };
     }
 
     throw new Error(`OAuth not implemented for ${data.provider}`);
-  });
-
-
-/**
- * Complete the member Google Drive connection: exchange the one-time code from
- * the connector-gateway redirect for the per-user connection key and store it
- * encrypted against the signed-in member.
- */
-export const completeGoogleDriveConnection = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ code: z.string().min(1) }))
-  .handler(async ({ data, context }) => {
-    const { exchangeAppUserOAuthCode } = await import("@/integrations/lovable/appUserConnector");
-    const { upsertMemberConnection } = await import("./storage/settings.server");
-    const { connectionAPIKey, connectorId } = await exchangeAppUserOAuthCode(
-      "https://connector-gateway.lovable.dev",
-      data.code,
-    );
-    if (connectorId !== "google_drive") {
-      throw new Error("OAuth completion returned the wrong connector");
-    }
-    await upsertMemberConnection({
-      userId: context.userId,
-      provider: "google_drive",
-      connectionKey: connectionAPIKey,
-      accessToken: null,
-      refreshToken: null,
-      accountEmail: null,
-    });
-    return { success: true };
   });
 
 export const disconnectMyStorage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ provider: providerEnum }))
   .handler(async ({ data, context }) => {
-    const { disconnectMember, getMemberConnectionKey } = await import("./storage/settings.server");
-    if (data.provider === "google_drive") {
-      const key = await getMemberConnectionKey(context.userId, "google_drive");
-      if (key) {
-        const { disconnectAppUser } = await import("@/integrations/lovable/appUserConnector");
-        try {
-          await disconnectAppUser({
-            gatewayBaseUrl: "https://connector-gateway.lovable.dev",
-            connectionAPIKey: key,
-            connectorId: "google_drive",
-          });
-        } catch (err) {
-          // Gateway-side revocation failure must not strand the local row.
-          console.error("Google Drive gateway disconnect failed:", err);
-        }
-      }
-    }
+    const { disconnectMember } = await import("./storage/settings.server");
     return disconnectMember(context.userId, data.provider);
   });
 

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -16,52 +15,12 @@ import {
   getMyStorageConnections, 
   startOAuthFlow, 
   disconnectMyStorage,
-  completeGoogleDriveConnection,
 } from "@/lib/storage.functions";
-
-const CONNECTOR_ID = "google_drive";
-
-/**
- * Resolve the one-time OAuth code posted back by the popup landing page.
- * Only same-origin messages from the popup, for the expected connector, count.
- */
-function waitForOAuthCompletion(popup: Window): Promise<string | null> {
-  return new Promise((resolve, reject) => {
-    let poll: number | undefined;
-    const cleanup = () => {
-      window.removeEventListener("message", onMessage);
-      if (poll !== undefined) window.clearInterval(poll);
-    };
-    const onMessage = (event: MessageEvent) => {
-      const type = event.data?.type;
-      if (
-        event.origin !== window.location.origin ||
-        event.source !== popup ||
-        event.data?.connectorId !== CONNECTOR_ID ||
-        (type !== "appUserConnectorOAuthComplete" && type !== "appUserConnectorOAuthFailed")
-      ) return;
-      cleanup();
-      if (type === "appUserConnectorOAuthComplete") {
-        resolve(typeof event.data?.code === "string" ? event.data.code : null);
-        return;
-      }
-      popup.close();
-      reject(new Error("Google Drive authorization failed."));
-    };
-    window.addEventListener("message", onMessage);
-    poll = window.setInterval(() => {
-      if (!popup.closed) return;
-      cleanup();
-      reject(new Error("Authorization window closed before completion."));
-    }, 500);
-  });
-}
 
 export function MemberConnections() {
   const fetchMyStorage = useServerFn(getMyStorageConnections);
   const startOAuth = useServerFn(startOAuthFlow);
   const disconnect = useServerFn(disconnectMyStorage);
-  const completeConnection = useServerFn(completeGoogleDriveConnection);
   const qc = useQueryClient();
 
   const { data: connections, isLoading } = useQuery({
@@ -71,26 +30,9 @@ export function MemberConnections() {
 
   const mutationStartOAuth = useMutation({
     mutationFn: async (provider: "google_drive" | "box") => {
-      // The consent screen cannot render inside the app frame, so it always
-      // opens in a popup started from the user gesture.
-      const popup = window.open("", "milestone-oauth", "width=600,height=720");
-      if (!popup) throw new Error("Popup blocked. Allow popups and try again.");
-      try {
-        const res = await startOAuth({ data: { provider, scope: "member" } });
-        if (!res.url) throw new Error("No authorization URL returned.");
-        const completion = waitForOAuthCompletion(popup);
-        popup.location.href = res.url;
-        const code = await completion;
-        // Exchange in the opener: the popup has no app session.
-        if (code) await completeConnection({ data: { code } });
-      } catch (err) {
-        popup.close();
-        throw err;
-      }
-    },
-    onSuccess: () => {
-      toast.success("Google Drive connected");
-      qc.invalidateQueries({ queryKey: ["my-storage"] });
+      const res = await startOAuth({ data: { provider, scope: "member" } });
+      if (!res?.url) throw new Error("No authorization URL returned.");
+      window.location.href = res.url;
     },
     onError: (e: Error) => toast.error(e.message),
   });

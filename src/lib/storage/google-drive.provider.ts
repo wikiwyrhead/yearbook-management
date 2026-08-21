@@ -1,10 +1,8 @@
 /**
- * GoogleDriveProvider — Direct Google Drive API v3 (Primary Standalone) & Optional Legacy Gateway Fallback.
+ * GoogleDriveProvider — Direct Google Drive API v3 (Standalone Mode).
  *
- * ARCHITECTURE:
- * 1. Standalone Direct Mode (Primary / Portable): Triggered by GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in env.
- *    Uses direct Google Drive API v3 (https://www.googleapis.com/drive/v3) and standard Google OAuth 2.0.
- * 2. Optional Legacy Gateway Fallback: Used only if standalone credentials are not configured.
+ * Uses direct Google Drive API v3 (https://www.googleapis.com/drive/v3)
+ * with standard Google OAuth 2.0.
  */
 import {
   assertProviderResponse,
@@ -19,7 +17,6 @@ import {
   type StorageProvider,
 } from "./storage-provider";
 
-const GATEWAY = "https://connector-gateway.lovable.dev/google_drive/drive/v3";
 const GOOGLE_API = "https://www.googleapis.com/drive/v3";
 const FOLDER_MIME = "application/vnd.google-apps.folder";
 const FILE_FIELDS =
@@ -37,56 +34,16 @@ function isStandalone(): boolean {
   return Boolean(process.env["GOOGLE_CLIENT_ID"] && process.env["GOOGLE_CLIENT_SECRET"]);
 }
 
-function connectionKey(ref: CredentialRef): string {
-  if (ref.connectionKey) return ref.connectionKey;
-  if (ref.scope === "organization") {
-    const key = process.env["GOOGLE_DRIVE_API_KEY"];
-    if (key) return key;
-    throw new ProviderNotConfiguredError(
-      "google_drive",
-      "Managed Google Drive connector is not enabled for this project.",
-    );
-  }
-  throw new ProviderNotConfiguredError(
-    "google_drive",
-    "This member has not connected their Google Drive via the managed connector.",
-  );
-}
-
 async function driveFetch(
   ref: CredentialRef,
   path: string,
   params?: Record<string, string | number | undefined>,
   init?: RequestInit,
 ): Promise<Response> {
-  const standalone = isStandalone();
-
-  if (standalone) {
-    if (!ref.accessToken) {
-      throw new ProviderNotConfiguredError("google_drive", "Access token missing for standalone mode");
-    }
-    const url = new URL(`${GOOGLE_API}${path}`);
-    for (const [k, v] of Object.entries(params ?? {})) {
-      if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
-    }
-    const res = await fetch(url.toString(), {
-      ...init,
-      headers: {
-        ...(init?.headers ?? {}),
-        Authorization: `Bearer ${ref.accessToken}`,
-      },
-    });
-    // In standalone mode, if 401, the caller (storage.functions) should handle refresh
-    await assertProviderResponse(res, "google_drive");
-    return res;
+  if (!ref.accessToken) {
+    throw new ProviderNotConfiguredError("google_drive", "Access token missing for Google Drive.");
   }
-
-  // Managed Fallback
-  const lovableKey = process.env["LOVABLE_API_KEY"];
-  if (!lovableKey) {
-    throw new ProviderNotConfiguredError("google_drive", "LOVABLE_API_KEY is missing (needed for managed gateway fallback)");
-  }
-  const url = new URL(`${GATEWAY}${path}`);
+  const url = new URL(`${GOOGLE_API}${path}`);
   for (const [k, v] of Object.entries(params ?? {})) {
     if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
   }
@@ -94,8 +51,7 @@ async function driveFetch(
     ...init,
     headers: {
       ...(init?.headers ?? {}),
-      Authorization: `Bearer ${lovableKey}`,
-      "X-Connection-Api-Key": connectionKey(ref),
+      Authorization: `Bearer ${ref.accessToken}`,
     },
   });
   await assertProviderResponse(res, "google_drive");
@@ -146,12 +102,11 @@ export const googleDriveProvider: StorageProvider = {
   displayName: "Google Drive",
 
   isConfigured() {
-    return isStandalone() || Boolean(process.env['LOVABLE_API_KEY']);
+    return isStandalone();
   },
 
   configurationHint() {
-    if (isStandalone()) return "Standalone Mode: Using custom Google Client ID.";
-    return "Managed Mode: Organization-level access requires the GOOGLE_DRIVE_API_KEY environment variable.";
+    return "Direct Google Drive API v3 configured via GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.";
   },
 
   async getConnectionStatus(ref: CredentialRef): Promise<ConnectionState> {
@@ -230,4 +185,3 @@ export const googleDriveProvider: StorageProvider = {
     };
   },
 };
-
