@@ -8,7 +8,8 @@ import {
   MessageSquarePlus,
   CheckCircle2,
   X,
-  List
+  List,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,9 +23,12 @@ import {
   SheetTitle,
   SheetTrigger
 } from '@/components/ui/sheet';
+import { Document, Page, pdfjs } from 'react-pdf';
 
-// Note: In a real implementation, we would use react-pdf/renderer or pdf.js
-// For this architecture-first Phase 4, we provide the UI framework and coordinate capture logic.
+// Configure standard PDF.js worker
+if (typeof window !== 'undefined') {
+  pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+}
 
 interface PDFProofViewerProps {
   yearbookId: string;
@@ -36,8 +40,10 @@ interface PDFProofViewerProps {
 
 export function PDFProofViewer({ yearbookId, proofUrl, initialPage = 1, onAddCorrection, corrections }: PDFProofViewerProps) {
   const [page, setPage] = useState(initialPage);
+  const [numPages, setNumPages] = useState<number>(128);
   const [zoom, setZoom] = useState(100);
   const [isAnnotating, setIsAnnotating] = useState(false);
+  const [pdfLoadError, setPdfLoadError] = useState(false);
   const viewerRef = useRef<HTMLDivElement>(null);
 
   const handleViewerClick = (e: React.MouseEvent) => {
@@ -47,9 +53,11 @@ export function PDFProofViewer({ yearbookId, proofUrl, initialPage = 1, onAddCor
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     
-    onAddCorrection(page, x, y);
+    onAddCorrection(page, Math.round(x * 100) / 100, Math.round(y * 100) / 100);
     setIsAnnotating(false);
   };
+
+  const pageWidthPx = 8.5 * zoom * 1.1;
 
   return (
     <div className="flex flex-col h-[calc(100vh-12rem)] bg-muted/20 border rounded-lg overflow-hidden">
@@ -63,11 +71,11 @@ export function PDFProofViewer({ yearbookId, proofUrl, initialPage = 1, onAddCor
             <Input 
               className="h-8 w-12 text-center p-0" 
               value={page} 
-              onChange={e => setPage(Number(e.target.value))} 
+              onChange={e => setPage(Math.max(1, Math.min(numPages, Number(e.target.value) || 1)))} 
             />
-            <span className="text-xs text-muted-foreground">/ 128</span>
+            <span className="text-xs text-muted-foreground">/ {numPages}</span>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => setPage(p => p + 1)}>
+          <Button variant="ghost" size="icon" onClick={() => setPage(p => Math.min(numPages, p + 1))}>
             <ChevronRight className="size-4" />
           </Button>
         </div>
@@ -80,7 +88,7 @@ export function PDFProofViewer({ yearbookId, proofUrl, initialPage = 1, onAddCor
             onClick={() => setIsAnnotating(!isAnnotating)}
           >
             <MessageSquarePlus className="size-4" />
-            {isAnnotating ? "Click to point" : "Add Correction"}
+            {isAnnotating ? "Click on page to place" : "Add Correction"}
           </Button>
           <Separator orientation="vertical" className="h-6" />
           <Button variant="ghost" size="icon" onClick={() => setZoom(z => Math.max(50, z - 10))}>
@@ -140,15 +148,43 @@ export function PDFProofViewer({ yearbookId, proofUrl, initialPage = 1, onAddCor
           ref={viewerRef}
           className="bg-white shadow-2xl relative transition-all duration-200"
           style={{ 
-            width: `${8.5 * zoom}px`, 
-            height: `${11 * zoom}px`,
+            width: `${pageWidthPx}px`, 
+            minHeight: `${pageWidthPx * 1.294}px`,
             cursor: isAnnotating ? 'crosshair' : 'default'
           }}
         >
-          {/* Placeholder for PDF Page content */}
-          <div className="absolute inset-0 flex items-center justify-center text-zinc-300 font-display text-4xl select-none">
-            PAGE {page}
-          </div>
+          {/* Real PDF Rendering via react-pdf when valid proofUrl exists */}
+          {proofUrl && !pdfLoadError ? (
+            <Document
+              file={proofUrl}
+              onLoadSuccess={({ numPages: total }) => {
+                setNumPages(total);
+                setPdfLoadError(false);
+              }}
+              onLoadError={() => setPdfLoadError(true)}
+              loading={
+                <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
+                  Loading PDF Page {page}...
+                </div>
+              }
+            >
+              <Page 
+                pageNumber={page} 
+                width={pageWidthPx}
+                renderTextLayer={false}
+                renderAnnotationLayer={false}
+              />
+            </Document>
+          ) : (
+            /* Fallback layout preview when waiting for PDF upload */
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-300 font-display select-none p-6 text-center">
+              <FileText className="size-16 mb-4 text-zinc-400 opacity-60" />
+              <div className="text-3xl font-bold tracking-tight text-zinc-500">PAGE {page}</div>
+              <p className="text-xs text-zinc-400 mt-2 max-w-xs">
+                {proofUrl ? "Proof PDF rendering..." : "Upload a PDF proof to render active spread pages."}
+              </p>
+            </div>
+          )}
 
           {/* Annotations Overlay */}
           {corrections.filter(c => c.page_number === page).map(c => (
@@ -158,7 +194,8 @@ export function PDFProofViewer({ yearbookId, proofUrl, initialPage = 1, onAddCor
               style={{
                 left: `${c.coordinates.x}%`,
                 top: `${c.coordinates.y}%`,
-                transform: 'translate(-50%, -50%)'
+                transform: 'translate(-50%, -50%)',
+                zIndex: 40
               }}
             >
               <div className={`size-6 rounded-full border-2 border-white shadow-lg flex items-center justify-center ${
@@ -175,18 +212,18 @@ export function PDFProofViewer({ yearbookId, proofUrl, initialPage = 1, onAddCor
             </div>
           ))}
 
-          {/* New Point Marker (Draft) */}
+          {/* New Point Marker (Draft crosshair overlay) */}
           {isAnnotating && (
-            <div className="absolute inset-0 pointer-events-none border-2 border-blue-500/50" />
+            <div className="absolute inset-0 pointer-events-none border-2 border-primary/60 bg-primary/5" />
           )}
         </div>
       </div>
 
       {/* Footer / Info */}
       <div className="h-8 border-t bg-background px-4 flex items-center text-[10px] text-muted-foreground">
-        <span className="flex items-center gap-1"><CheckCircle2 className="size-3" /> Fully Synced</span>
+        <span className="flex items-center gap-1"><CheckCircle2 className="size-3" /> PDF Engine Active</span>
         <Separator orientation="vertical" className="h-3 mx-3" />
-        <span>Yearbook Production Build 4.0.2</span>
+        <span>Yearbook Production Engine</span>
       </div>
     </div>
   );
