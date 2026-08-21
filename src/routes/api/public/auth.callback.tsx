@@ -60,18 +60,31 @@ export const Route = createFileRoute("/api/public/auth/callback")({
               body: new URLSearchParams({
                 grant_type: "authorization_code",
                 code,
-                // PKCE (S256) verifier, recomputed from the signed state token.
                 code_verifier: deriveCodeVerifier(stateToken),
                 redirect_uri: `${url.origin}/api/public/auth/callback`,
               }),
             });
             if (!res.ok) throw new Error(`Canva token exchange failed: ${await res.text()}`);
             tokens = await res.json();
+          } else if (state.provider === "google_drive") {
+            // Standalone Google Drive token exchange
+            const res = await fetch("https://oauth2.googleapis.com/token", {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: new URLSearchParams({
+                grant_type: "authorization_code",
+                code,
+                client_id: process.env["GOOGLE_CLIENT_ID"]!,
+                client_secret: process.env["GOOGLE_CLIENT_SECRET"]!,
+                redirect_uri: `${url.origin}/api/public/auth/callback`,
+              }),
+            });
+            if (!res.ok) throw new Error(`Google token exchange failed: ${await res.text()}`);
+            tokens = await res.json();
           } else {
-            // Google Drive uses the Lovable App User Connector gateway and
-            // completes at /oauth/google-drive/return, never here.
             throw new Error(`Unsupported provider for custom OAuth callback: ${state.provider}`);
           }
+
 
 
           // 3. Encrypt and store tokens
