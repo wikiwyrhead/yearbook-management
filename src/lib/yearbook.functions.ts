@@ -2,9 +2,9 @@
  * Yearbook System - Phase 3 Canva & Production Workflow
  * 
  * '''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''
-                                        
-                                            
-                                            finalize thi sapp and then push to github main adn portable branch
+ *                                        
+ *                                            
+ *                                            is the app ready and alreayd been pulish to github?
  * 
  * Architecture Decisions:
  * 1. Multi-tenancy: Enforced at the RLS level using security definer functions.
