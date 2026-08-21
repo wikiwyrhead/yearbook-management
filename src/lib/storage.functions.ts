@@ -129,7 +129,9 @@ export const startOAuthFlow = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { getRequest } = await import("@tanstack/react-start/server");
     const { generateOAuthState, deriveCodeVerifier, codeChallengeS256 } = await import("./storage/oauth-state.server");
-    const origin = process.env["VITE_APP_URL"] || new URL(getRequest()!.url).origin;
+    const { getOAuthCallbackUrl } = await import("./app-url");
+    const request = getRequest();
+    const redirectUri = getOAuthCallbackUrl(request);
 
     const state = generateOAuthState({
       provider: data.provider,
@@ -145,7 +147,7 @@ export const startOAuthFlow = createServerFn({ method: "POST" })
       url.searchParams.set("response_type", "code");
       url.searchParams.set("client_id", clientId);
       url.searchParams.set("state", state);
-      url.searchParams.set("redirect_uri", `${origin}/api/public/auth/callback`);
+      url.searchParams.set("redirect_uri", redirectUri);
       return { url: url.toString(), mode: "redirect" as const };
     }
 
@@ -161,7 +163,7 @@ export const startOAuthFlow = createServerFn({ method: "POST" })
       url.searchParams.set("response_type", "code");
       url.searchParams.set("client_id", clientId);
       url.searchParams.set("state", state);
-      url.searchParams.set("redirect_uri", `${origin}/api/public/auth/callback`);
+      url.searchParams.set("redirect_uri", redirectUri);
       url.searchParams.set("access_type", "offline");
       url.searchParams.set("prompt", "consent");
       url.searchParams.set("scope", [

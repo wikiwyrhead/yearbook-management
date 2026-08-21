@@ -56,11 +56,12 @@ function AuthPage() {
   async function signUp(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    const { getAppBaseUrl } = await import("@/lib/app-url");
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
+        emailRedirectTo: `${getAppBaseUrl()}/dashboard`,
         data: { full_name: fullName },
       },
     });
@@ -74,10 +75,11 @@ function AuthPage() {
 
   async function google() {
     setBusy(true);
+    const { getAppBaseUrl } = await import("@/lib/app-url");
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/dashboard`,
+        redirectTo: `${getAppBaseUrl()}/dashboard`,
       },
     });
     setBusy(false);

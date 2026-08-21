@@ -67,13 +67,11 @@ export const startCanvaOAuth = createServerFn({ method: "POST" })
       yearbookId: data.yearbookId,
     });
 
-    // Canva Connect mandates PKCE (S256). The verifier is derived from the
-    // signed state, so the callback can recompute it without storing it.
     const challenge = codeChallengeS256(deriveCodeVerifier(state));
 
+    const { getOAuthCallbackUrl } = await import("./app-url");
     const request = getRequest();
-    const origin = new URL(request!.url).origin;
-    const redirectUri = `${origin}/api/public/auth/callback`;
+    const redirectUri = getOAuthCallbackUrl(request);
 
     const url = new URL("https://www.canva.com/api/oauth/authorize");
     url.searchParams.set("response_type", "code");

@@ -27,6 +27,9 @@ export const Route = createFileRoute("/api/public/auth/callback")({
         }
 
         try {
+          const { getOAuthCallbackUrl } = await import("@/lib/app-url");
+          const redirectUri = getOAuthCallbackUrl(request);
+
           // 1. Validate state (CSRF protection + routing context)
           const state = validateOAuthState(stateToken);
           
@@ -42,7 +45,7 @@ export const Route = createFileRoute("/api/public/auth/callback")({
                 code,
                 client_id: process.env["BOX_CLIENT_ID"]!,
                 client_secret: process.env["BOX_CLIENT_SECRET"]!,
-                redirect_uri: `${url.origin}/api/public/auth/callback`,
+                redirect_uri: redirectUri,
               }),
             });
             if (!res.ok) throw new Error(`Box token exchange failed: ${await res.text()}`);
@@ -61,7 +64,7 @@ export const Route = createFileRoute("/api/public/auth/callback")({
                 grant_type: "authorization_code",
                 code,
                 code_verifier: deriveCodeVerifier(stateToken),
-                redirect_uri: `${url.origin}/api/public/auth/callback`,
+                redirect_uri: redirectUri,
               }),
             });
             if (!res.ok) throw new Error(`Canva token exchange failed: ${await res.text()}`);
@@ -76,7 +79,7 @@ export const Route = createFileRoute("/api/public/auth/callback")({
                 code,
                 client_id: process.env["GOOGLE_CLIENT_ID"]!,
                 client_secret: process.env["GOOGLE_CLIENT_SECRET"]!,
-                redirect_uri: `${url.origin}/api/public/auth/callback`,
+                redirect_uri: redirectUri,
               }),
             });
             if (!res.ok) throw new Error(`Google token exchange failed: ${await res.text()}`);
