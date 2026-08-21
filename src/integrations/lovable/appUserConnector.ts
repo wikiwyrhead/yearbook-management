@@ -1,12 +1,8 @@
 /**
- * App User Connector helpers (Lovable connector gateway).
+ * App User Connector helpers (Optional Legacy Gateway Fallback).
  *
- * SERVER-ONLY. Reads LOVABLE_API_KEY from process.env. Never import this from
- * a route component, loader, or any client-bundled module.
- *
- * Used by Milestone for MEMBER-scope Google Drive: each member authorizes
- * their own Google account and the gateway issues an opaque per-user
- * connection key (`lovack_*`) that Milestone stores encrypted.
+ * SERVER-ONLY. Used ONLY when standalone GOOGLE_CLIENT_ID & GOOGLE_CLIENT_SECRET
+ * are not configured. Standalone Direct Google Drive API v3 is the primary runtime mode.
  */
 
 function requireApiKey(): string {

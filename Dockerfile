@@ -1,14 +1,12 @@
 # Multi-stage Dockerfile for TanStack Start (Node.js SSR)
-FROM node:20-slim AS base
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+FROM node:22-slim AS base
+WORKDIR /usr/src/app
 
 FROM base AS build
-COPY . /usr/src/app
-WORKDIR /usr/src/app
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
-RUN pnpm run build
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
 
 FROM base AS runner
 WORKDIR /usr/src/app
@@ -21,3 +19,4 @@ ENV PORT=8080
 EXPOSE 8080
 
 CMD ["node", ".output/server/index.mjs"]
+

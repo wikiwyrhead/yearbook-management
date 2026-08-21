@@ -1,11 +1,10 @@
 /**
- * GoogleDriveProvider — Supports both Lovable Managed Connector and Standalone Mode.
+ * GoogleDriveProvider — Direct Google Drive API v3 (Primary Standalone) & Optional Legacy Gateway Fallback.
  *
  * ARCHITECTURE:
- * 1. Standalone Mode (Portable): Triggered by GOOGLE_CLIENT_ID/SECRET in env.
- *    Uses direct Google Drive API v3.
- * 2. Managed Mode (Lovable): Fallback when GOOGLE_CLIENT_ID is missing.
- *    Uses connector-gateway.lovable.dev.
+ * 1. Standalone Direct Mode (Primary / Portable): Triggered by GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in env.
+ *    Uses direct Google Drive API v3 (https://www.googleapis.com/drive/v3) and standard Google OAuth 2.0.
+ * 2. Optional Legacy Gateway Fallback: Used only if standalone credentials are not configured.
  */
 import {
   assertProviderResponse,
