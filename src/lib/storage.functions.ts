@@ -128,16 +128,17 @@ export const startOAuthFlow = createServerFn({ method: "POST" })
   .inputValidator(z.object({ provider: providerEnum, scope: scopeEnum, yearbookId: z.string().optional() }))
   .handler(async ({ data, context }) => {
     const { getRequest } = await import("@tanstack/react-start/server");
-    const { generateOAuthState } = await import("./storage/oauth-state.server");
-    const origin = new URL(getRequest()!.url).origin;
+    const { generateOAuthState, deriveCodeVerifier, codeChallengeS256 } = await import("./storage/oauth-state.server");
+    const origin = process.env["VITE_APP_URL"] || new URL(getRequest()!.url).origin;
+
+    const state = generateOAuthState({
+      provider: data.provider,
+      scope: data.scope,
+      userId: context.userId,
+      yearbookId: data.yearbookId ?? null,
+    });
 
     if (data.provider === "box") {
-      const state = generateOAuthState({
-        provider: "box",
-        scope: data.scope,
-        userId: context.userId,
-        yearbookId: data.yearbookId ?? null,
-      });
       const clientId = process.env["BOX_CLIENT_ID"];
       if (!clientId) throw new Error("Box client ID not configured");
       const url = new URL("https://account.box.com/api/oauth2/authorize");
@@ -149,21 +150,32 @@ export const startOAuthFlow = createServerFn({ method: "POST" })
     }
 
     if (data.provider === "google_drive") {
-      // Member-scope Google Drive uses the Lovable App User Connector: each
-      // member consents with their own Google account and the gateway issues
-      // an opaque per-user connection key. Organization-scope Google Drive is
-      // configured by linking a workspace App connector, not through OAuth here.
+      const clientId = process.env["GOOGLE_CLIENT_ID"];
+      
+      // Standalone Mode
+      if (clientId) {
+        const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+        url.searchParams.set("response_type", "code");
+        url.searchParams.set("client_id", clientId);
+        url.searchParams.set("state", state);
+        url.searchParams.set("redirect_uri", `${origin}/api/public/auth/callback`);
+        url.searchParams.set("access_type", "offline");
+        url.searchParams.set("prompt", "consent");
+        url.searchParams.set("scope", [
+          "https://www.googleapis.com/auth/userinfo.email",
+          "https://www.googleapis.com/auth/userinfo.profile",
+          "https://www.googleapis.com/auth/drive.readonly",
+        ].join(" "));
+        return { url: url.toString(), mode: "redirect" as const };
+      }
+
+      // Managed Fallback (Lovable)
       if (data.scope !== "member") {
-        throw new Error(
-          "Organization Google Drive is configured by linking the workspace Google Drive connector, not through this OAuth flow.",
-        );
+        throw new Error("Organization Google Drive is configured by linking the workspace Google Drive connector, not through this OAuth flow.");
       }
       const clientAPIKey = process.env["GOOGLE_DRIVE_APP_USER_CONNECTOR_CLIENT_API_KEY"];
-      if (!clientAPIKey) {
-        throw new Error(
-          "Google Drive App User Connector is not configured for this project (missing client API key).",
-        );
-      }
+      if (!clientAPIKey) throw new Error("Google Drive App User Connector is not configured.");
+
       const { authorizeAppUserOAuth } = await import("@/integrations/lovable/appUserConnector");
       const { getMemberConnectionKey } = await import("./storage/settings.server");
       const existingKey = await getMemberConnectionKey(context.userId, "google_drive");
@@ -188,6 +200,7 @@ export const startOAuthFlow = createServerFn({ method: "POST" })
 
     throw new Error(`OAuth not implemented for ${data.provider}`);
   });
+
 
 /**
  * Complete the member Google Drive connection: exchange the one-time code from
