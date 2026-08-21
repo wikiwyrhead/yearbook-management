@@ -7,7 +7,13 @@
  */
 
 export function getAppBaseUrl(request?: Request): string {
-  // 1. Check environment variable (configured VITE_APP_URL or APP_URL)
+  // 1. Check window.__ENV__ in browser
+  const winEnv = (typeof window !== "undefined" && (window as any).__ENV__) || {};
+  if (winEnv.VITE_APP_URL && typeof winEnv.VITE_APP_URL === "string" && winEnv.VITE_APP_URL.trim().length > 0) {
+    return winEnv.VITE_APP_URL.trim().replace(/\/+$/, "");
+  }
+
+  // 2. Check environment variable (configured VITE_APP_URL or APP_URL)
   const envUrl = (typeof process !== "undefined" && (process.env["VITE_APP_URL"] || process.env["APP_URL"])) ||
     (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_APP_URL);
 
