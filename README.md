@@ -72,6 +72,15 @@ Pre-seeded testing accounts with standard password: **`Yearbook2026!`**
 
 ---
 
+## 🤝 Collaborative Editorial Roles
+
+- **Coordinators**: Manage master ladder, approve Canva spreads, and release press snapshots.
+- **Faculty Advisers**: Digital galley review, annotation pins, and quota sign-offs.
+- **Editorial Staff**: Section drafting, photo tagging, and student caption assignments.
+- **Student Contributors**: Portrait uploads, senior quotes, and live print layout previews.
+
+---
+
 ## 🏗️ Architecture & Technology Stack
 
 - **SSR Framework**: TanStack Start / Nitro / Vite
