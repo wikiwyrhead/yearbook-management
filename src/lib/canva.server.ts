@@ -14,7 +14,7 @@ export type CanvaDesign = {
 
 export type CanvaExportJob = {
   id: string;
-  status: 'processing' | 'completed' | 'failed';
+  status: "processing" | "completed" | "failed";
   downloadUrl?: string;
   error?: string;
 };
@@ -36,7 +36,7 @@ export const canvaService = {
     // Simulated async export
     return {
       id: `job_${Math.random().toString(36).substring(7)}`,
-      status: 'processing',
+      status: "processing",
     };
   },
 
@@ -44,8 +44,8 @@ export const canvaService = {
     // Simulated job completion
     return {
       id: jobId,
-      status: 'completed',
-      downloadUrl: 'https://example.com/mock-yearbook-proof.pdf',
+      status: "completed",
+      downloadUrl: "https://example.com/mock-yearbook-proof.pdf",
     };
-  }
+  },
 };

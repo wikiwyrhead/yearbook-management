@@ -29,9 +29,9 @@ export function decryptSecret(stored: string): string {
 }
 
 export type StoredCredentials = {
-  /** Lovable connector-gateway connection key (Google Drive app-user flow). */
+  /** Optional legacy connection key. */
   connectionKey?: string | undefined;
-  /** Raw OAuth access token (Box / Canva direct API). */
+  /** Raw OAuth access token (Google Drive / Box / Canva direct API). */
   accessToken?: string | undefined;
   refreshToken?: string | undefined;
   expiresAt?: string | undefined;

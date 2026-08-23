@@ -10,11 +10,7 @@
 
 export type StorageProviderId = "google_drive" | "box";
 
-export type ConnectionStatus =
-  | "connected"
-  | "needs_reauthorization"
-  | "disconnected"
-  | "error";
+export type ConnectionStatus = "connected" | "needs_reauthorization" | "disconnected" | "error";
 
 export type ConnectionState = {
   status: ConnectionStatus;
@@ -31,12 +27,30 @@ export type ConnectionState = {
  * A member ref can NEVER be used for yearbook production storage writes.
  */
 export type CredentialRef =
-  | { scope: "organization"; connectionKey?: string | undefined; accessToken?: string | undefined }
+  | {
+      scope: "center";
+      centerId: string;
+      connectionKey?: string | undefined;
+      accessToken?: string | undefined;
+      refreshToken?: string | undefined;
+      expiresAt?: string | undefined;
+      rootFolderId?: string | undefined;
+    }
+  | {
+      scope: "organization";
+      connectionKey?: string | undefined;
+      accessToken?: string | undefined;
+      refreshToken?: string | undefined;
+      expiresAt?: string | undefined;
+      rootFolderId?: string | undefined;
+    }
   | {
       scope: "member";
       userId: string;
       connectionKey?: string | undefined;
       accessToken?: string | undefined;
+      refreshToken?: string | undefined;
+      expiresAt?: string | undefined;
     };
 
 export type RemoteFolder = {
@@ -84,9 +98,21 @@ export interface StorageProvider {
 
   getConnectionStatus(ref: CredentialRef): Promise<ConnectionState>;
 
-  listFolders(ref: CredentialRef, parentId?: string, opts?: ListOptions): Promise<ListResult<RemoteFolder>>;
-  listFiles(ref: CredentialRef, folderId?: string, opts?: ListOptions): Promise<ListResult<RemoteFile>>;
-  searchFiles(ref: CredentialRef, query: string, opts?: ListOptions): Promise<ListResult<RemoteFile>>;
+  listFolders(
+    ref: CredentialRef,
+    parentId?: string,
+    opts?: ListOptions,
+  ): Promise<ListResult<RemoteFolder>>;
+  listFiles(
+    ref: CredentialRef,
+    folderId?: string,
+    opts?: ListOptions,
+  ): Promise<ListResult<RemoteFile>>;
+  searchFiles(
+    ref: CredentialRef,
+    query: string,
+    opts?: ListOptions,
+  ): Promise<ListResult<RemoteFile>>;
 
   getFileMetadata(ref: CredentialRef, fileId: string): Promise<RemoteFile>;
   downloadFile(ref: CredentialRef, fileId: string): Promise<DownloadedFile>;

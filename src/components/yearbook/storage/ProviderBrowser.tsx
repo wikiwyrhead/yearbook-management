@@ -1,19 +1,19 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { 
-  Folder, 
-  File, 
-  Search, 
-  ChevronRight, 
-  ChevronLeft, 
-  Download, 
-  Check, 
+import {
+  Folder,
+  File,
+  Search,
+  ChevronRight,
+  ChevronLeft,
+  Download,
+  Check,
   Loader2,
   AlertCircle,
   Clock,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,7 @@ export function ProviderBrowser({
   studentId,
   sectionId,
   category,
-  onImportComplete
+  onImportComplete,
 }: ProviderBrowserProps) {
   const browse = useServerFn(browseProvider);
   const runImport = useServerFn(importProviderFiles);
@@ -52,17 +52,23 @@ export function ProviderBrowser({
   const [importProgress, setImportProgress] = useState(0);
 
   const queryKey = ["browse", provider, scope, currentFolderId, search];
-  const { data: rawData, isLoading, error, refetch } = useQuery({
+  const {
+    data: rawData,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey,
-    queryFn: () => browse({ 
-      data: { 
-        yearbookId, 
-        provider, 
-        scope, 
-        folderId: currentFolderId, 
-        search: search || undefined 
-      } 
-    }),
+    queryFn: () =>
+      browse({
+        data: {
+          yearbookId,
+          provider,
+          scope,
+          folderId: currentFolderId,
+          search: search || undefined,
+        },
+      }),
   });
 
   const data = useMemo(() => {
@@ -76,7 +82,7 @@ export function ProviderBrowser({
 
   const navigateTo = (folderId: string) => {
     if (currentFolderId) {
-      setHistory(prev => [...prev, currentFolderId]);
+      setHistory((prev) => [...prev, currentFolderId]);
     }
     setCurrentFolderId(folderId);
     setSearch("");
@@ -99,10 +105,10 @@ export function ProviderBrowser({
 
   const handleImport = async () => {
     if (selectedIds.size === 0) return;
-    
+
     setIsImporting(true);
     setImportProgress(0);
-    
+
     const ids = Array.from(selectedIds);
     let successCount = 0;
     let failCount = 0;
@@ -119,10 +125,10 @@ export function ProviderBrowser({
           studentId,
           sectionId,
           category,
-          folderId: currentFolderId
-        }
+          folderId: currentFolderId,
+        },
       });
-      
+
       successCount = ids.length;
       toast.success(`Successfully imported ${successCount} files`);
       setSelectedIds(new Set());
@@ -171,9 +177,9 @@ export function ProviderBrowser({
 
         <div className="relative flex-1 max-w-[200px]">
           <Search className="absolute left-2 top-2 size-3.5 text-muted-foreground" />
-          <Input 
-            placeholder="Search..." 
-            className="h-8 pl-8 text-xs" 
+          <Input
+            placeholder="Search..."
+            className="h-8 pl-8 text-xs"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -200,9 +206,9 @@ export function ProviderBrowser({
           </div>
         ) : (
           <div className="divide-y">
-            {data?.folders?.map(folder => (
-              <div 
-                key={folder.id} 
+            {data?.folders?.map((folder) => (
+              <div
+                key={folder.id}
                 className="flex items-center p-3 hover:bg-muted/50 cursor-pointer group"
                 onClick={() => navigateTo(folder.id)}
               >
@@ -211,15 +217,17 @@ export function ProviderBrowser({
                 <ChevronRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100" />
               </div>
             ))}
-            {data?.files?.map(file => {
+            {data?.files?.map((file) => {
               const isSelected = selectedIds.has(file.id);
               return (
-                <div 
-                  key={file.id} 
-                  className={`flex items-center p-3 hover:bg-muted/50 cursor-pointer group ${isSelected ? 'bg-accent/5' : ''}`}
+                <div
+                  key={file.id}
+                  className={`flex items-center p-3 hover:bg-muted/50 cursor-pointer group ${isSelected ? "bg-accent/5" : ""}`}
                   onClick={() => toggleSelection(file.id)}
                 >
-                  <div className={`size-4 rounded-sm border mr-3 flex items-center justify-center transition-colors ${isSelected ? 'bg-accent border-accent' : 'border-muted-foreground/30'}`}>
+                  <div
+                    className={`size-4 rounded-sm border mr-3 flex items-center justify-center transition-colors ${isSelected ? "bg-accent border-accent" : "border-muted-foreground/30"}`}
+                  >
                     {isSelected && <Check className="size-3 text-white" />}
                   </div>
                   <File className="size-4 text-muted-foreground/60 mr-3" />
@@ -227,16 +235,18 @@ export function ProviderBrowser({
                     <p className="text-xs font-medium truncate">{file.name}</p>
                     <p className="text-[10px] text-muted-foreground flex items-center gap-2">
                       <span>{formatSize(file.size)}</span>
-                      {file.modifiedAt && <span>• {new Date(file.modifiedAt).toLocaleDateString()}</span>}
+                      {file.modifiedAt && (
+                        <span>• {new Date(file.modifiedAt).toLocaleDateString()}</span>
+                      )}
                     </p>
                   </div>
                   {file.webUrl && (
-                    <a 
-                      href={file.webUrl} 
-                      target="_blank" 
-                      rel="noreferrer" 
+                    <a
+                      href={file.webUrl}
+                      target="_blank"
+                      rel="noreferrer"
                       className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded"
-                      onClick={e => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <ExternalLink className="size-3 text-muted-foreground" />
                     </a>
@@ -260,15 +270,11 @@ export function ProviderBrowser({
         </p>
         <div className="flex items-center gap-2">
           {isImporting && (
-             <div className="w-24 mr-2">
-               <Progress value={importProgress} className="h-1" />
-             </div>
+            <div className="w-24 mr-2">
+              <Progress value={importProgress} className="h-1" />
+            </div>
           )}
-          <Button 
-            size="sm" 
-            disabled={selectedIds.size === 0 || isImporting}
-            onClick={handleImport}
-          >
+          <Button size="sm" disabled={selectedIds.size === 0 || isImporting} onClick={handleImport}>
             {isImporting ? (
               <Loader2 className="mr-2 size-3 animate-spin" />
             ) : (

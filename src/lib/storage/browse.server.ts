@@ -7,13 +7,15 @@ import { importExternalFile } from "./import.server";
 
 export async function browse(data: {
   userId: string;
+  targetId?: string;
   provider: StorageProviderId;
-  scope: "organization" | "member";
+  scope: "center" | "organization" | "member";
   folderId?: string | undefined;
   search?: string | undefined;
 }) {
   const provider = getStorageProvider(data.provider);
-  const ref = await resolveRef(data.scope, data.provider, data.userId);
+  const target = data.targetId || data.userId;
+  const ref = await resolveRef(data.scope, data.provider, target);
 
   if (data.search) {
     return provider.searchFiles(ref, data.search, { pageSize: 50 });
@@ -33,9 +35,10 @@ export async function browse(data: {
 
 export async function runImport(data: {
   userId: string;
+  targetId?: string;
   yearbookId: string;
   provider: StorageProviderId;
-  scope: "organization" | "member";
+  scope: "center" | "organization" | "member";
   fileIds: string[];
   folderId?: string | undefined;
   studentId?: string | undefined;
@@ -43,7 +46,8 @@ export async function runImport(data: {
   category?: string | undefined;
   replacesAssetId?: string | undefined;
 }) {
-  const ref = await resolveRef(data.scope, data.provider, data.userId);
+  const target = data.targetId || data.userId;
+  const ref = await resolveRef(data.scope, data.provider, target);
 
   // For multi-file import, we iterate.
   const results = await Promise.all(

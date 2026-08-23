@@ -53,7 +53,10 @@ export function PeopleTab({ yearbookId, canEdit }: { yearbookId: string; canEdit
   const fetchPeople = useServerFn(getPeople);
   const qc = useQueryClient();
   const key = ["people", yearbookId];
-  const { data } = useQuery({ queryKey: key, queryFn: () => fetchPeople({ data: { yearbookId } }) });
+  const { data } = useQuery({
+    queryKey: key,
+    queryFn: () => fetchPeople({ data: { yearbookId } }),
+  });
   const refresh = () => qc.invalidateQueries({ queryKey: key });
 
   return (
@@ -72,15 +75,22 @@ export function PeopleTab({ yearbookId, canEdit }: { yearbookId: string; canEdit
           {canEdit && <PersonDialog kind={kind} yearbookId={yearbookId} onDone={refresh} />}
           <div className="plate mt-3 divide-y">
             {(data?.[kind] ?? []).map((row: Record<string, unknown>) => (
-              <div key={String(row['id'])} className="flex items-center gap-3 p-3">
+              <div key={String(row["id"])} className="flex items-center gap-3 p-3">
                 <div className="flex-1">
                   <p className="font-medium">
                     {kind === "classes"
-                      ? String(row['name'] ?? "")
-                      : `${row['preferred_name'] || row['first_name']} ${row['last_name']}`}
+                      ? String(row["name"] ?? "")
+                      : `${row["preferred_name"] || row["first_name"]} ${row["last_name"]}`}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {[row['grade'] && `Grade ${row['grade']}`, row['title'], row['department'], row['teacher_name'], row['email'], row['student_number']]
+                    {[
+                      row["grade"] && `Grade ${row["grade"]}`,
+                      row["title"],
+                      row["department"],
+                      row["teacher_name"],
+                      row["email"],
+                      row["student_number"],
+                    ]
                       .filter(Boolean)
                       .join(" · ") || "—"}
                   </p>
@@ -93,7 +103,7 @@ export function PeopleTab({ yearbookId, canEdit }: { yearbookId: string; canEdit
                       onDone={refresh}
                       existing={row}
                     />
-                    <DeleteButton kind={kind} id={String(row['id'])} onDone={refresh} />
+                    <DeleteButton kind={kind} id={String(row["id"])} onDone={refresh} />
                   </>
                 )}
               </div>
@@ -175,7 +185,7 @@ function PersonDialog({
                 table: kind,
                 yearbookId,
                 values: values as never,
-                ...(existing ? { id: String(existing['id']) } : {}),
+                ...(existing ? { id: String(existing["id"]) } : {}),
               },
             })
               .then(() => {

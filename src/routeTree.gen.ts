@@ -14,8 +14,8 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedYearbooksYearbookIdRouteImport } from './routes/_authenticated/yearbooks.$yearbookId'
-import { Route as OauthGoogleDriveReturnRouteImport } from './routes/oauth.google-drive.return'
 import { Route as ApiPublicAuthCallbackRouteImport } from './routes/api/public/auth.callback'
+import { Route as ApiPublicCanvaReturnRouteImport } from './routes/api/public/canva.return'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -42,14 +42,14 @@ const AuthenticatedYearbooksYearbookIdRoute =
     path: '/yearbooks/$yearbookId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const OauthGoogleDriveReturnRoute = OauthGoogleDriveReturnRouteImport.update({
-  id: '/oauth/google-drive/return',
-  path: '/oauth/google-drive/return',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiPublicAuthCallbackRoute = ApiPublicAuthCallbackRouteImport.update({
   id: '/api/public/auth/callback',
   path: '/api/public/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicCanvaReturnRoute = ApiPublicCanvaReturnRouteImport.update({
+  id: '/api/public/canva/return',
+  path: '/api/public/canva/return',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -58,16 +58,16 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/yearbooks/$yearbookId': typeof AuthenticatedYearbooksYearbookIdRoute
-  '/oauth/google-drive/return': typeof OauthGoogleDriveReturnRoute
   '/api/public/auth/callback': typeof ApiPublicAuthCallbackRoute
+  '/api/public/canva/return': typeof ApiPublicCanvaReturnRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/yearbooks/$yearbookId': typeof AuthenticatedYearbooksYearbookIdRoute
-  '/oauth/google-drive/return': typeof OauthGoogleDriveReturnRoute
   '/api/public/auth/callback': typeof ApiPublicAuthCallbackRoute
+  '/api/public/canva/return': typeof ApiPublicCanvaReturnRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -76,8 +76,8 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/yearbooks/$yearbookId': typeof AuthenticatedYearbooksYearbookIdRoute
-  '/oauth/google-drive/return': typeof OauthGoogleDriveReturnRoute
   '/api/public/auth/callback': typeof ApiPublicAuthCallbackRoute
+  '/api/public/canva/return': typeof ApiPublicCanvaReturnRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -86,16 +86,16 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/yearbooks/$yearbookId'
-    | '/oauth/google-drive/return'
     | '/api/public/auth/callback'
+    | '/api/public/canva/return'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/dashboard'
     | '/yearbooks/$yearbookId'
-    | '/oauth/google-drive/return'
     | '/api/public/auth/callback'
+    | '/api/public/canva/return'
   id:
     | '__root__'
     | '/'
@@ -103,16 +103,16 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/dashboard'
     | '/_authenticated/yearbooks/$yearbookId'
-    | '/oauth/google-drive/return'
     | '/api/public/auth/callback'
+    | '/api/public/canva/return'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
-  OauthGoogleDriveReturnRoute: typeof OauthGoogleDriveReturnRoute
   ApiPublicAuthCallbackRoute: typeof ApiPublicAuthCallbackRoute
+  ApiPublicCanvaReturnRoute: typeof ApiPublicCanvaReturnRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -152,18 +152,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedYearbooksYearbookIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/oauth/google-drive/return': {
-      id: '/oauth/google-drive/return'
-      path: '/oauth/google-drive/return'
-      fullPath: '/oauth/google-drive/return'
-      preLoaderRoute: typeof OauthGoogleDriveReturnRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/auth/callback': {
       id: '/api/public/auth/callback'
       path: '/api/public/auth/callback'
       fullPath: '/api/public/auth/callback'
       preLoaderRoute: typeof ApiPublicAuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/canva/return': {
+      id: '/api/public/canva/return'
+      path: '/api/public/canva/return'
+      fullPath: '/api/public/canva/return'
+      preLoaderRoute: typeof ApiPublicCanvaReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -186,8 +186,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
-  OauthGoogleDriveReturnRoute: OauthGoogleDriveReturnRoute,
   ApiPublicAuthCallbackRoute: ApiPublicAuthCallbackRoute,
+  ApiPublicCanvaReturnRoute: ApiPublicCanvaReturnRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

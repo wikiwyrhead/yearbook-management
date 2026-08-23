@@ -3,41 +3,47 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Mail, UserPlus, Clock, CheckCircle2, XCircle, Trash2 } from "lucide-react";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { inviteUser, getInvitations } from "@/lib/yearbook.functions";
 
 const ROLES = ["coordinator", "staff", "proofreader", "corrector", "student"];
 
-export function TeamInvitations({ yearbookId, canManage }: { yearbookId: string; canManage: boolean }) {
+export function TeamInvitations({
+  yearbookId,
+  canManage,
+}: {
+  yearbookId: string;
+  canManage: boolean;
+}) {
   const sendInvite = useServerFn(inviteUser);
   const fetchInvites = useServerFn(getInvitations);
   const qc = useQueryClient();
-  
+
   const [open, setOpen] = useState(false);
   const [role, setRole] = useState("staff");
 
   const queryKey = ["invitations", yearbookId];
   const { data: invites, isLoading } = useQuery({
     queryKey,
-    queryFn: () => fetchInvites({ data: { yearbookId } })
+    queryFn: () => fetchInvites({ data: { yearbookId } }),
   });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -75,7 +81,13 @@ export function TeamInvitations({ yearbookId, canManage }: { yearbookId: string;
               <form onSubmit={handleSubmit} className="space-y-4 pt-4">
                 <div className="space-y-2">
                   <Label htmlFor="i-email">Email Address</Label>
-                  <Input id="i-email" name="email" type="email" placeholder="colleague@school.edu" required />
+                  <Input
+                    id="i-email"
+                    name="email"
+                    type="email"
+                    placeholder="colleague@school.edu"
+                    required
+                  />
                   <p className="text-[10px] text-muted-foreground">
                     An invitation will be tracked. They can join once they create an account.
                   </p>
@@ -106,7 +118,9 @@ export function TeamInvitations({ yearbookId, canManage }: { yearbookId: string;
 
       <div className="plate divide-y">
         {isLoading ? (
-          <div className="p-4 text-center text-xs text-muted-foreground">Loading invitations...</div>
+          <div className="p-4 text-center text-xs text-muted-foreground">
+            Loading invitations...
+          </div>
         ) : invites && invites.length > 0 ? (
           invites.map((invite: any) => (
             <div key={invite.id} className="flex items-center gap-3 p-3 text-sm">
@@ -117,7 +131,9 @@ export function TeamInvitations({ yearbookId, canManage }: { yearbookId: string;
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className="capitalize">{invite.role}</Badge>
+                <Badge variant="outline" className="capitalize">
+                  {invite.role}
+                </Badge>
                 <Badge variant="secondary" className="flex items-center gap-1">
                   <Clock className="size-3" /> {invite.status}
                 </Badge>

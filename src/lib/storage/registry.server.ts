@@ -8,10 +8,10 @@
  * A member credential can only ever be used as an IMPORT SOURCE. It is never
  * used to write yearbook production storage.
  */
-import { boxProvider } from "./box.provider";
-import { googleDriveProvider } from "./google-drive.provider";
-import { openCredentials } from "./credentials.server";
-import type { CredentialRef, StorageProvider, StorageProviderId } from "./storage-provider";
+import { boxProvider } from "./box.provider.ts";
+import { googleDriveProvider } from "./google-drive.provider.ts";
+import { openCredentials } from "./credentials.server.ts";
+import type { CredentialRef, StorageProvider, StorageProviderId } from "./storage-provider.ts";
 
 const REGISTRY: Record<StorageProviderId, StorageProvider> = {
   google_drive: googleDriveProvider,
@@ -29,7 +29,7 @@ export function listStorageProviders(): StorageProvider[] {
 }
 
 export async function resolveOrganizationRef(provider: StorageProviderId): Promise<CredentialRef> {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { supabaseAdmin } = await import("../../integrations/supabase/client.server.ts");
   const { data } = await supabaseAdmin
     .from("organization_storage_connections")
     .select("credentials")
@@ -46,7 +46,7 @@ export async function resolveMemberRef(
   userId: string,
   provider: StorageProviderId,
 ): Promise<CredentialRef> {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { supabaseAdmin } = await import("../../integrations/supabase/client.server.ts");
   const { data } = await supabaseAdmin
     .from("member_storage_connections")
     .select("credentials")
@@ -60,12 +60,33 @@ export async function resolveMemberRef(
   return ref;
 }
 
-export async function resolveRef(
-  scope: "organization" | "member",
+export async function resolveCenterRef(
+  centerId: string,
   provider: StorageProviderId,
-  userId: string,
 ): Promise<CredentialRef> {
-  return scope === "organization"
-    ? resolveOrganizationRef(provider)
-    : resolveMemberRef(userId, provider);
+  const { supabaseAdmin } = await import("../../integrations/supabase/client.server.ts");
+  const { data } = await supabaseAdmin
+    .from("center_storage_connections")
+    .select("credentials, root_folder_id")
+    .eq("center_id", centerId)
+    .eq("provider", provider)
+    .maybeSingle();
+  const creds = openCredentials((data as any)?.credentials);
+  const ref: CredentialRef = { scope: "center", centerId };
+  if (creds.connectionKey) ref.connectionKey = creds.connectionKey;
+  if (creds.accessToken) ref.accessToken = creds.accessToken;
+  if (creds.refreshToken) ref.refreshToken = creds.refreshToken;
+  if (creds.expiresAt) ref.expiresAt = creds.expiresAt;
+  if ((data as any)?.root_folder_id) ref.rootFolderId = (data as any).root_folder_id;
+  return ref;
+}
+
+export async function resolveRef(
+  scope: "center" | "organization" | "member",
+  provider: StorageProviderId,
+  targetId: string, // centerId for center, userId for member, unused for org
+): Promise<CredentialRef> {
+  if (scope === "center") return resolveCenterRef(targetId, provider);
+  if (scope === "organization") return resolveOrganizationRef(provider);
+  return resolveMemberRef(targetId, provider);
 }

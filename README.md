@@ -42,43 +42,32 @@ Student — own record only.
 
 Technical notes
 
-Lovable Cloud (Postgres + auth + storage) enabled this round.
+Supabase (PostgreSQL + Auth + Storage) backend.
 
 Roles stored in a dedicated per-yearbook membership table (yearbook_members), never on a profile row. A has_yearbook_role(user, yearbook, role) security-definer function backs every RLS policy, avoiding recursive policy checks and privilege escalation.
 
-Tables: schools, yearbooks, profiles, yearbook_members, students, faculty, classes, sections, page_types, pages, page_requirements, page_assignments. Every public table gets explicit GRANTs plus RLS.
+Tables: schools, yearbooks, profiles, yearbook_members, students, faculty, classes, sections, page_types, pages, page_requirements, page_assignments, organization_storage_connections, member_storage_connections, canva_integrations. Every public table gets explicit GRANTs plus RLS.
 
 Page ladder ordering uses a sortable position column separate from the printed page number, so reordering does not corrupt numbering; page count and sections are fully data-driven, nothing hard-coded.
 
 Statuses and page types are rows, not enums baked into code, so the template/rollover features in later phases can copy them.
 
-Pages carry canva_design_id, canva_design_url, canva_synced_at from day one; the Canva service will be a separate module reading these.
+Pages carry canva_design_id, canva_design_url, canva_synced_at from day one; the Canva service connects directly via Canva Connect API.
 
 Data access via TanStack Start server functions with auth middleware; no client-side trust for permissions.
 
-Not in this build
+## Development & Deployment
 
-Assets and uploads, image validation, duplicate detection, coverage tracking, photo tagging, proofs, corrections, checklists, notifications, reports, prepress, rollover, Canva API. These follow the phase order you set, starting with Phase 2 (asset management) next.
-
-This project was built with [Lovable](https://lovable.dev).
-
-**Live app**: https://yearbook-ladder-dreams.lovable.app
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/6b5a8e58-8623-4724-8209-d01a0597fde5).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+Refer to [`README-LOCAL.md`](file:///home/wiki/projects/yearbook-management/README-LOCAL.md) for full local and Docker setup instructions.
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
+npm install
 npm run dev
+```
+
+To build and run via Docker:
+
+```sh
+docker compose build
+docker compose up -d
 ```

@@ -1,20 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { 
-  Cloud, 
-  Database, 
-  Download, 
-  ExternalLink,
-  Shield,
-  User
-} from "lucide-react";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
+import { Cloud, Database, Download, ExternalLink, Shield, User } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,11 +21,7 @@ export type ProviderImportDialogProps = {
   onDone: () => void;
 };
 
-export function ProviderImportDialog({
-  yearbookId,
-  studentId,
-  onDone
-}: ProviderImportDialogProps) {
+export function ProviderImportDialog({ yearbookId, studentId, onDone }: ProviderImportDialogProps) {
   const [open, setOpen] = useState(false);
   const fetchOrgStorage = useServerFn(getOrganizationStorage);
   const fetchMyStorage = useServerFn(getMyStorageConnections);
@@ -49,8 +38,8 @@ export function ProviderImportDialog({
     enabled: open,
   });
 
-  const activeOrgConn = orgConnections?.find(c => c.is_default);
-  const activeMyConn = myConnections?.find(c => c.status === "connected");
+  const activeOrgConn = orgConnections?.find((c) => c.is_default);
+  const activeMyConn = myConnections?.find((c) => c.status === "connected");
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -79,19 +68,29 @@ export function ProviderImportDialog({
             </TabsList>
           </div>
 
-          <TabsContent value="organization" className="flex-1 flex flex-col p-6 overflow-hidden mt-0">
+          <TabsContent
+            value="organization"
+            className="flex-1 flex flex-col p-6 overflow-hidden mt-0"
+          >
             {activeOrgConn ? (
               <div className="flex-1 flex flex-col gap-4 overflow-hidden">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-sm font-semibold capitalize">{activeOrgConn.provider.replace('_', ' ')}</h4>
-                    <p className="text-xs text-muted-foreground">Authoritative organization storage</p>
+                    <h4 className="text-sm font-semibold capitalize">
+                      {activeOrgConn.provider.replace("_", " ")}
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Authoritative organization storage
+                    </p>
                   </div>
-                  <Badge variant="outline" className="text-[10px] bg-green-500/5 text-green-600 border-green-200 uppercase font-bold">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] bg-green-500/5 text-green-600 border-green-200 uppercase font-bold"
+                  >
                     CONNECTED
                   </Badge>
                 </div>
-                <ProviderBrowser 
+                <ProviderBrowser
                   yearbookId={yearbookId}
                   provider={activeOrgConn.provider as any}
                   scope="organization"
@@ -107,7 +106,8 @@ export function ProviderImportDialog({
                 <Database className="size-12 text-muted-foreground/30 mb-4" />
                 <h4 className="font-display text-lg">No Active Org Storage</h4>
                 <p className="text-sm text-muted-foreground max-w-[300px] mt-2 mb-6">
-                  Coordinators need to connect an authoritative Google Drive or Box account in the Storage tab.
+                  Coordinators need to connect an authoritative Google Drive or Box account in the
+                  Storage tab.
                 </p>
               </div>
             )}
@@ -118,14 +118,19 @@ export function ProviderImportDialog({
               <div className="flex-1 flex flex-col gap-4 overflow-hidden">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-sm font-semibold capitalize">{activeMyConn.provider.replace('_', ' ')}</h4>
+                    <h4 className="text-sm font-semibold capitalize">
+                      {activeMyConn.provider.replace("_", " ")}
+                    </h4>
                     <p className="text-xs text-muted-foreground">Personal import source</p>
                   </div>
-                  <Badge variant="outline" className="text-[10px] bg-green-500/5 text-green-600 border-green-200 uppercase font-bold">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] bg-green-500/5 text-green-600 border-green-200 uppercase font-bold"
+                  >
                     CONNECTED
                   </Badge>
                 </div>
-                <ProviderBrowser 
+                <ProviderBrowser
                   yearbookId={yearbookId}
                   provider={activeMyConn.provider as any}
                   scope="member"
