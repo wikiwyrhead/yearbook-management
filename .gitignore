@@ -1,4 +1,6 @@
-# Logs
+# =====================================================
+# LOGS
+# =====================================================
 logs
 *.log
 npm-debug.log*
@@ -7,6 +9,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# =====================================================
+# DEPENDENCIES & BUILD OUTPUT
+# =====================================================
 node_modules
 dist
 dist-ssr
@@ -14,18 +19,50 @@ dist-ssr
 .vinxi
 .tanstack/**
 .nitro
-*.local
+
+# =====================================================
+# ENVIRONMENT & SECRETS — NEVER COMMIT THESE
+# =====================================================
 .env
 .env.*
 !.env.example
+.dev.vars
+
+# Local dev credentials, test account passwords, generated assets
 .localdev
 .localdev/*
 
-# Wrangler / Cloudflare
-.wrangler/
-.dev.vars
+# AES / crypto key files
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
 
-# Editor directories and files
+# Service account / OAuth credential JSON dumps
+service-account*.json
+*-credentials.json
+*-oauth*.json
+*-token*.json
+client_secret*.json
+
+# =====================================================
+# CLOUDFLARE / TUNNEL
+# =====================================================
+# Tunnel credential JSON files (contain tunnel tokens — never commit)
+*.cftoken
+.wrangler/
+/etc/cloudflared/
+
+# If cloudflared config is copied into project directory
+cloudflared-*.json
+tunnel-*.json
+
+# =====================================================
+# EDITOR & OS FILES
+# =====================================================
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -35,3 +72,39 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+Thumbs.db
+
+# =====================================================
+# LOCAL TEST ARTIFACTS (capture scripts, screenshots)
+# =====================================================
+screenshots/
+captures/
+*.screenshot.png
+*.capture.png
+
+# =====================================================
+# DEV-ONLY SCRIPTS (contain personal paths/domains)
+# Only seed-demo-data.mjs and init-local-db.mjs are kept public
+# =====================================================
+scripts/audit-*.mjs
+scripts/capture-*.mjs
+scripts/check-*.mjs
+scripts/cleanup-*.mjs
+scripts/diagnose-*.mjs
+scripts/e2e-*.mjs
+scripts/execute-*.mjs
+scripts/generate-oauth-url.mjs
+scripts/inspect-*.mjs
+scripts/migrate-*.mjs
+scripts/qa-*.mjs
+scripts/reconcile-*.mjs
+scripts/regenerate-*.mjs
+scripts/report-*.mjs
+scripts/restore-*.mjs
+scripts/rotate-*.mjs
+scripts/run-*.mjs
+scripts/smoke-*.mjs
+scripts/test-*.mjs
+scripts/trace-*.mjs
+scripts/verify-*.mjs
+scripts/fix-*.mjs
