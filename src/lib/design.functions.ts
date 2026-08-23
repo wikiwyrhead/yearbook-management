@@ -4,6 +4,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { assertYearbookOperational } from "@/lib/operating-mode.server";
 
 // ============================================================================
 // 1. SUPER ADMIN ONLY RPC FUNCTIONS
@@ -26,6 +27,9 @@ export const adminStartCanvaOAuthFlow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ yearbookId: z.string().optional() }))
   .handler(async ({ data, context }) => {
+    if (data.yearbookId) {
+      await assertYearbookOperational(data.yearbookId);
+    }
     const { adminStartCanvaOAuth } = await import("./design/admin-design.server.ts");
     return adminStartCanvaOAuth({ id: context.userId, email: "" }, data.yearbookId);
   });
@@ -58,6 +62,7 @@ export const adminLinkYearbookDesignFlow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ yearbookId: z.string(), externalDesignId: z.string() }))
   .handler(async ({ data, context }) => {
+    await assertYearbookOperational(data.yearbookId);
     const { adminLinkYearbookDesign } = await import("./design/admin-design.server.ts");
     return adminLinkYearbookDesign(
       { id: context.userId, email: "" },
@@ -73,6 +78,7 @@ export const adminReplaceYearbookDesignFlow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ yearbookId: z.string(), newExternalDesignId: z.string() }))
   .handler(async ({ data, context }) => {
+    await assertYearbookOperational(data.yearbookId);
     const { adminReplaceYearbookDesign } = await import("./design/admin-design.server.ts");
     return adminReplaceYearbookDesign(
       { id: context.userId, email: "" },
@@ -94,6 +100,7 @@ export const adminMapDesignPagesFlow = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }) => {
+    await assertYearbookOperational(data.yearbookId);
     const { adminMapDesignPages } = await import("./design/admin-design.server.ts");
     return adminMapDesignPages(
       { id: context.userId, email: "" },
@@ -111,6 +118,7 @@ export const adminOpenExternalDesignFlow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ yearbookId: z.string() }))
   .handler(async ({ data, context }) => {
+    await assertYearbookOperational(data.yearbookId);
     const { adminOpenExternalDesign } = await import("./design/admin-design.server.ts");
     return adminOpenExternalDesign({ id: context.userId, email: "" }, data.yearbookId);
   });
@@ -126,6 +134,7 @@ export const getYearbookLayout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ yearbookId: z.string() }))
   .handler(async ({ data, context }) => {
+    await assertYearbookOperational(data.yearbookId);
     const { getYearbookLayoutStatus } = await import("./design/layout.server.ts");
     return getYearbookLayoutStatus({ id: context.userId, email: "" }, data.yearbookId);
   });
@@ -143,6 +152,7 @@ export const requestLayoutProof = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }) => {
+    await assertYearbookOperational(data.yearbookId);
     const { requestProofGeneration } = await import("./design/layout.server.ts");
     return requestProofGeneration(
       { id: context.userId, email: "" },
@@ -165,6 +175,7 @@ export const sendAssetToLayout = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }) => {
+    await assertYearbookOperational(data.yearbookId);
     const { uploadAssetToLayout } = await import("./design/layout.server.ts");
     return uploadAssetToLayout({ id: context.userId, email: "" }, data.yearbookId, {
       assetId: data.assetId,

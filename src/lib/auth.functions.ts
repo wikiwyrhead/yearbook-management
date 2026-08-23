@@ -158,8 +158,21 @@ export const loginWithDemoRole = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const isLocal = (process.env["DATA_BACKEND"] || "local") === "local";
-    if (!isLocal) {
-      throw new Error("Demo role login is only available in local/demo deployments.");
+    const allowDevDemo = process.env["SHOW_DEV_DEMO_LOGIN"] === "true";
+    
+    let isLocalHost = false;
+    try {
+      const req = getRequest();
+      const host = req?.headers?.get
+        ? req.headers.get("x-forwarded-host") || req.headers.get("host") || ""
+        : ((req?.headers as any)?.["x-forwarded-host"] || (req?.headers as any)?.["host"] || "");
+      isLocalHost = host.includes("localhost") || host.includes("127.0.0.1") || host.endsWith(".test") || host.endsWith(".local");
+    } catch {
+      isLocalHost = false;
+    }
+
+    if (!isLocal || !allowDevDemo || !isLocalHost) {
+      throw new Error("Direct role switcher is strictly disabled on public and production endpoints.");
     }
 
     const emailMap: Record<string, string> = {

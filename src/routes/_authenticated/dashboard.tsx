@@ -57,6 +57,8 @@ import {
   adminEndCenterRole,
   adminAddCenterMember,
   adminRemoveCenterMember,
+  getPlatformOperatingSettings,
+  updatePlatformOperatingModeAction,
 } from "@/lib/yearbook.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -163,7 +165,7 @@ function Dashboard() {
       <div className="space-y-8">
         {/* Header Title & Actions */}
         <div className="flex flex-wrap items-end justify-between gap-4 border-b pb-6">
-          <div>
+          <div className="min-w-0 max-w-full">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xs font-semibold uppercase tracking-widest text-primary flex items-center gap-1.5">
                 <Sparkles className="size-3.5" />
@@ -175,25 +177,45 @@ function Dashboard() {
                 </Badge>
               )}
             </div>
-            <h1 className="font-display text-4xl font-bold tracking-tight text-foreground">
+            <h1 className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-foreground break-words">
               {isStudentOnly ? "Student Yearbook Hub" : "Yearbook Publication Command"}
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
               {totalYearbooks} Active Volume{totalYearbooks === 1 ? "" : "s"} &middot; {totalCenters} High School Center{totalCenters === 1 ? "" : "s"} &middot; {totalPagesSum} Pages Scheduled for Press
             </p>
           </div>
 
           {(isSuperAdmin || data.yearbooks.some((y: any) => y.myRoles.includes("coordinator"))) && (
             <div className="flex items-center gap-2.5">
-              {isSuperAdmin && <NewSchoolDialog onDone={invalidate} />}
+              {isSuperAdmin && data.operatingContext?.operatingMode !== "single_center" && (
+                <NewSchoolDialog onDone={invalidate} />
+              )}
               <NewYearbookDialog schools={data.schools} onDone={invalidate} />
             </div>
           )}
         </div>
 
+        {/* Super Admin Platform Operating Mode Management Card */}
+        {isSuperAdmin && (
+          <PlatformOperatingModeCard onDone={invalidate} />
+        )}
+
+        {/* Single Center Mode Operational Banner */}
+        {data.operatingContext?.operatingMode === "single_center" && !isSuperAdmin && (
+          <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between text-xs text-foreground">
+            <div className="flex items-center gap-2">
+              <Shield className="size-4 text-primary shrink-0" />
+              <span>
+                Operating in <strong>Single-Center Mode</strong> for <strong>{data.operatingContext.primaryCenterName || "Primary Center"}</strong>.
+              </span>
+            </div>
+            <Badge variant="outline" className="text-[10px]">Focused Mode</Badge>
+          </div>
+        )}
+
         {/* Hero KPI Production Metrics Bar */}
         {!isStudentOnly && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="p-4 rounded-xl bg-card border border-border shadow-sm flex items-center gap-3.5">
               <div className="size-11 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
                 <Layers className="size-5" />
@@ -253,7 +275,7 @@ function Dashboard() {
                   <div>
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <span className="text-xs text-muted-foreground">Demo High School</span>
+                        <span className="text-xs text-muted-foreground">{s.yearbooks?.schools?.name || "School Center"}</span>
                         <h3 className="font-display text-lg font-bold text-foreground mt-0.5">
                           {s.preferred_name || s.first_name} {s.last_name}
                         </h3>
@@ -337,7 +359,7 @@ function Dashboard() {
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <Badge variant="outline" className="bg-background/80 backdrop-blur-sm text-[11px] font-sans font-medium text-primary">
-                            {y.schools?.name || "Demo High School"}
+                            {y.schools?.name || "School Center"}
                           </Badge>
                           <h3 className="font-display text-xl font-bold text-foreground mt-2 group-hover:text-primary transition-colors">
                             {y.title || `${y.year} Annual`}
@@ -513,6 +535,238 @@ function Dashboard() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+/* ---------------- Super Admin Platform Operating Mode Management ---------------- */
+
+function PlatformOperatingModeCard({ onDone }: { onDone: () => void }) {
+  const fetchSettingsFn = useServerFn(getPlatformOperatingSettings);
+  const updateModeFn = useServerFn(updatePlatformOperatingModeAction);
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["platform-operating-settings"],
+    queryFn: () => fetchSettingsFn(),
+  });
+
+  const [open, setOpen] = useState(false);
+  const [selectedMode, setSelectedMode] = useState<"single_center" | "multi_center">("multi_center");
+  const [selectedCenterId, setSelectedCenterId] = useState<string>("");
+  const [confirmed, setConfirmed] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (data?.operatingContext) {
+      setSelectedMode(data.operatingContext.operatingMode);
+      setSelectedCenterId(data.operatingContext.primaryCenterId || (data.availableCenters[0]?.id ?? ""));
+    }
+  }, [data]);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedMode === "single_center" && !selectedCenterId) {
+      toast.error("Please select a Primary Center before enabling Single-Center mode.");
+      return;
+    }
+    if (selectedMode === "single_center" && !confirmed && data?.operatingContext.operatingMode !== "single_center") {
+      toast.error("Please acknowledge the operational confirmation before proceeding.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await updateModeFn({
+        data: {
+          operatingMode: selectedMode,
+          primaryCenterId: selectedMode === "single_center" ? selectedCenterId : null,
+        },
+      });
+      toast.success(
+        selectedMode === "single_center"
+          ? "Platform switched to Single-Center Operating Mode."
+          : "Platform restored to Multiple-Center Operating Mode."
+      );
+      setOpen(false);
+      await refetch();
+      onDone();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update platform operating mode.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (isLoading || !data) return null;
+
+  const isSingleCenter = data.operatingContext.operatingMode === "single_center";
+  const primaryName = data.operatingContext.primaryCenterName || "None Selected";
+
+  return (
+    <div className="p-5 rounded-2xl bg-card border border-border shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <Shield className="size-4 text-primary" />
+          <h3 className="font-display text-base font-bold text-foreground">
+            Platform Operating Mode
+          </h3>
+          <Badge
+            variant={isSingleCenter ? "default" : "secondary"}
+            className="text-xs font-semibold"
+          >
+            {isSingleCenter ? "Single-Center Mode" : "Multiple-Center Mode"}
+          </Badge>
+        </div>
+        <p className="text-xs text-muted-foreground max-w-2xl leading-relaxed">
+          {isSingleCenter
+            ? `Operating exclusively for Primary Center: "${primaryName}". Secondary centers remain preserved and inaccessible during normal operations.`
+            : "Standard mode: all appointed school centers and yearbooks are active with cross-center isolation."}
+        </p>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm" className="min-h-[44px] text-xs font-semibold gap-1.5 shrink-0">
+            Configure Operating Mode
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Configure Platform Operating Mode</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSave} className="space-y-5 pt-2">
+            <div className="space-y-3">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Operating Architecture
+              </Label>
+              <div className="grid gap-3">
+                <label
+                  className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                    selectedMode === "multi_center"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:bg-muted/40"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="operatingMode"
+                    value="multi_center"
+                    checked={selectedMode === "multi_center"}
+                    onChange={() => setSelectedMode("multi_center")}
+                    className="mt-1"
+                  />
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">
+                      Multiple Centers (Standard)
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Coordinators manage their appointed centers; all secondary centers are operational.
+                    </p>
+                  </div>
+                </label>
+
+                <label
+                  className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                    selectedMode === "single_center"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:bg-muted/40"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="operatingMode"
+                    value="single_center"
+                    checked={selectedMode === "single_center"}
+                    onChange={() => setSelectedMode("single_center")}
+                    className="mt-1"
+                  />
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">
+                      Single Center (Focused Mode)
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Restricts operational screens and server routes exclusively to one selected Primary Center.
+                    </p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {selectedMode === "single_center" && (
+              <div className="space-y-3 p-4 rounded-xl bg-muted/40 border border-border">
+                <Label htmlFor="primary-center-select" className="text-xs font-bold">
+                  Select Primary Center
+                </Label>
+                <Select value={selectedCenterId} onValueChange={setSelectedCenterId}>
+                  <SelectTrigger id="primary-center-select" className="h-10 text-xs bg-background">
+                    <SelectValue placeholder="Choose Primary Center" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {data.availableCenters.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name} {c.short_name ? `(${c.short_name})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                  <div className="font-semibold flex items-center gap-1.5">
+                    <AlertCircle className="size-3.5" />
+                    Operational Notice
+                  </div>
+                  <p>
+                    All dashboard metrics, ladder workspaces, and assets will operate exclusively for this Center. Secondary centers remain safely preserved in the database.
+                  </p>
+                </div>
+
+                <label className="flex items-center gap-2 cursor-pointer pt-1">
+                  <input
+                    type="checkbox"
+                    checked={confirmed}
+                    onChange={(e) => setConfirmed(e.target.checked)}
+                    className="rounded border-border text-primary focus:ring-primary size-4"
+                  />
+                  <span className="text-xs text-foreground font-medium">
+                    I confirm switching the platform to operate for this Primary Center.
+                  </span>
+                </label>
+              </div>
+            )}
+
+            {/* Audit History Snapshot */}
+            {data.auditHistory?.length > 0 && (
+              <div className="space-y-2 border-t pt-3">
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Recent Mode Change Audit History
+                </span>
+                <div className="max-h-28 overflow-y-auto space-y-1.5 text-[11px] text-muted-foreground divide-y divide-border/60">
+                  {data.auditHistory.slice(0, 3).map((h: any) => (
+                    <div key={h.id} className="pt-1 flex items-center justify-between">
+                      <span>
+                        {h.previous_operating_mode} &rarr; <strong>{h.new_operating_mode}</strong>
+                        {h.new_primary_center_name ? ` (${h.new_primary_center_name})` : ""}
+                      </span>
+                      <span className="text-[10px] opacity-70">
+                        {new Date(h.changed_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Saving Mode..." : "Apply Operating Mode"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
