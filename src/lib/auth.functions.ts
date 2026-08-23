@@ -7,15 +7,12 @@ function getSessionCookie(sessionId: string, maxAge = 2592000): string {
   try {
     const req = getRequest();
     const proto = req?.headers?.get
-      ? req.headers.get("x-forwarded-proto")
+      ? req.headers.get("x-forwarded-proto") || req.headers.get("x-forwarded-protocol")
       : (req?.headers as any)?.["x-forwarded-proto"];
-    isHttps =
-      proto === "https" ||
-      (typeof process !== "undefined" &&
-        (process.env["VITE_APP_URL"] || "").startsWith("https://"));
+    const url = req?.url || "";
+    isHttps = proto === "https" || url.startsWith("https://");
   } catch {
-    isHttps =
-      typeof process !== "undefined" && (process.env["VITE_APP_URL"] || "").startsWith("https://");
+    isHttps = false;
   }
   const secureFlag = isHttps ? "; Secure" : "";
   if (maxAge === 0) {

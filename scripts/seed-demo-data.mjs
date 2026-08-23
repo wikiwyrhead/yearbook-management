@@ -135,14 +135,12 @@ export async function seedDemoData() {
     }
   }
 
+  const standardTestPassword = process.env.DEMO_USER_PASSWORD || "Yearbook2026!";
   const generatedDocAccounts = [];
 
   for (const acc of testAccountsMeta) {
-    let plainPass = savedAccounts[acc.email]?.password;
-    if (!plainPass) {
-      plainPass = "Mb8!" + randomBytes(12).toString("hex") + "$Z1";
-      savedAccounts[acc.email] = { ...acc, password: plainPass };
-    }
+    const plainPass = standardTestPassword;
+    savedAccounts[acc.email] = { ...acc, password: plainPass };
     generatedDocAccounts.push({ ...acc, password: plainPass });
 
     const pHash = await hashPassword(plainPass);
