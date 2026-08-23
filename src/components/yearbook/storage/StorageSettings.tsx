@@ -243,6 +243,7 @@ export function StorageSettings({ centerId, yearbookId }: StorageSettingsProps) 
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label={`Reconnect or refresh ${p.name || p.id}`}
                         onClick={() => mutationStartOAuth.mutate(p.id)}
                         title="Reconnect / Refresh"
                       >
@@ -251,6 +252,7 @@ export function StorageSettings({ centerId, yearbookId }: StorageSettingsProps) 
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label={`Disconnect ${p.name || p.id}`}
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={() => mutationDisconnect.mutate(p.id)}
                         title="Disconnect"

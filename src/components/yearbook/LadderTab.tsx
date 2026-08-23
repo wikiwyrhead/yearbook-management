@@ -218,10 +218,11 @@ export function LadderTab({
       {/* Top Controls & View Toggle Bar */}
       <div className="p-4 rounded-xl bg-card border border-border shadow-sm space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <div className="relative w-64">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-64 min-w-[200px]">
               <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
               <Input
+                aria-label="Search ladder pages"
                 placeholder="Search ladder (e.g. Page 12, Basketball)..."
                 value={searchQuery}
                 onChange={(e) => {
@@ -233,7 +234,7 @@ export function LadderTab({
             </div>
 
             {/* View Mode Toggle */}
-            <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/40">
+            <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/40 shrink-0">
               <Button
                 size="sm"
                 variant={viewMode === "spread" ? "default" : "ghost"}
@@ -261,7 +262,7 @@ export function LadderTab({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {canEdit && (
               <>
                 <AssignRangeDialog yearbookId={yearbookId} members={members} onDone={refresh} />
@@ -300,7 +301,7 @@ export function LadderTab({
           <div className="space-y-1">
             <Label className="text-[11px] text-muted-foreground font-semibold">Assignee</Label>
             <Select value={fAssignee} onValueChange={(v) => { setFAssignee(v); setCurrentPage(1); }}>
-              <SelectTrigger className="w-44 h-8 text-xs">
+              <SelectTrigger className="w-44 h-8 text-xs" aria-label="Filter ladder by assigned staff member">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -333,21 +334,23 @@ export function LadderTab({
           )}
 
           {/* Status Counts Pill Bar */}
-          <div className="ml-auto flex items-center gap-2">
+          <div className="w-full sm:w-auto sm:ml-auto flex flex-wrap items-center gap-1.5 pt-2 sm:pt-0">
             {statuses.map((s) => {
               const count = (pages as any[]).filter((p: any) => p.status_id === s.id).length;
               return (
                 <button
                   key={s.id}
+                  type="button"
+                  aria-label={`Filter by status ${s.name} (${count} pages)`}
                   onClick={() => {
                     setFStatus(fStatus === s.id ? "all" : s.id);
                     setCurrentPage(1);
                   }}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] transition-colors ${
-                    fStatus === s.id ? "border-primary bg-primary/10 font-bold" : "border-border bg-muted/40 text-muted-foreground hover:bg-muted"
+                  className={`flex items-center gap-1.5 px-3 py-1 min-h-[30px] rounded-full border text-xs transition-colors ${
+                    fStatus === s.id ? "border-primary bg-primary/10 font-bold text-foreground" : "border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 >
-                  <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                  <span className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color || "#3b82f6" }} />
                   <span>{s.name} ({count})</span>
                 </button>
               );
@@ -390,9 +393,9 @@ export function LadderTab({
                 </div>
 
                 {/* Facing Pages Realistic Mockup */}
-                <div className="p-3 bg-muted/20 grid grid-cols-2 gap-2 relative">
+                <div className="p-3 bg-muted/20 grid grid-cols-1 sm:grid-cols-2 gap-2 relative">
                   {/* Center Spine Crease Line */}
-                  <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-0.5 bg-border/80 shadow-sm z-10 pointer-events-none" />
+                  <div className="hidden sm:block absolute inset-y-0 left-1/2 -translate-x-1/2 w-0.5 bg-border/80 shadow-sm z-10 pointer-events-none" />
 
                   {/* Left Page Card */}
                   {spread.left ? (
@@ -497,17 +500,18 @@ export function LadderTab({
 
                 <div className="flex flex-wrap gap-1">
                   {as.map((a: any) => (
-                    <Badge key={a.id} variant="secondary" className="text-[10px] gap-1">
+                    <Badge key={a.id} variant="secondary" className="text-[10px] gap-1 pl-2 pr-1 py-0.5">
                       {a.kind === "designer" ? "🎨" : "✏️"} {nameOf(a.user_id)}
                       {canEdit && (
                         <button
+                          type="button"
                           onClick={() =>
                             doUnassign({ data: { id: a.id } })
                               .then(refresh)
                               .catch((e: Error) => toast.error(e.message))
                           }
-                          aria-label="Remove assignment"
-                          className="hover:text-destructive"
+                          aria-label={`Remove assignment for ${nameOf(a.user_id)}`}
+                          className="hover:text-destructive ml-1 min-w-[24px] min-h-[24px] inline-flex items-center justify-center rounded-sm hover:bg-destructive/10"
                         >
                           ×
                         </button>
@@ -531,16 +535,17 @@ export function LadderTab({
 
                 {canEdit && (
                   <div className="flex items-center gap-0.5">
-                    <Button size="icon" variant="ghost" className="size-7" onClick={() => move(p.id, -1)}>
+                    <Button size="icon" variant="ghost" aria-label="Move page up" className="size-7" onClick={() => move(p.id, -1)}>
                       <ArrowUp className="size-3.5" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="size-7" onClick={() => move(p.id, 1)}>
+                    <Button size="icon" variant="ghost" aria-label="Move page down" className="size-7" onClick={() => move(p.id, 1)}>
                       <ArrowDown className="size-3.5" />
                     </Button>
                     {canManage && (
                       <Button
                         size="icon"
                         variant="ghost"
+                        aria-label="Delete page"
                         className="size-7 text-destructive hover:bg-destructive/10"
                         onClick={() =>
                           doDelete({ data: { id: p.id } })
@@ -670,8 +675,8 @@ function PageTile({
           {have}/{need || 0} Assets
         </span>
         {st && (
-          <span className="px-1.5 py-0.5 rounded font-medium flex items-center gap-1" style={{ color: st.color, backgroundColor: `${st.color}15` }}>
-            <span className="size-1.5 rounded-full" style={{ backgroundColor: st.color }} />
+          <span className="px-1.5 py-0.5 rounded font-semibold flex items-center gap-1 border border-border bg-muted/60 text-foreground">
+            <span className="size-1.5 rounded-full" style={{ backgroundColor: st.color || "#3b82f6" }} />
             {st.name}
           </span>
         )}
@@ -697,7 +702,7 @@ function FilterSelect({
     <div className="space-y-1">
       <Label className="text-[11px] text-muted-foreground font-semibold">{label}</Label>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="w-40 h-8 text-xs">
+        <SelectTrigger className="w-40 h-8 text-xs" aria-label={`Filter ladder by ${label}`}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -746,8 +751,10 @@ function AddPagesDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label>Page Count (Spreads are added in pairs)</Label>
+            <Label htmlFor="page-count-input">Page Count (Spreads are added in pairs)</Label>
             <Input
+              id="page-count-input"
+              aria-label="Page count"
               type="number"
               min={1}
               max={200}
@@ -758,7 +765,7 @@ function AddPagesDialog({
           <div className="space-y-1.5">
             <Label>Section Category</Label>
             <Select {...(sectionId ? { value: sectionId } : {})} onValueChange={setSectionId}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Select Section Category">
                 <SelectValue placeholder="Select Section" />
               </SelectTrigger>
               <SelectContent>
@@ -773,7 +780,7 @@ function AddPagesDialog({
           <div className="space-y-1.5">
             <Label>Page Layout Type</Label>
             <Select {...(typeId ? { value: typeId } : {})} onValueChange={setTypeId}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Select Page Layout Type">
                 <SelectValue placeholder="Standard Spread" />
               </SelectTrigger>
               <SelectContent>
@@ -786,8 +793,14 @@ function AddPagesDialog({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Spread Title / Feature Name</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Varsity Basketball Championship" />
+            <Label htmlFor="spread-title-input">Spread Title / Feature Name</Label>
+            <Input
+              id="spread-title-input"
+              aria-label="Spread Title or Feature Name"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Varsity Basketball Championship"
+            />
           </div>
         </div>
         <DialogFooter>
@@ -852,18 +865,18 @@ function AssignRangeDialog({
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>From Page</Label>
-              <Input type="number" value={from} onChange={(e) => setFrom(Number(e.target.value))} />
+              <Label htmlFor="from-page-input">From Page</Label>
+              <Input id="from-page-input" aria-label="Starting page number" type="number" value={from} onChange={(e) => setFrom(Number(e.target.value))} />
             </div>
             <div className="space-y-1.5">
-              <Label>To Page</Label>
-              <Input type="number" value={to} onChange={(e) => setTo(Number(e.target.value))} />
+              <Label htmlFor="to-page-input">To Page</Label>
+              <Input id="to-page-input" aria-label="Ending page number" type="number" value={to} onChange={(e) => setTo(Number(e.target.value))} />
             </div>
           </div>
           <div className="space-y-1.5">
             <Label>Staff Member</Label>
             <Select {...(uid ? { value: uid } : {})} onValueChange={setUid}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Select staff member for assignment">
                 <SelectValue placeholder="Select staff member" />
               </SelectTrigger>
               <SelectContent>
@@ -878,7 +891,7 @@ function AssignRangeDialog({
           <div className="space-y-1.5">
             <Label>Assignment Role</Label>
             <Select value={kind} onValueChange={(v) => setKind(v as "designer" | "proofreader")}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Select assignment responsibility role">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1110,7 +1123,7 @@ function PageDialog({
                     </div>
 
                     <Select onValueChange={(rid) => handleLink(rid, asset.id)}>
-                      <SelectTrigger className="w-[110px] h-7 text-[10px]">
+                      <SelectTrigger aria-label="Link asset to photo requirement" className="w-[110px] h-7 text-[10px]">
                         <SelectValue placeholder="Link asset..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -1153,6 +1166,7 @@ function PageDialog({
                         <Button
                           size="icon"
                           variant="ghost"
+                          aria-label={`Delete requirement ${r.label}`}
                           className="size-6 text-destructive hover:bg-destructive/10"
                           onClick={() =>
                             doDelReq({ data: { id: r.id } })
@@ -1176,12 +1190,14 @@ function PageDialog({
                 {canEdit && (
                   <div className="pt-2 border-t flex gap-2">
                     <Input
+                      aria-label="New requirement label"
                       placeholder="e.g. Varsity Team Captain Portrait"
                       value={newLabel}
                       onChange={(e) => setNewLabel(e.target.value)}
                       className="h-8 text-xs"
                     />
                     <Input
+                      aria-label="Needed photo count"
                       className="w-16 h-8 text-xs"
                       type="number"
                       value={newNeeded}

@@ -159,6 +159,7 @@ export function StaffWorkbench({
             <span className="text-lg font-normal text-muted-foreground">/ {totalReqNeeded}</span>
           </p>
           <Progress
+            aria-label="Photo assets requirement progress"
             value={totalReqNeeded > 0 ? Math.min(100, (totalReqHave / totalReqNeeded) * 100) : 100}
             className="h-1.5"
           />

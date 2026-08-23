@@ -265,6 +265,7 @@ export function AdminCanvaManager({ yearbookId }: { yearbookId: string }) {
                       <Input
                         className="w-24 h-8 text-xs"
                         placeholder="e.g. 1 or 1,2"
+                        aria-label="1-indexed Canva page numbers"
                         value={customPagesInput}
                         onChange={(e) => setCustomPagesInput(e.target.value)}
                       />
@@ -300,14 +301,14 @@ export function AdminCanvaManager({ yearbookId }: { yearbookId: string }) {
                   ) : (
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="ghost"
                       className="h-8 text-xs"
                       onClick={() => {
                         setMappingPageId(p.id);
-                        setCustomPagesInput("1");
+                        setCustomPagesInput(p.external_page_numbers?.join(",") || "1");
                       }}
                     >
-                      Configure Mapping
+                      {p.canva_design_id ? "Edit Mapping" : "Map Page"}
                     </Button>
                   )}
                 </div>
@@ -333,6 +334,7 @@ export function AdminCanvaManager({ yearbookId }: { yearbookId: string }) {
                 <Search className="size-4 absolute left-3 top-2.5 text-muted-foreground" />
                 <Input
                   className="pl-9 text-xs"
+                  aria-label="Search Canva designs by title"
                   placeholder="Search Canva designs by title..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}

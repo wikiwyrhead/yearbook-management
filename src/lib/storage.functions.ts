@@ -9,6 +9,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { assertCenterOperational, assertYearbookOperational } from "@/lib/operating-mode.server";
 
 const providerEnum = z.enum(["google_drive", "box"]);
 const scopeEnum = z.enum(["center", "organization", "member"]);
@@ -19,6 +20,7 @@ export const getCenterStorage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ centerId: z.string() }))
   .handler(async ({ data, context }) => {
+    await assertCenterOperational(data.centerId);
     const { requireCenterManager } = await import("./storage/access.server");
     const { listCenterStorage } = await import("./storage/settings.server");
     await requireCenterManager(context.supabase as any, context.userId, data.centerId);
@@ -29,6 +31,7 @@ export const disconnectCenterStorageConnection = createServerFn({ method: "POST"
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ centerId: z.string(), provider: providerEnum }))
   .handler(async ({ data, context }) => {
+    await assertCenterOperational(data.centerId);
     const { requireCenterManager } = await import("./storage/access.server");
     const { disconnectCenterStorage } = await import("./storage/settings.server");
     await requireCenterManager(context.supabase as any, context.userId, data.centerId);
@@ -41,6 +44,7 @@ export const setupYearbookDriveFolders = createServerFn({ method: "POST" })
     z.object({ yearbookId: z.string(), centerId: z.string(), rootFolderId: z.string().optional() }),
   )
   .handler(async ({ data, context }) => {
+    await assertYearbookOperational(data.yearbookId);
     const { requireYearbookCoordinator } = await import("./storage/access.server");
     const { setupYearbookCenterFolders } = await import("./storage/settings.server");
     await requireYearbookCoordinator(context.supabase as any, context.userId, data.yearbookId);
@@ -51,6 +55,7 @@ export const setCenterDriveRootFolder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ centerId: z.string(), yearbookId: z.string(), folderId: z.string() }))
   .handler(async ({ data, context }) => {
+    await assertCenterOperational(data.centerId);
     const { requireCenterManager } = await import("./storage/access.server");
     const { setAuthoritativeCenterFolder } = await import("./storage/settings.server");
     await requireCenterManager(context.supabase as any, context.userId, data.centerId);
@@ -293,6 +298,7 @@ export const browseProvider = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }) => {
+    await assertYearbookOperational(data.yearbookId);
     const { requireYearbookMember } = await import("./storage/access.server");
     const { browse } = await import("./storage/browse.server");
     await requireYearbookMember(context.supabase as any, context.userId, data.yearbookId);
@@ -322,6 +328,7 @@ export const importProviderFiles = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }) => {
+    await assertYearbookOperational(data.yearbookId);
     const { assertImportAllowed } = await import("./storage/access.server");
     const { runImport } = await import("./storage/browse.server");
     await assertImportAllowed(
