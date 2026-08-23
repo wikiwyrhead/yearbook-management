@@ -385,10 +385,14 @@ function AuthPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password">Password</Label>
+                    <span className="text-[11px] text-muted-foreground font-mono">
+                      Demo password: <strong className="text-primary">Yearbook2026!</strong>
+                    </span>
                   </div>
                   <Input
                     id="password"
                     type="password"
+                    placeholder="Yearbook2026!"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
