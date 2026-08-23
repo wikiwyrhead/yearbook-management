@@ -1,7 +1,9 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { loginWithPassword, signupWithPassword, getCurrentUser } from "@/lib/auth.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +31,10 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
+  const getCurrentUserFn = useServerFn(getCurrentUser);
+  const loginWithPasswordFn = useServerFn(loginWithPassword);
+  const signupWithPasswordFn = useServerFn(signupWithPassword);
+
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,26 +42,63 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/dashboard" });
-    });
+    getCurrentUserFn()
+      .then((res) => {
+        if (res?.user) {
+          navigate({ to: "/dashboard" });
+        }
+      })
+      .catch(() => {});
   }, [navigate]);
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setBusy(false);
-    if (error) {
-      toast.error(error.message);
+
+    try {
+      // 1. Primary: Local authentication server function
+      const res = await loginWithPasswordFn({ data: { email, password } });
+
+      if (res.success) {
+        // Clear any old Supabase tokens in localStorage
+        try {
+          supabase.auth.signOut().catch(() => {});
+        } catch {}
+        setBusy(false);
+        toast.success("Welcome back!");
+        window.location.href = "/dashboard";
+        return;
+      }
+    } catch (err: any) {
+      setBusy(false);
+      toast.error(err.message || "Invalid email or password.");
       return;
     }
-    navigate({ to: "/dashboard" });
   }
 
   async function signUp(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+
+    try {
+      // 1. Try local registration server function
+      const res = await signupWithPasswordFn({ data: { email, password, fullName } });
+
+      if (res.success) {
+        setBusy(false);
+        toast.success("Account created successfully!");
+        window.location.href = "/dashboard";
+        return;
+      }
+    } catch (err: any) {
+      if (err.message && !err.message.includes("fallbackToSupabase")) {
+        setBusy(false);
+        toast.error(err.message || "Could not create account.");
+        return;
+      }
+    }
+
+    // 2. Supabase fallback
     const { getAppBaseUrl } = await import("@/lib/app-url");
     const { error } = await supabase.auth.signUp({
       email,
@@ -104,7 +147,7 @@ function AuthPage() {
             ladder with statuses, assignments and requirement counters.
           </p>
         </div>
-        <p className="text-xs opacity-50">Phase 1 · Foundation + Page Ladder</p>
+        <p className="text-xs opacity-50">Milestone LocalDev · Self-Contained Stack</p>
       </div>
 
       <div className="flex items-center justify-center p-6">

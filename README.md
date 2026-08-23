@@ -66,6 +66,7 @@ npm run dev
 ```
 
 To build and run via Docker:
+
 ```sh
 docker compose build
 docker compose up -d

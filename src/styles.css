@@ -89,8 +89,9 @@
   --sidebar-accent-foreground: oklch(0.96 0.01 92);
   --sidebar-border: oklch(0.34 0.05 258);
   --sidebar-ring: oklch(0.79 0.14 74);
-  --shadow-plate: 0 1px 0 0 oklch(0.9 0.014 88), 0 8px 24px -18px oklch(0.24 0.045 258 / 0.5);
-  --shadow-lift: 0 18px 40px -24px oklch(0.24 0.045 258 / 0.55);
+  --shadow-plate:
+    0 1px 3px 0 oklch(0.24 0.045 258 / 0.08), 0 1px 2px -1px oklch(0.24 0.045 258 / 0.08);
+  --shadow-lift: 0 4px 12px -2px oklch(0.24 0.045 258 / 0.15);
 }
 
 .dark {
@@ -151,9 +152,9 @@
 
 @utility grain {
   background-image: radial-gradient(
-      circle at 1px 1px,
-      oklch(0.24 0.045 258 / 0.06) 1px,
-      transparent 0
-    );
-  background-size: 18px 18px;
+    circle at 1px 1px,
+    oklch(0.24 0.045 258 / 0.04) 1px,
+    transparent 0
+  );
+  background-size: 24px 24px;
 }

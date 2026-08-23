@@ -1,116 +1,173 @@
 /**
- * Phase 6 — Canva design provider server functions.
- * 
- * Thin wrapper file: only imports, types and createServerFn declarations.
- * All runtime logic lives in src/lib/design/*.server.ts.
+ * Hidden Super-Admin Design Provider & Generic Layout RPC Server Functions
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-export const getCanvaConnection = createServerFn({ method: "GET" })
+// ============================================================================
+// 1. SUPER ADMIN ONLY RPC FUNCTIONS
+// ============================================================================
+
+/**
+ * Super Admin: Get platform Canva connection status.
+ */
+export const adminGetDesignProvider = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ yearbookId: z.string() }))
-  .handler(async ({ data, context }) => {
-    const { requireYearbookMember } = await import("./storage/access.server");
-    const { readCanvaConnection } = await import("./design/canva.server");
-    await requireYearbookMember(context.supabase as any, context.userId, data.yearbookId);
-    return readCanvaConnection(data.yearbookId);
+  .handler(async ({ context }) => {
+    const { adminGetDesignProviderConnection } = await import("./design/admin-design.server.ts");
+    return adminGetDesignProviderConnection({ id: context.userId, email: "" });
   });
 
-export const saveCanvaConnection = createServerFn({ method: "POST" })
+/**
+ * Super Admin: Start Canva OAuth authorization.
+ */
+export const adminStartCanvaOAuthFlow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ yearbookId: z.string().optional() }))
+  .handler(async ({ data, context }) => {
+    const { adminStartCanvaOAuth } = await import("./design/admin-design.server.ts");
+    return adminStartCanvaOAuth({ id: context.userId, email: "" }, data.yearbookId);
+  });
+
+/**
+ * Super Admin: Disconnect Canva design provider.
+ */
+export const adminDisconnectDesignProviderFlow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { adminDisconnectDesignProvider } = await import("./design/admin-design.server.ts");
+    return adminDisconnectDesignProvider({ id: context.userId, email: "" });
+  });
+
+/**
+ * Super Admin: List Canva designs.
+ */
+export const adminListExternalDesignsFlow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ search: z.string().optional() }))
+  .handler(async ({ data, context }) => {
+    const { adminListExternalDesigns } = await import("./design/admin-design.server.ts");
+    return adminListExternalDesigns({ id: context.userId, email: "" }, data.search);
+  });
+
+/**
+ * Super Admin: Link a Canva design to a Yearbook.
+ */
+export const adminLinkYearbookDesignFlow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ yearbookId: z.string(), externalDesignId: z.string() }))
+  .handler(async ({ data, context }) => {
+    const { adminLinkYearbookDesign } = await import("./design/admin-design.server.ts");
+    return adminLinkYearbookDesign(
+      { id: context.userId, email: "" },
+      data.yearbookId,
+      data.externalDesignId,
+    );
+  });
+
+/**
+ * Super Admin: Replace a Yearbook's active Canva design.
+ */
+export const adminReplaceYearbookDesignFlow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ yearbookId: z.string(), newExternalDesignId: z.string() }))
+  .handler(async ({ data, context }) => {
+    const { adminReplaceYearbookDesign } = await import("./design/admin-design.server.ts");
+    return adminReplaceYearbookDesign(
+      { id: context.userId, email: "" },
+      data.yearbookId,
+      data.newExternalDesignId,
+    );
+  });
+
+/**
+ * Super Admin: Map Canva pages to a Milestone page.
+ */
+export const adminMapDesignPagesFlow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
     z.object({
       yearbookId: z.string(),
-      accessToken: z.string().optional(),
-      refreshToken: z.string().optional(),
-      expiresIn: z.number().optional(),
+      pageId: z.string(),
+      externalPageNumbers: z.array(z.number()),
     }),
   )
   .handler(async ({ data, context }) => {
-    const { requireYearbookCoordinator } = await import("./storage/access.server");
-    const { upsertCanvaConnection } = await import("./design/canva.server");
-    await requireYearbookCoordinator(context.supabase as any, context.userId, data.yearbookId);
-    
-    // Explicit type mapping to satisfy exact optional properties
-    const params: {
-      yearbookId: string;
-      accessToken: string | null;
-      refreshToken: string | null;
-      expiresIn?: number;
-    } = {
-      yearbookId: data.yearbookId,
-      accessToken: data.accessToken ?? null,
-      refreshToken: data.refreshToken ?? null,
-    };
-    if (data.expiresIn !== undefined) params.expiresIn = data.expiresIn;
-    
-    return upsertCanvaConnection(params);
-  });
-
-export const startCanvaOAuth = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ yearbookId: z.string() }))
-  .handler(async ({ data, context }) => {
-    const { getRequest } = await import("@tanstack/react-start/server");
-    const { generateOAuthState, deriveCodeVerifier, codeChallengeS256 } = await import(
-      "./storage/oauth-state.server"
+    const { adminMapDesignPages } = await import("./design/admin-design.server.ts");
+    return adminMapDesignPages(
+      { id: context.userId, email: "" },
+      data.yearbookId,
+      data.pageId,
+      data.externalPageNumbers,
     );
-    const clientId = process.env["CANVA_CLIENT_ID"];
-    if (!clientId) throw new Error("Canva client ID not configured");
-
-    const state = generateOAuthState({
-      provider: "canva",
-      scope: "organization", // Canva currently scoped to yearbook which acts like org-level for that book
-      userId: context.userId,
-      yearbookId: data.yearbookId,
-    });
-
-    const challenge = codeChallengeS256(deriveCodeVerifier(state));
-
-    const { getOAuthCallbackUrl } = await import("./app-url");
-    const request = getRequest();
-    const redirectUri = getOAuthCallbackUrl(request);
-
-    const url = new URL("https://www.canva.com/api/oauth/authorize");
-    url.searchParams.set("response_type", "code");
-    url.searchParams.set("client_id", clientId);
-    url.searchParams.set("scope", "design:content:read design:meta:read");
-    url.searchParams.set("state", state);
-    url.searchParams.set("code_challenge", challenge);
-    url.searchParams.set("code_challenge_method", "S256");
-    url.searchParams.set("redirect_uri", redirectUri);
-
-    return { url: url.toString() };
   });
 
-export const disconnectCanva = createServerFn({ method: "POST" })
+/**
+ * Super Admin: Open Canva editor with signed correlation state.
+ * Resolves active binding and design ID on server.
+ */
+export const adminOpenExternalDesignFlow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ yearbookId: z.string() }))
   .handler(async ({ data, context }) => {
-    const { requireYearbookCoordinator } = await import("./storage/access.server");
-    const { deleteCanvaConnection } = await import("./design/canva.server");
-    await requireYearbookCoordinator(context.supabase as any, context.userId, data.yearbookId);
-    return deleteCanvaConnection(data.yearbookId);
+    const { adminOpenExternalDesign } = await import("./design/admin-design.server.ts");
+    return adminOpenExternalDesign({ id: context.userId, email: "" }, data.yearbookId);
   });
 
-export const listCanvaDesigns = createServerFn({ method: "GET" })
+// ============================================================================
+// 2. GENERIC MILESTONE NON-ADMIN RPC FUNCTIONS
+// ============================================================================
+
+/**
+ * Generic: Get Yearbook layout status (Sanitized, zero Canva metadata).
+ */
+export const getYearbookLayout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ yearbookId: z.string(), search: z.string().optional() }))
+  .inputValidator(z.object({ yearbookId: z.string() }))
   .handler(async ({ data, context }) => {
-    const { requireYearbookMember } = await import("./storage/access.server");
-    const { listDesigns } = await import("./design/canva.server");
-    await requireYearbookMember(context.supabase as any, context.userId, data.yearbookId);
-    return listDesigns(data.yearbookId, data.search);
+    const { getYearbookLayoutStatus } = await import("./design/layout.server.ts");
+    return getYearbookLayoutStatus({ id: context.userId, email: "" }, data.yearbookId);
   });
 
-export const exportCanvaProof = createServerFn({ method: "POST" })
+/**
+ * Generic: Request layout PDF proof generation (Authorized Coordinators & assigned Editorial Members).
+ */
+export const requestLayoutProof = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ yearbookId: z.string(), pageId: z.string(), designId: z.string() }))
+  .inputValidator(
+    z.object({
+      yearbookId: z.string(),
+      pageId: z.string(),
+      idempotencyKey: z.string().optional(),
+    }),
+  )
   .handler(async ({ data, context }) => {
-    const { requireYearbookEditor } = await import("./storage/access.server");
-    const { startProofExport } = await import("./design/canva.server");
-    await requireYearbookEditor(context.supabase as any, context.userId, data.yearbookId);
-    return startProofExport({ ...data, userId: context.userId });
+    const { requestProofGeneration } = await import("./design/layout.server.ts");
+    return requestProofGeneration(
+      { id: context.userId, email: "" },
+      data.yearbookId,
+      data.pageId,
+      data.idempotencyKey,
+    );
+  });
+
+/**
+ * Generic: Send approved asset to layout library.
+ */
+export const sendAssetToLayout = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      yearbookId: z.string(),
+      assetId: z.string(),
+      targetPageId: z.string(),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const { uploadAssetToLayout } = await import("./design/layout.server.ts");
+    return uploadAssetToLayout({ id: context.userId, email: "" }, data.yearbookId, {
+      assetId: data.assetId,
+      targetPageId: data.targetPageId,
+    });
   });

@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedYearbooksYearbookIdRouteImport } from './routes/_authenticated/yearbooks.$yearbookId'
 import { Route as ApiPublicAuthCallbackRouteImport } from './routes/api/public/auth.callback'
+import { Route as ApiPublicCanvaReturnRouteImport } from './routes/api/public/canva.return'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +47,11 @@ const ApiPublicAuthCallbackRoute = ApiPublicAuthCallbackRouteImport.update({
   path: '/api/public/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCanvaReturnRoute = ApiPublicCanvaReturnRouteImport.update({
+  id: '/api/public/canva/return',
+  path: '/api/public/canva/return',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -53,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/yearbooks/$yearbookId': typeof AuthenticatedYearbooksYearbookIdRoute
   '/api/public/auth/callback': typeof ApiPublicAuthCallbackRoute
+  '/api/public/canva/return': typeof ApiPublicCanvaReturnRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/yearbooks/$yearbookId': typeof AuthenticatedYearbooksYearbookIdRoute
   '/api/public/auth/callback': typeof ApiPublicAuthCallbackRoute
+  '/api/public/canva/return': typeof ApiPublicCanvaReturnRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -69,6 +77,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/yearbooks/$yearbookId': typeof AuthenticatedYearbooksYearbookIdRoute
   '/api/public/auth/callback': typeof ApiPublicAuthCallbackRoute
+  '/api/public/canva/return': typeof ApiPublicCanvaReturnRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -78,6 +87,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/yearbooks/$yearbookId'
     | '/api/public/auth/callback'
+    | '/api/public/canva/return'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -85,6 +95,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/yearbooks/$yearbookId'
     | '/api/public/auth/callback'
+    | '/api/public/canva/return'
   id:
     | '__root__'
     | '/'
@@ -93,6 +104,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/yearbooks/$yearbookId'
     | '/api/public/auth/callback'
+    | '/api/public/canva/return'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -100,6 +112,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiPublicAuthCallbackRoute: typeof ApiPublicAuthCallbackRoute
+  ApiPublicCanvaReturnRoute: typeof ApiPublicCanvaReturnRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -146,6 +159,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/canva/return': {
+      id: '/api/public/canva/return'
+      path: '/api/public/canva/return'
+      fullPath: '/api/public/canva/return'
+      preLoaderRoute: typeof ApiPublicCanvaReturnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -167,6 +187,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiPublicAuthCallbackRoute: ApiPublicAuthCallbackRoute,
+  ApiPublicCanvaReturnRoute: ApiPublicCanvaReturnRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

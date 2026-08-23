@@ -1,9 +1,10 @@
+import * as React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
-import { ChevronLeft, Trash2, UserPlus, BookCheck } from "lucide-react";
+import { ChevronLeft, Trash2, UserPlus, BookCheck, Plus } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DesignWorkspace } from "@/components/yearbook/DesignWorkspace";
+import { AdminCanvaManager } from "@/components/yearbook/design/AdminCanvaManager";
+import { LayoutWorkspace } from "@/components/yearbook/LayoutWorkspace";
 import {
   Select,
   SelectContent,
@@ -35,13 +37,32 @@ import { TeamInvitations } from "@/components/yearbook/TeamInvitations";
 import { StorageTab } from "@/components/yearbook/StorageTab";
 import { ProofreadingCenter } from "@/components/yearbook/production/ProofreadingCenter";
 import { ProductionDashboard } from "@/components/yearbook/production/ProductionDashboard";
-import { PDFProofViewer } from "@/components/yearbook/production/PDFProofViewer";
-import { getYearbook, addMember, removeMember, getProofs, getCorrections } from "@/lib/yearbook.functions";
+import { EditorialTeamTab } from "@/components/yearbook/EditorialTeamTab";
+import { TabErrorBoundary } from "@/components/ui/TabErrorBoundary";
+import {
+  getYearbook,
+  addMember,
+  removeMember,
+  getProofs,
+  getCorrections,
+} from "@/lib/yearbook.functions";
 
+const PDFProofViewer = React.lazy(() =>
+  import("@/components/yearbook/production/PDFProofViewer").then((m) => ({
+    default: m.PDFProofViewer,
+  })),
+);
 
-
+import { StudentPortal } from "@/components/yearbook/student/StudentPortal";
+import { StaffWorkbench } from "@/components/yearbook/staff/StaffWorkbench";
+import { getStorageUrl } from "@/lib/storage/storage-url";
 
 export const Route = createFileRoute("/_authenticated/yearbooks/$yearbookId")({
+  ssr: false,
+  validateSearch: (search: Record<string, unknown>): { tab?: string | undefined } => {
+    const tab = typeof search["tab"] === "string" ? (search["tab"] as string) : undefined;
+    return tab ? { tab } : {};
+  },
   head: () => ({
     meta: [
       { title: "Yearbook workspace — Milestone Yearbook" },
@@ -66,13 +87,24 @@ const ROLES = ["coordinator", "staff", "proofreader", "corrector", "student"];
 
 function Workspace() {
   const { yearbookId } = Route.useParams();
+  const search = Route.useSearch();
   const { user } = useAuth();
+  const resolvedTab = search?.tab === "layout" ? "design" : search?.tab || "ladder";
+  const [cockpitTab, setCockpitTab] = useState(resolvedTab);
+
+  useEffect(() => {
+    const nextTab = search?.tab === "layout" ? "design" : search?.tab;
+    if (nextTab && nextTab !== cockpitTab) {
+      setCockpitTab(nextTab);
+    }
+  }, [search?.tab]);
   const fetchYb = useServerFn(getYearbook);
   const qc = useQueryClient();
   const key = ["yearbook", yearbookId];
   const { data, isLoading, error } = useQuery({
     queryKey: key,
     queryFn: () => fetchYb({ data: { yearbookId } }),
+    retry: false,
   });
   const fetchProofs = useServerFn(getProofs);
   const fetchCorrections = useServerFn(getCorrections);
@@ -82,15 +114,15 @@ function Workspace() {
   const [activePageId, setActivePageId] = useState<string | null>(null);
 
   const { data: proofs } = useQuery({
-    queryKey: ['proofs', yearbookId],
+    queryKey: ["proofs", yearbookId],
     queryFn: () => fetchProofs({ data: { yearbookId } }),
-    enabled: !!data
+    enabled: !!data && viewerOpen,
   });
 
   const { data: corrections } = useQuery({
-    queryKey: ['corrections', yearbookId],
+    queryKey: ["corrections", yearbookId],
     queryFn: () => fetchCorrections({ data: { yearbookId } }),
-    enabled: !!data
+    enabled: !!data && viewerOpen,
   });
 
   const handleViewProof = (proofId: string, pageId?: string) => {
@@ -131,6 +163,46 @@ function Workspace() {
     schools: { name: string } | null;
   };
 
+  const isSuperAdmin = data.myRoles.includes("super_admin");
+  const isCoordinator = data.myRoles.includes("coordinator");
+  const isStaff =
+    data.myRoles.includes("staff") ||
+    data.myRoles.includes("member") ||
+    data.myRoles.includes("editorial_member");
+  const isStudentOnly =
+    (data.myRoles.includes("student") || data.myRoles.includes("student_contributor")) &&
+    !isCoordinator &&
+    !isSuperAdmin &&
+    !isStaff;
+  const isStaffOnly = isStaff && !isCoordinator && !isSuperAdmin;
+
+  // 1. DEDICATED STUDENT PORTAL
+  if (isStudentOnly) {
+    return (
+      <AppShell>
+        <Link
+          to="/dashboard"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4"
+        >
+          <ChevronLeft className="size-4" /> Control center
+        </Link>
+        <StudentPortal
+          yearbookId={yearbookId}
+          studentId={data.myStudentId}
+          yearbookTitle={yb.title}
+          yearbookYear={yb.year}
+          schoolName={yb.schools?.name ?? null}
+          theme={yb.theme}
+          userEmail={(user as any)?.email}
+          userName={(user as any)?.full_name || (user as any)?.name}
+        />
+      </AppShell>
+    );
+  }
+
+  const activeProof = proofs?.find((p: any) => p.id === activeProofId);
+  const activeProofPath = activeProof?.storage_path || activeProof?.pdf_storage_path || "";
+
   return (
     <AppShell>
       <Link
@@ -155,257 +227,198 @@ function Workspace() {
         <div className="flex flex-wrap gap-1.5">
           {(data.myRoles.length ? data.myRoles : ["viewer"]).map((r) => (
             <Badge key={r} variant="secondary" className="capitalize">
-              {r.replace("_", " ")}
+              {r === "staff" ? "Staff/Member" : r.replace("_", " ")}
             </Badge>
           ))}
         </div>
       </div>
 
-      <Tabs defaultValue="ladder" className="mt-8">
-        <TabsList>
-          <TabsTrigger value="ladder">Page ladder</TabsTrigger>
-          <TabsTrigger value="design">Design</TabsTrigger>
-          <TabsTrigger value="proofreading" className="gap-2">
-            <BookCheck className="size-4" /> Proofreading
-          </TabsTrigger>
-          <TabsTrigger value="assets">Assets</TabsTrigger>
-          <TabsTrigger value="storage">Storage</TabsTrigger>
-          <TabsTrigger value="production">Production</TabsTrigger>
-          <TabsTrigger value="people">People</TabsTrigger>
-          <TabsTrigger value="team">Team</TabsTrigger>
-        </TabsList>
+      {/* 2. DEDICATED STAFF WORKBENCH */}
+      {isStaffOnly ? (
+        <Tabs
+          defaultValue={
+            search?.tab === "design" || search?.tab === "layout" ? "design" : "workbench"
+          }
+          className="mt-8"
+        >
+          <TabsList>
+            <TabsTrigger value="workbench">My Workbench</TabsTrigger>
+            <TabsTrigger value="design">Layout & Proofing</TabsTrigger>
+            <TabsTrigger value="assets">Asset Library</TabsTrigger>
+          </TabsList>
 
+          <TabsContent value="workbench" className="mt-6">
+            <StaffWorkbench
+              yearbookId={yearbookId}
+              userId={user?.id ?? ""}
+              sections={data.sections}
+              statuses={data.statuses as never}
+              pageTypes={data.pageTypes}
+            />
+          </TabsContent>
 
+          <TabsContent value="design" className="mt-6">
+            <LayoutWorkspace
+              yearbookId={yearbookId}
+              canManage={data.canManage}
+              canEdit={data.canEdit}
+              canGenerateProof={data.canGenerateProof}
+            />
+          </TabsContent>
 
-        <TabsContent value="ladder" className="mt-6">
-          <LadderTab
-            yearbookId={yearbookId}
-            sections={data.sections}
-            pageTypes={data.pageTypes}
-            statuses={data.statuses as never}
-            members={data.members as never}
-            canEdit={data.canEdit}
-            canManage={data.canManage}
-            userId={user?.id ?? ""}
-          />
-        </TabsContent>
+          <TabsContent value="assets" className="mt-6">
+            <AssetLibrary
+              yearbookId={yearbookId}
+              canEdit={data.canEdit}
+              studentId={data.myStudentId ?? undefined}
+            />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        /* 3. FULL COORDINATOR / SUPER ADMIN COCKPIT */
+        <Tabs value={cockpitTab} onValueChange={setCockpitTab} className="mt-8">
+          <TabsList>
+            <TabsTrigger value="ladder">Page ladder</TabsTrigger>
+            <TabsTrigger value="design">
+              {user?.roles?.includes("super_admin") ? "Design Integration" : "Layout & Proofing"}
+            </TabsTrigger>
+            <TabsTrigger value="proofreading" className="gap-2">
+              <BookCheck className="size-4" /> Proofreading
+            </TabsTrigger>
+            <TabsTrigger value="assets">Assets</TabsTrigger>
+            <TabsTrigger value="people">People</TabsTrigger>
+            <TabsTrigger value="production">Production</TabsTrigger>
+            <TabsTrigger value="storage">Storage</TabsTrigger>
+            <TabsTrigger value="team">Team</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="design" className="mt-6">
-          <DesignWorkspace 
-            yearbookId={yearbookId} 
-            canEdit={data.canEdit} 
-          />
-        </TabsContent>
+          <TabsContent value="ladder" className="mt-6">
+            {cockpitTab === "ladder" && (
+              <TabErrorBoundary tabName="Page Ladder">
+                <LadderTab
+                  yearbookId={yearbookId}
+                  sections={data.sections}
+                  pageTypes={data.pageTypes}
+                  statuses={data.statuses as never}
+                  members={data.members as never}
+                  canEdit={data.canEdit}
+                  canManage={data.canManage}
+                  userId={user?.id ?? ""}
+                />
+              </TabErrorBoundary>
+            )}
+          </TabsContent>
 
-        <TabsContent value="proofreading" className="mt-6">
-          <ProofreadingCenter 
-            yearbookId={yearbookId}
-            canManage={data.canManage}
-            onViewProof={handleViewProof}
-          />
-        </TabsContent>
+          <TabsContent value="design" className="mt-6">
+            {cockpitTab === "design" && (
+              <TabErrorBoundary tabName="Layout Workspace">
+                {user?.roles?.includes("super_admin") ? (
+                  <AdminCanvaManager yearbookId={yearbookId} />
+                ) : (
+                  <LayoutWorkspace
+                    yearbookId={yearbookId}
+                    canManage={data.canManage}
+                    canEdit={data.canEdit}
+                    canGenerateProof={data.canGenerateProof}
+                  />
+                )}
+              </TabErrorBoundary>
+            )}
+          </TabsContent>
 
+          <TabsContent value="proofreading" className="mt-6">
+            {cockpitTab === "proofreading" && (
+              <TabErrorBoundary tabName="Proofreading Center">
+                <ProofreadingCenter
+                  yearbookId={yearbookId}
+                  canManage={data.canManage}
+                  onViewProof={handleViewProof}
+                />
+              </TabErrorBoundary>
+            )}
+          </TabsContent>
 
-        <TabsContent value="assets" className="mt-6">
-          <AssetLibrary 
-            yearbookId={yearbookId} 
-            canEdit={data.canEdit} 
-            studentId={data.myStudentId ?? undefined} 
-          />
-        </TabsContent>
+          <TabsContent value="assets" className="mt-6">
+            {cockpitTab === "assets" && (
+              <TabErrorBoundary tabName="Asset Library">
+                <AssetLibrary
+                  yearbookId={yearbookId}
+                  canEdit={data.canEdit}
+                  studentId={data.myStudentId ?? undefined}
+                />
+              </TabErrorBoundary>
+            )}
+          </TabsContent>
 
-        <TabsContent value="storage" className="mt-6">
-          <StorageTab 
-            yearbookId={yearbookId}
-            canManage={data.canManage}
-          />
-        </TabsContent>
+          <TabsContent value="storage" className="mt-6">
+            {cockpitTab === "storage" && (
+              <TabErrorBoundary tabName="Storage Settings">
+                <StorageTab
+                  yearbookId={yearbookId}
+                  centerId={data.yearbook.school_id || (data.yearbook as any).center_id}
+                  canManage={data.canManage}
+                />
+              </TabErrorBoundary>
+            )}
+          </TabsContent>
 
-        <TabsContent value="production" className="mt-6">
-          <ProductionDashboard 
-            yearbookId={yearbookId}
-            canManage={data.canManage}
-          />
-        </TabsContent>
+          <TabsContent value="production" className="mt-6">
+            {cockpitTab === "production" && (
+              <TabErrorBoundary tabName="Production Dashboard">
+                <ProductionDashboard yearbookId={yearbookId} canManage={data.canManage} />
+              </TabErrorBoundary>
+            )}
+          </TabsContent>
 
+          <TabsContent value="people" className="mt-6">
+            {cockpitTab === "people" && (
+              <TabErrorBoundary tabName="People & Roles">
+                <PeopleTab yearbookId={yearbookId} canEdit={data.canEdit} />
+              </TabErrorBoundary>
+            )}
+          </TabsContent>
 
-        <TabsContent value="people" className="mt-6">
-          <PeopleTab yearbookId={yearbookId} canEdit={data.canEdit} />
-        </TabsContent>
+          <TabsContent value="team" className="mt-6">
+            {cockpitTab === "team" && (
+              <TabErrorBoundary tabName="Editorial Team">
+                <EditorialTeamTab
+                  yearbookId={yearbookId}
+                  isSuperAdmin={isSuperAdmin}
+                  canManage={data.canManage}
+                  pages={(data.sections ?? []).flatMap((s: any) => s.pages ?? [])}
+                  sections={data.sections as any}
+                />
+              </TabErrorBoundary>
+            )}
+          </TabsContent>
+        </Tabs>
+      )}
 
-
-        <TabsContent value="team" className="mt-6">
-          <TeamTab
-            yearbookId={yearbookId}
-            members={data.members as never}
-            canManage={data.canManage}
-            onDone={() => qc.invalidateQueries({ queryKey: key })}
-          />
-        </TabsContent>
-      </Tabs>
       <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
-        <DialogContent className="max-w-[95vw] w-[95vw] h-[95vh] p-0 overflow-hidden">
-          <DialogHeader className="hidden">
+        <DialogContent className="max-w-5xl w-full p-0 overflow-hidden bg-background">
+          <DialogHeader className="p-4 border-b">
             <DialogTitle>PDF Proof Viewer</DialogTitle>
           </DialogHeader>
-          <PDFProofViewer 
-            yearbookId={yearbookId}
-            proofUrl={proofs?.find((p: any) => p.id === activeProofId)?.storage_path || ''}
-            initialPage={1} // In a real app, find page number from activePageId
-            corrections={corrections || []}
-            onAddCorrection={(p, x, y) => {
-              toast.info(`Creating correction at ${Math.round(x)}%, ${Math.round(y)}% on page ${p}`);
-              // Integration with createCorrection server function would go here
-            }}
-          />
+          <div className="h-[80vh]">
+            {viewerOpen && activeProofId && (
+              <React.Suspense
+                fallback={<div className="p-10 text-center">Loading proof viewer...</div>}
+              >
+                <PDFProofViewer
+                  yearbookId={yearbookId}
+                  proofUrl={getStorageUrl(`proofs/${activeProofId}.pdf`)}
+                  initialPage={1}
+                  onAddCorrection={async (c) => {
+                    toast.success("Correction added");
+                    qc.invalidateQueries({ queryKey: ["corrections", yearbookId] });
+                  }}
+                  corrections={corrections ?? []}
+                />
+              </React.Suspense>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </AppShell>
-
-  );
-}
-
-type Member = {
-  id: string;
-  user_id: string;
-  role: string;
-  profile: { full_name: string | null; email: string | null } | null;
-};
-
-function TeamTab({
-  yearbookId,
-  members,
-  canManage,
-  onDone,
-}: {
-  yearbookId: string;
-  members: Member[];
-  canManage: boolean;
-  onDone: () => void;
-}) {
-  const add = useServerFn(addMember);
-  const remove = useServerFn(removeMember);
-  const [open, setOpen] = useState(false);
-  const [role, setRole] = useState("staff");
-
-  return (
-    <div>
-      <div className="flex items-center justify-between">
-        <h2 className="font-display text-xl">Production team</h2>
-        {canManage && (
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <UserPlus className="size-4" /> Add member
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add a team member</DialogTitle>
-              </DialogHeader>
-              <form
-                className="space-y-3"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const fd = new FormData(e.currentTarget);
-                  add({
-                    data: { yearbookId, email: String(fd.get("email")), role },
-                  })
-                    .then(() => {
-                      toast.success("Member added");
-                      setOpen(false);
-                      onDone();
-                    })
-                    .catch((err: Error) => toast.error(err.message));
-                }}
-              >
-                <div className="space-y-1.5">
-                  <Label htmlFor="m-email">Account email</Label>
-                  <Input id="m-email" name="email" type="email" required />
-                  <p className="text-xs text-muted-foreground">
-                    They must have signed up already.
-                  </p>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Role</Label>
-                  <Select value={role} onValueChange={setRole}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ROLES.map((r) => (
-                        <SelectItem key={r} value={r} className="capitalize">
-                          {r}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <DialogFooter>
-                  <Button type="submit">Add</Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
-
-      <div className="plate mt-4 divide-y">
-        {members.map((m) => (
-          <div key={m.id} className="flex items-center gap-3 p-3">
-            <div className="flex-1">
-              <p className="font-medium">{m.profile?.full_name || m.profile?.email || m.user_id}</p>
-              <p className="text-xs text-muted-foreground">{m.profile?.email}</p>
-            </div>
-            <Badge variant="secondary" className="capitalize">
-              {m.role}
-            </Badge>
-            {canManage && (
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() =>
-                  remove({ data: { id: m.id } })
-                    .then(onDone)
-                    .catch((e: Error) => toast.error(e.message))
-                }
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-8">
-        <TeamInvitations yearbookId={yearbookId} canManage={canManage} />
-      </div>
-
-      <div className="plate mt-6 p-5">
-
-        <h3 className="font-display text-lg">What each role can do</h3>
-        <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-          <li>
-            <strong className="text-foreground">Coordinator</strong> — full control: team, people,
-            ladder, settings.
-          </li>
-          <li>
-            <strong className="text-foreground">Staff</strong> — build and edit the ladder, people
-            and assignments.
-          </li>
-          <li>
-            <strong className="text-foreground">Proofreader</strong> — read the ladder and update
-            pages assigned to them.
-          </li>
-          <li>
-            <strong className="text-foreground">Corrector</strong> — read-only review access.
-          </li>
-          <li>
-            <strong className="text-foreground">Student</strong> — sees only their own record and
-            submissions.
-          </li>
-        </ul>
-      </div>
-    </div>
   );
 }

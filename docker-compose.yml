@@ -2,7 +2,43 @@ services:
   app:
     build: .
     ports:
-      - "${HOST_PORT:-8080}:8080"
+      - "${HOST_PORT:-8088}:8080"
     env_file:
       - .env
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - STORAGE_LOCAL_PATH=/data/storage
+    volumes:
+      - storage_data:/data/storage
+      - ./.localdev:/usr/src/app/.localdev
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: always
+
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-yearbook_user} -d ${POSTGRES_DB:-yearbook_db}",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 2s
+
+volumes:
+  postgres_data:
+  storage_data:

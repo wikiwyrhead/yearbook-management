@@ -1,6 +1,7 @@
 # Milestone Yearbook — Local Development & Docker Deployment
 
 This guide explains how to run the Milestone Yearbook application locally using the canonical development hostname:
+
 ```
 http://yearbook-manager.test
 ```
@@ -12,6 +13,7 @@ http://yearbook-manager.test
 Map `yearbook-manager.test` to your local loopback address (`127.0.0.1`).
 
 ### Windows 11 / Windows 10
+
 1. Open **Notepad** (or your code editor) as **Administrator** (Right-click → "Run as administrator").
 2. Open the hosts file at:
    ```
@@ -24,7 +26,9 @@ Map `yearbook-manager.test` to your local loopback address (`127.0.0.1`).
 4. Save the file.
 
 ### Linux / macOS
+
 Add the entry to `/etc/hosts`:
+
 ```bash
 echo "127.0.0.1 yearbook-manager.test" | sudo tee -a /etc/hosts
 ```
@@ -93,21 +97,24 @@ To enable email sign-up confirmations, password resets, and Google OAuth to redi
 ## 5. OAuth Provider Configuration
 
 When configuring external providers, register the unified callback route:
+
 ```
 http://yearbook-manager.test/api/public/auth/callback
 ```
 
 ### A. Google Cloud Console (Direct Google Drive API v3)
+
 - **Console**: [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)
 - **Authorized JavaScript origins**: `http://yearbook-manager.test`
 - **Authorized redirect URIs**:
   ```
   http://yearbook-manager.test/api/public/auth/callback
   ```
-- *Note for Supabase Google Sign-In*: If using Google for user login via Supabase Auth, also register the Supabase callback URI: `https://<your-project-ref>.supabase.co/auth/v1/callback`.
-- *Scopes*: `.../auth/userinfo.email`, `.../auth/userinfo.profile`, `.../auth/drive.readonly`.
+- _Note for Supabase Google Sign-In_: If using Google for user login via Supabase Auth, also register the Supabase callback URI: `https://<your-project-ref>.supabase.co/auth/v1/callback`.
+- _Scopes_: `.../auth/userinfo.email`, `.../auth/userinfo.profile`, `.../auth/drive.readonly`.
 
 ### B. Box Developer Console (Box Content API v2)
+
 - **Console**: [Box Developer Console](https://account.box.com/developers/console)
 - **OAuth 2.0 Redirect URI**:
   ```
@@ -115,19 +122,21 @@ http://yearbook-manager.test/api/public/auth/callback
   ```
 
 ### C. Canva Developer Portal (Canva Connect API with PKCE)
+
 - **Console**: [Canva Developers Portal](https://www.canva.com/developers/)
 - **Redirect URL**:
   ```
   http://yearbook-manager.test/api/public/auth/callback
   ```
-- *Scopes*: `design:content:read`, `design:meta:read`.
-- *Note on HTTPS*: In production, Canva Connect requires HTTPS; development test integrations allow custom registered local URLs.
+- _Scopes_: `design:content:read`, `design:meta:read`.
+- _Note on HTTPS_: In production, Canva Connect requires HTTPS; development test integrations allow custom registered local URLs.
 
 ---
 
 ## 6. Running Locally
 
 ### Via Docker Compose (Recommended)
+
 ```bash
 # Build multi-stage container
 docker compose build
@@ -135,21 +144,27 @@ docker compose build
 # Start container in detached mode
 docker compose up -d
 ```
+
 Access the application at:
+
 ```
 http://yearbook-manager.test
 ```
-*(If `HOST_PORT` was set to e.g. `8080`, access at `http://yearbook-manager.test:8080`)*.
+
+_(If `HOST_PORT` was set to e.g. `8080`, access at `http://yearbook-manager.test:8080`)_.
 
 To view logs or stop:
+
 ```bash
 docker compose logs -f
 docker compose down
 ```
 
 ### Via Local Node.js Dev Server
+
 ```bash
 npm install
 npm run dev
 ```
+
 Development server runs on port 8080. If bound with port 80 proxy or directly, access at `http://yearbook-manager.test:8080`.

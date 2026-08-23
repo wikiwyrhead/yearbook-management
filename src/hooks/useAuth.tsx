@@ -1,23 +1,58 @@
 import { useEffect, useState } from "react";
-import type { Session, User } from "@supabase/supabase-js";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUser, logout } from "@/lib/auth.functions";
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  fullName?: string | null;
+  avatarUrl?: string | null;
+  roles?: string[];
+}
 
 export function useAuth() {
-  const [session, setSession] = useState<Session | null>(null);
+  const getCurrentUserFn = useServerFn(getCurrentUser);
+  const logoutFn = useServerFn(logout);
+
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [session, setSession] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
-      setLoading(false);
-    });
-    supabase.auth.getSession().then(({ data: d }) => {
-      setSession(d.session);
-      setLoading(false);
-    });
-    return () => data.subscription.unsubscribe();
+    getCurrentUserFn()
+      .then((res) => {
+        if (res?.user) {
+          setUser(res.user);
+          setSession({ user: res.user });
+        } else {
+          setUser(null);
+          setSession(null);
+        }
+      })
+      .catch(() => {
+        setUser(null);
+        setSession(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
-  const user: User | null = session?.user ?? null;
-  return { session, user, loading, signOut: () => supabase.auth.signOut() };
+  const signOut = async () => {
+    try {
+      await logoutFn();
+    } catch {}
+    try {
+      await supabase.auth.signOut();
+    } catch {}
+    try {
+      localStorage.clear();
+    } catch {}
+    setUser(null);
+    setSession(null);
+    window.location.href = "/auth";
+  };
+
+  return { session, user, loading, signOut };
 }

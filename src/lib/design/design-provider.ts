@@ -7,22 +7,26 @@
 export type DesignProviderId = "canva";
 
 export type DesignConnectionStatus =
-  | "connected"
-  | "needs_reauthorization"
-  | "disconnected"
-  | "error";
+  "connected" | "needs_reauthorization" | "disconnected" | "error";
 
 export type DesignConnectionState = {
   status: DesignConnectionStatus;
   detail?: string | undefined;
   teamId?: string | undefined;
   accountName?: string | undefined;
+  userId?: string | undefined;
+  scopes?: string[] | undefined;
 };
 
 export type DesignRef = {
-  /** Yearbook-scoped credential lookup; tokens never leave the server. */
-  yearbookId: string;
+  /** User-scoped credential lookup; tokens never leave the server. */
+  userId?: string | undefined;
+  connectionId?: string | undefined;
+  yearbookId?: string | undefined;
   accessToken?: string | undefined;
+  refreshToken?: string | undefined;
+  accountEmail?: string | undefined;
+  displayName?: string | undefined;
 };
 
 export type DesignDocument = {
@@ -31,6 +35,8 @@ export type DesignDocument = {
   url: string;
   thumbnailUrl?: string | undefined;
   updatedAt?: string | undefined;
+  canvaDesignId?: string | undefined;
+  pageCount?: number | undefined;
 };
 
 export type ExportJob = {
@@ -53,7 +59,7 @@ export interface DesignProvider {
   getDesign(ref: DesignRef, designId: string): Promise<DesignDocument>;
   listDesigns(ref: DesignRef, query?: string): Promise<DesignDocument[]>;
 
-  requestPdfExport(ref: DesignRef, designId: string): Promise<ExportJob>;
+  requestPdfExport(ref: DesignRef, designId: string, pages?: number[]): Promise<ExportJob>;
   getExportStatus(ref: DesignRef, jobId: string): Promise<ExportJob>;
 }
 

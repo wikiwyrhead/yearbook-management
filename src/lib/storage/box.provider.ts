@@ -20,7 +20,7 @@ import {
   type RemoteFile,
   type RemoteFolder,
   type StorageProvider,
-} from "./storage-provider";
+} from "./storage-provider.ts";
 
 const BOX_API = "https://api.box.com/2.0";
 const ITEM_FIELDS = "id,name,type,size,modified_at,shared_link,parent,extension";
@@ -144,7 +144,9 @@ export const boxProvider: StorageProvider = {
   },
 
   async getFileMetadata(ref, fileId) {
-    const res = await boxFetch(ref, `/files/${encodeURIComponent(fileId)}`, { fields: ITEM_FIELDS });
+    const res = await boxFetch(ref, `/files/${encodeURIComponent(fileId)}`, {
+      fields: ITEM_FIELDS,
+    });
     return mapItem((await res.json()) as Record<string, any>);
   },
 

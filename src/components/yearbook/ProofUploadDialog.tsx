@@ -27,29 +27,51 @@ export function ProofUploadDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [notes, setNotes] = useState("");
   const doCreateProof = useServerFn(createProof);
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedFile) {
+      toast.error("Please select a PDF file");
+      return;
+    }
     setIsUploading(true);
-    
+
     try {
-      // In a real app, this would upload to storage first.
-      // Simulating storage path for Phase 3.
-      const mockStoragePath = `https://example.com/proofs/${yearbookId}/${Date.now()}.pdf`;
-      
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("bucket", "yearbook_proofs");
+      formData.append("yearbookId", yearbookId);
+      formData.append("subfolder", "proofs");
+
+      const uploadRes = await fetch("/api/storage/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        const errData = await uploadRes.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to upload PDF");
+      }
+
+      const uploadData = await uploadRes.json();
+      const storagePath = uploadData.storagePath;
+
       await doCreateProof({
         data: {
           yearbookId,
           pageIds,
-          storagePath: mockStoragePath,
+          storagePath,
           notes,
         },
       });
-      
+
       toast.success("Proof version created");
       setOpen(false);
+      setSelectedFile(null);
+      setNotes("");
       onDone();
     } catch (err: any) {
       toast.error(err.message);
@@ -73,18 +95,29 @@ export function ProofUploadDialog({
         <form onSubmit={handleUpload} className="space-y-4 py-2">
           <div className="space-y-1.5">
             <Label>Select PDF File</Label>
-            <div className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center gap-2 hover:bg-accent/50 cursor-pointer transition-colors">
+            <label className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center gap-2 hover:bg-accent/50 cursor-pointer transition-colors relative">
               <FileText className="size-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Click to select or drag and drop</p>
-              <p className="text-[10px] text-muted-foreground/60 font-mono">PDF only, max 50MB</p>
-              <Input type="file" className="hidden" accept=".pdf" />
-            </div>
+              <p className="text-sm font-medium text-foreground">
+                {selectedFile ? selectedFile.name : "Click to select or drag and drop"}
+              </p>
+              <p className="text-[10px] text-muted-foreground/60 font-mono">
+                {selectedFile ? `${Math.round(selectedFile.size / 1024)} KB` : "PDF only, max 50MB"}
+              </p>
+              <input
+                type="file"
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                accept=".pdf,application/pdf"
+                onChange={(e) => {
+                  if (e.target.files?.[0]) setSelectedFile(e.target.files[0]);
+                }}
+              />
+            </label>
           </div>
-          
+
           <div className="space-y-1.5">
             <Label>Version Notes</Label>
-            <Textarea 
-              placeholder="e.g. Initial draft, fixed typo on page 37..." 
+            <Textarea
+              placeholder="e.g. Initial draft, fixed typo on page 37..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
@@ -95,7 +128,9 @@ export function ProofUploadDialog({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
             <Button type="submit" disabled={isUploading}>
               {isUploading ? (
                 <>

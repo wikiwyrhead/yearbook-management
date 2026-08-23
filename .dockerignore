@@ -4,4 +4,7 @@ node_modules
 dist
 .git
 .env
+.env.*
+.localdev
 *.local
+*.log

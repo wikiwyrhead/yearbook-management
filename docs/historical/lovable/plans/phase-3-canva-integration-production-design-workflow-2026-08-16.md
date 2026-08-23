@@ -3,6 +3,7 @@
 Connecting the yearbook content lifecycle to Canva and establishing a versioned proofing system.
 
 ## Schema Changes
+
 - **New Table: `proofs`**
   - Columns: `id`, `yearbook_id`, `version`, `storage_path`, `canva_export_id`, `created_by`, `status` (processing, ready, failed), `notes`, `created_at`.
 - **New Table: `proof_pages`**
@@ -14,10 +15,12 @@ Connecting the yearbook content lifecycle to Canva and establishing a versioned 
   - Stores yearbook-level Canva connection metadata (team_id, folder_id).
 
 ## Database Logic
+
 - **RLS Policies**: Standard yearbook-scoped access for new tables.
 - **Trigger**: Asset Change Awareness. If an approved asset linked to a page is updated/replaced, flag the page design status as `needs_review`.
 
 ## Server Functions (`src/lib/yearbook.functions.ts`)
+
 - `getCanvaConfig`: Retrieve yearbook integration details.
 - `updateDesignStatus`: Manual or automatic state transitions.
 - `createProof`: Handles manual PDF upload or triggers Canva export.
@@ -25,6 +28,7 @@ Connecting the yearbook content lifecycle to Canva and establishing a versioned 
 - `checkAssetChanges`: Backend check to identify pages with modified source assets.
 
 ## UI Enhancements
+
 - **Design Workspace (`src/components/yearbook/DesignWorkspace.tsx`)**:
   - A production-focused view showing page readiness based on requirement fulfillment.
   - Visual indicators for "Ready for Design" (all requirements met).
@@ -38,6 +42,7 @@ Connecting the yearbook content lifecycle to Canva and establishing a versioned 
   - Sidebar in the design view showing thumbnails of all approved assets for the current page.
 
 ## Technical Strategy
+
 - **Modular Service**: Create `src/lib/canva.server.ts` to encapsulate API interactions.
 - **Fail-safe**: "Upload PDF Proof" fallback is always visible if automatic export fails or isn't configured.
 - **Readiness Logic**: Computed client-side for immediate feedback, but mirrored in `design_status` for dashboard reporting.

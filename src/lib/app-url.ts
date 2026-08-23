@@ -7,28 +7,25 @@
  */
 
 export function getAppBaseUrl(request?: Request): string {
-  // 1. Check window.__ENV__ in browser
-  const winEnv = (typeof window !== "undefined" && (window as any).__ENV__) || {};
-  if (winEnv.VITE_APP_URL && typeof winEnv.VITE_APP_URL === "string" && winEnv.VITE_APP_URL.trim().length > 0) {
-    return winEnv.VITE_APP_URL.trim().replace(/\/+$/, "");
-  }
-
-  // 2. Check environment variable (configured VITE_APP_URL or APP_URL)
-  const envUrl = (typeof process !== "undefined" && (process.env["VITE_APP_URL"] || process.env["APP_URL"])) ||
+  // 1. Check environment variable (configured VITE_APP_URL or APP_URL)
+  const envUrl =
+    (typeof process !== "undefined" && (process.env["VITE_APP_URL"] || process.env["APP_URL"])) ||
     (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_APP_URL);
-
-  if (envUrl && typeof envUrl === "string" && envUrl.trim().length > 0) {
-    return envUrl.trim().replace(/\/+$/, "");
-  }
 
   // 2. Derive from active request headers if available (SSR)
   if (request) {
-    const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
-    const proto = request.headers.get("x-forwarded-proto") || (request.url.startsWith("https") ? "https" : "http");
-    if (host) {
+    const rawHost = request.headers.get("x-forwarded-host") || request.headers.get("host");
+    const rawProto =
+      request.headers.get("x-forwarded-proto") ||
+      (request.url.startsWith("https") ? "https" : "http");
+    if (rawHost) {
+      const host = rawHost.split(",")[0]!.trim();
+      const proto = rawProto.split(",")[0]!.trim();
       return `${proto}://${host}`.replace(/\/+$/, "");
     }
-    return new URL(request.url).origin.replace(/\/+$/, "");
+    if (request.url && !request.url.startsWith("/")) {
+      return new URL(request.url).origin.replace(/\/+$/, "");
+    }
   }
 
   // 3. Derive from browser window if running on client
@@ -36,8 +33,17 @@ export function getAppBaseUrl(request?: Request): string {
     return window.location.origin.replace(/\/+$/, "");
   }
 
-  // 4. Default canonical local development hostname
-  return "http://yearbook-manager.test";
+  if (
+    envUrl &&
+    typeof envUrl === "string" &&
+    envUrl.trim().length > 0 &&
+    envUrl !== "http://yearbook-manager.test"
+  ) {
+    return envUrl.trim().replace(/\/+$/, "");
+  }
+
+  // 4. Default fallback
+  return "https://milestone-portal.arnelbg.com";
 }
 
 export function getOAuthCallbackUrl(request?: Request): string {

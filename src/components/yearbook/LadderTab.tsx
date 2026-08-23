@@ -3,7 +3,19 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, Plus, Trash2, ExternalLink, ListOrdered, UserPlus, ImageIcon, CheckCircle2, Search, AlertCircle } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Plus,
+  Trash2,
+  ExternalLink,
+  ListOrdered,
+  UserPlus,
+  ImageIcon,
+  CheckCircle2,
+  Search,
+  AlertCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,12 +49,15 @@ import {
   saveRequirement,
   deleteRequirement,
   getAssets,
-  associateAssetToPage
+  associateAssetToPage,
 } from "@/lib/yearbook.functions";
 
-
 type Lookup = { id: string; name: string; color?: string };
-type Member = { user_id: string; role: string; profile: { full_name: string | null; email: string | null } | null };
+type Member = {
+  user_id: string;
+  role: string;
+  profile: { full_name: string | null; email: string | null } | null;
+};
 
 export function LadderTab({
   yearbookId,
@@ -66,12 +81,16 @@ export function LadderTab({
   const fetchLadder = useServerFn(getLadder);
   const qc = useQueryClient();
   const key = ["ladder", yearbookId];
-  const { data } = useQuery({ queryKey: key, queryFn: () => fetchLadder({ data: { yearbookId } }) });
+  const { data } = useQuery({
+    queryKey: key,
+    queryFn: () => fetchLadder({ data: { yearbookId } }),
+  });
   const refresh = () => qc.invalidateQueries({ queryKey: key });
 
   const [fSection, setFSection] = useState("all");
   const [fStatus, setFStatus] = useState("all");
   const [fAssignee, setFAssignee] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [openPage, setOpenPage] = useState<string | null>(null);
 
   const doUpdate = useServerFn(updatePage);
@@ -94,23 +113,30 @@ export function LadderTab({
 
   const filtered = useMemo(
     () =>
-      pages.filter((p) => {
+      pages.filter((p: any) => {
         if (fSection !== "all" && p.section_id !== fSection) return false;
         if (fStatus !== "all" && p.status_id !== fStatus) return false;
         if (fAssignee !== "all") {
-          const as = (data?.assignments ?? []).filter((a) => a.page_id === p.id);
-          if (!as.some((a) => a.user_id === fAssignee)) return false;
+          const as = (data?.assignments ?? []).filter((a: any) => a.page_id === p.id);
+          if (!as.some((a: any) => a.user_id === fAssignee)) return false;
         }
         return true;
       }),
     [pages, fSection, fStatus, fAssignee, data],
   );
 
+  const PAGE_SIZE = 12;
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+  const paginated = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, currentPage]);
+
   const statusById = Object.fromEntries(statuses.map((s) => [s.id, s]));
   const sectionById = Object.fromEntries(sections.map((s) => [s.id, s]));
 
   function move(pageId: string, dir: -1 | 1) {
-    const ids = pages.map((p) => p.id);
+    const ids = (pages as any[]).map((p: any) => p.id);
     const i = ids.indexOf(pageId);
     const j = i + dir;
     if (i < 0 || j < 0 || j >= ids.length) return;
@@ -173,7 +199,7 @@ export function LadderTab({
 
       <div className="mt-4 flex flex-wrap gap-2">
         {statuses.map((s) => {
-          const count = pages.filter((p) => p.status_id === s.id).length;
+          const count = (pages as any[]).filter((p: any) => p.status_id === s.id).length;
           return (
             <span
               key={s.id}
@@ -192,14 +218,14 @@ export function LadderTab({
             No pages match. Add pages to start building the ladder.
           </p>
         )}
-        {filtered.map((p) => {
+        {paginated.map((p: any) => {
           const st = p.status_id ? statusById[p.status_id] : undefined;
           const sec = p.section_id ? sectionById[p.section_id] : undefined;
-          const reqs = (data?.requirements ?? []).filter((r) => r.page_id === p.id);
-          const need = reqs.reduce((a, r) => a + r.needed, 0);
-          const have = reqs.reduce((a, r) => a + r.have, 0);
-          const as = (data?.assignments ?? []).filter((a) => a.page_id === p.id);
-          const mine = as.some((a) => a.user_id === userId);
+          const reqs = (data?.requirements ?? []).filter((r: any) => r.page_id === p.id);
+          const need = reqs.reduce((a: number, r: any) => a + r.needed, 0);
+          const have = reqs.reduce((a: number, r: any) => a + r.have, 0);
+          const as = (data?.assignments ?? []).filter((a: any) => a.page_id === p.id);
+          const mine = as.some((a: any) => a.user_id === userId);
           return (
             <div
               key={p.id}
@@ -238,7 +264,7 @@ export function LadderTab({
               </div>
 
               <div className="flex flex-wrap gap-1">
-                {as.map((a) => (
+                {as.map((a: any) => (
                   <Badge key={a.id} variant="secondary" className="gap-1">
                     {a.kind === "designer" ? "D" : "P"}: {nameOf(a.user_id)}
                     {canEdit && (
@@ -257,39 +283,22 @@ export function LadderTab({
                 ))}
               </div>
 
-              <Select
+              <select
                 value={p.status_id ?? ""}
-                onValueChange={(v) => mUpdate.mutate({ id: p.id, patch: { status_id: v } })}
+                onChange={(e) => mUpdate.mutate({ id: p.id, patch: { status_id: e.target.value } })}
+                disabled={!canEdit}
+                aria-label="Page status"
+                className="h-8 w-44 rounded-md border border-input bg-background px-2 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-ring font-medium"
               >
-                <SelectTrigger className="w-56">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {p.canva_design_url && (
-                <div className="flex items-center gap-2">
-                  <a
-                    href={p.canva_design_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded"
-                  >
-                    <ExternalLink className="size-3" /> Canva
-                  </a>
-                  {(p as any).design_status === 'needs_review' && (
-                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-5">
-                      <AlertCircle className="size-3 mr-1" /> RE-PROOF
-                    </Badge>
-                  )}
-                </div>
-              )}
+                <option value="" disabled>
+                  Status
+                </option>
+                {statuses.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
 
               {canEdit && (
                 <div className="flex gap-1">
@@ -317,13 +326,47 @@ export function LadderTab({
             </div>
           );
         })}
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between p-3 bg-muted/20 border-t">
+            <p className="text-xs text-muted-foreground">
+              Showing {(currentPage - 1) * PAGE_SIZE + 1}–
+              {Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length} pages
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <span className="text-xs font-medium px-2">
+                {currentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {openPage && (
         <PageDialog
           key={openPage}
-          page={pages.find((p) => p.id === openPage) as any}
-          requirements={(data?.requirements ?? []).filter((r) => r.page_id === openPage)}
+          page={(pages as any[]).find((p: any) => p.id === openPage) as any}
+          requirements={((data?.requirements as any[]) ?? []).filter(
+            (r: any) => r.page_id === openPage,
+          )}
           sections={sections}
           pageTypes={pageTypes}
           yearbookId={yearbookId}
@@ -409,7 +452,7 @@ function AddPagesDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Section</Label>
-            <Select value={sectionId} onValueChange={setSectionId}>
+            <Select {...(sectionId ? { value: sectionId } : {})} onValueChange={setSectionId}>
               <SelectTrigger>
                 <SelectValue placeholder="No section" />
               </SelectTrigger>
@@ -424,7 +467,7 @@ function AddPagesDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Page type</Label>
-            <Select value={typeId} onValueChange={setTypeId}>
+            <Select {...(typeId ? { value: typeId } : {})} onValueChange={setTypeId}>
               <SelectTrigger>
                 <SelectValue placeholder="No type" />
               </SelectTrigger>
@@ -446,7 +489,13 @@ function AddPagesDialog({
           <Button
             onClick={() =>
               create({
-                data: { yearbookId, count, sectionId: sectionId || null, pageTypeId: typeId || null, title },
+                data: {
+                  yearbookId,
+                  count,
+                  sectionId: sectionId || null,
+                  pageTypeId: typeId || null,
+                  title,
+                },
               })
                 .then(() => {
                   setOpen(false);
@@ -476,7 +525,7 @@ function AssignRangeDialog({
   const [open, setOpen] = useState(false);
   const [from, setFrom] = useState(1);
   const [to, setTo] = useState(1);
-  const [uid, setUid] = useState("");
+  const [uid, setUid] = useState<string>("");
   const [kind, setKind] = useState<"designer" | "proofreader">("designer");
 
   return (
@@ -506,7 +555,7 @@ function AssignRangeDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Person</Label>
-            <Select value={uid} onValueChange={setUid}>
+            <Select {...(uid ? { value: uid } : {})} onValueChange={setUid}>
               <SelectTrigger>
                 <SelectValue placeholder="Select member" />
               </SelectTrigger>
@@ -539,7 +588,9 @@ function AssignRangeDialog({
                 toast.error("Pick a person");
                 return;
               }
-              assign({ data: { yearbookId, fromPosition: from, toPosition: to, userId: uid, kind } })
+              assign({
+                data: { yearbookId, fromPosition: from, toPosition: to, userId: uid, kind },
+              })
                 .then((r) => {
                   toast.success(`Assigned ${r.assigned} pages`);
                   setOpen(false);
@@ -597,19 +648,18 @@ function PageDialog({
   const [newLabel, setNewLabel] = useState("");
   const [newNeeded, setNewNeeded] = useState(1);
 
-  const set = (k: keyof PageRow, v: string | number | null) =>
-    setForm((f) => ({ ...f, [k]: v }));
+  const set = (k: keyof PageRow, v: string | number | null) => setForm((f) => ({ ...f, [k]: v }));
 
   const fetchAssets = useServerFn(getAssets);
   const associate = useServerFn(associateAssetToPage);
   const [assetSearch, setAssetSearch] = useState("");
-  
+
   const { data: assets } = useQuery({
     queryKey: ["assets", yearbookId, assetSearch],
-    queryFn: () => fetchAssets({ data: { yearbookId, filters: { search: assetSearch || undefined } } }),
-    enabled: !!page.id
+    queryFn: () =>
+      fetchAssets({ data: { yearbookId, filters: { search: assetSearch || undefined } } }),
+    enabled: !!page.id,
   });
-
 
   const handleLink = async (requirementId: string, assetId: string) => {
     try {
@@ -621,126 +671,110 @@ function PageDialog({
     }
   };
 
-
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
-          <DialogTitle>Page {page.page_number ?? ""} - {page.title || 'Untitled'}</DialogTitle>
+          <DialogTitle>
+            Page {page.page_number ?? ""} - {page.title || "Untitled"}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-4">
             <h3 className="font-display text-lg">Page Details</h3>
             <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Title</Label>
+                  <Input value={form.title ?? ""} onChange={(e) => set("title", e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Printed page number</Label>
+                  <Input
+                    type="number"
+                    value={form.page_number ?? ""}
+                    onChange={(e) =>
+                      set("page_number", e.target.value ? Number(e.target.value) : null)
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Section</Label>
+                  <Select
+                    {...(form.section_id ? { value: form.section_id } : {})}
+                    onValueChange={(v) => set("section_id", v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="No section" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sections.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Page type</Label>
+                  <Select
+                    {...(form.page_type_id ? { value: form.page_type_id } : {})}
+                    onValueChange={(v) => set("page_type_id", v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="No type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pageTypes.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Title</Label>
-              <Input value={form.title ?? ""} onChange={(e) => set("title", e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Printed page number</Label>
-              <Input
-                type="number"
-                value={form.page_number ?? ""}
-                onChange={(e) => set("page_number", e.target.value ? Number(e.target.value) : null)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Section</Label>
-              <Select
-                value={form.section_id ?? ""}
-                onValueChange={(v) => set("section_id", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="No section" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sections.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Page type</Label>
-              <Select
-                value={form.page_type_id ?? ""}
-                onValueChange={(v) => set("page_type_id", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="No type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {pageTypes.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-1.5">
+                <Label>Description</Label>
+                <Textarea
+                  rows={2}
+                  value={form.description ?? ""}
+                  onChange={(e) => set("description", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Required assets</Label>
+                <Textarea
+                  rows={2}
+                  value={form.required_assets ?? ""}
+                  onChange={(e) => set("required_assets", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Notes</Label>
+                <Textarea
+                  rows={2}
+                  value={form.notes ?? ""}
+                  onChange={(e) => set("notes", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Blocking reason</Label>
+                <Input
+                  value={form.blocking_reason ?? ""}
+                  onChange={(e) => set("blocking_reason", e.target.value)}
+                />
+              </div>
             </div>
           </div>
-
-          <div className="space-y-1.5">
-            <Label>Description</Label>
-            <Textarea
-              rows={2}
-              value={form.description ?? ""}
-              onChange={(e) => set("description", e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Required assets</Label>
-            <Textarea
-              rows={2}
-              value={form.required_assets ?? ""}
-              onChange={(e) => set("required_assets", e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Notes</Label>
-            <Textarea
-              rows={2}
-              value={form.notes ?? ""}
-              onChange={(e) => set("notes", e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Blocking reason</Label>
-            <Input
-              value={form.blocking_reason ?? ""}
-              onChange={(e) => set("blocking_reason", e.target.value)}
-            />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Canva design ID</Label>
-              <Input
-                value={form.canva_design_id ?? ""}
-                onChange={(e) => set("canva_design_id", e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Canva design URL</Label>
-              <Input
-                value={form.canva_design_url ?? ""}
-                onChange={(e) => set("canva_design_url", e.target.value)}
-              />
-            </div>
-          </div>
-
-            </div>
-          </div>
-
 
           {/* Asset Section */}
           <div className="space-y-6">
             <h3 className="font-display text-lg">Requirements & Assets</h3>
-            
+
             <div className="rounded-md border p-4 space-y-4">
               <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                 <ImageIcon className="size-4" /> Asset Linker
@@ -754,12 +788,15 @@ function PageDialog({
                   onChange={(e) => setAssetSearch(e.target.value)}
                 />
               </div>
-              
+
               <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2">
                 {assets?.map((asset: any) => (
-                  <div key={asset.id} className="flex items-center justify-between gap-3 p-2 bg-muted/30 rounded-lg group">
+                  <div
+                    key={asset.id}
+                    className="flex items-center justify-between gap-3 p-2 bg-muted/30 rounded-lg group"
+                  >
                     <div className="flex items-center gap-3 truncate">
-                      {asset.asset_type === 'photo' ? (
+                      {asset.asset_type === "photo" ? (
                         <img src={asset.storage_path} className="size-10 rounded object-cover" />
                       ) : (
                         <div className="size-10 rounded bg-muted flex items-center justify-center">
@@ -768,10 +805,12 @@ function PageDialog({
                       )}
                       <div className="truncate">
                         <p className="text-xs font-medium truncate">{asset.file_name}</p>
-                        <p className="text-[10px] text-muted-foreground capitalize">{asset.status}</p>
+                        <p className="text-[10px] text-muted-foreground capitalize">
+                          {asset.status}
+                        </p>
                       </div>
                     </div>
-                    
+
                     <Select onValueChange={(rid) => handleLink(rid, asset.id)}>
                       <SelectTrigger className="w-[120px] h-8 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">
                         <SelectValue placeholder="Link to..." />
@@ -793,7 +832,10 @@ function PageDialog({
               <h4 className="font-display text-lg">Active Requirements</h4>
               <div className="mt-4 space-y-3">
                 {requirements.map((r) => (
-                  <div key={r.id} className="space-y-2 bg-muted/20 p-3 rounded-lg border border-border/50">
+                  <div
+                    key={r.id}
+                    className="space-y-2 bg-muted/20 p-3 rounded-lg border border-border/50"
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         {r.have >= r.needed ? (
@@ -804,22 +846,24 @@ function PageDialog({
                         <span className="text-sm font-medium">{r.label}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                         <span className="text-xs font-bold">{r.have} / {r.needed}</span>
-                         {canEdit && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="size-6"
-                              onClick={() =>
-                                doDelReq({ data: { id: r.id } })
-                                  .then(onDone)
-                                  .catch((err: Error) => toast.error(err.message))
-                              }
-                            >
-                              <Trash2 className="size-4 text-destructive" />
-                             </Button>
-                          )}
-                       </div>
+                        <span className="text-xs font-bold">
+                          {r.have} / {r.needed}
+                        </span>
+                        {canEdit && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="size-6"
+                            onClick={() =>
+                              doDelReq({ data: { id: r.id } })
+                                .then(onDone)
+                                .catch((err: Error) => toast.error(err.message))
+                            }
+                          >
+                            <Trash2 className="size-4 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -829,12 +873,14 @@ function PageDialog({
                     No requirements yet — e.g. “8 portraits”, “1 class photo”.
                   </p>
                 )}
-                
+
                 {canEdit && (
                   <>
                     <Separator className="my-4" />
                     <div className="space-y-2">
-                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Add new requirement</Label>
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">
+                        Add new requirement
+                      </Label>
                       <div className="flex gap-2">
                         <Input
                           placeholder="Label (e.g. Portrait)"
@@ -918,4 +964,3 @@ function PageDialog({
     </Dialog>
   );
 }
-
