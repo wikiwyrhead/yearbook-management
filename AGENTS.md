@@ -46,13 +46,15 @@ So in local development, `.env` configures `VITE_APP_URL` with your private tunn
 - Any script containing production UUIDs, session tokens, or private tunnel endpoints
 - `.env` files, `.localdev/` contents, `/etc/cloudflared/` contents
 
-### What agents CAN commit in `scripts/`
+### Pull Request & Contribution Workflow
 
-Only these two scripts are public contributor tools:
-- `scripts/seed-demo-data.mjs` — sets up local demo database
-- `scripts/init-local-db.mjs` — initialises the database schema
-
-All other scripts (`test-*`, `capture-*`, `audit-*`, `verify-*`, `smoke-*`, etc.) are gitignored and stay on disk for local use only.
+- **Fork**: `origin` (`https://github.com/wikiwyrhead/yearbook-management`) is the contributor repository.
+- **Upstream**: `upstream` (`https://github.com/adonix26/yearbook-management`) is the original repository.
+- **Workflow**:
+  1. Develop and test features locally.
+  2. Commit and push feature branches to your fork (`origin`).
+  3. Open a Pull Request from `wikiwyrhead:<branch>` to `adonix26:main`.
+  4. Leave the Pull Request **open** so the original repository maintainers can review and merge.
 
 ### Pre-commit hook
 
