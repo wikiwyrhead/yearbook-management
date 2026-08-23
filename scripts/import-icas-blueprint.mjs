@@ -315,10 +315,29 @@ async function main() {
     }
 
     console.log("5. Appointing Leadership & Governance Signatories...");
-    // Appoint Coordinator (Elena Rostova), EIC, Principal, School Director for Milestone 2025
+    // Appoint distinct UAT users for Coordinator, EIC, Principal, School Director
     const coordId = "22222222-2222-2222-2222-222222222222"; // Elena Rostova
     const studentEditorId = "44444444-4444-4444-4444-444444444444"; // Chloe Bennett (EIC)
-    const principalAdvisorId = "88888888-8888-8888-8888-888888888888"; // Dr. Arthur Harrison
+    const principalId = "a1a1a1a1-1111-1111-1111-111111111111"; // Dr. Arthur Harrison (Principal)
+    const directorId = "a2a2a2a2-2222-2222-2222-222222222222"; // Father Gabriel Thomas (Director)
+
+    // Ensure distinct users exist in public.users
+    await client.query(`
+      INSERT INTO public.users (id, email, full_name, role)
+      VALUES 
+        ($1, 'principal-icas@test.yearbook', 'Dr. Arthur Harrison', 'member'),
+        ($2, 'director-icas@test.yearbook', 'Father Gabriel Thomas', 'member')
+      ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, email = EXCLUDED.email;
+    `, [principalId, directorId]);
+
+    // Ensure center memberships
+    await client.query(`
+      INSERT INTO public.center_memberships (user_id, center_id, is_active)
+      VALUES 
+        ($1, $3, true),
+        ($2, $3, true)
+      ON CONFLICT DO NOTHING;
+    `, [principalId, directorId, centerId]);
 
     await client.query(`
       INSERT INTO public.yearbook_members (yearbook_id, user_id, role)
@@ -327,7 +346,7 @@ async function main() {
         ($1, $3, 'editor_in_chief'),
         ($1, $4, 'advisor')
       ON CONFLICT DO NOTHING;
-    `, [yearbookId, coordId, studentEditorId, principalAdvisorId]);
+    `, [yearbookId, coordId, studentEditorId, principalId]);
 
     // Create Round 1 proof candidate linked to the authoritative PDF
     const crypto = await import("node:crypto");
@@ -338,11 +357,19 @@ async function main() {
     const proofFilePath = "icas://blueprints/138-page-authoritative.pdf";
     const proofRes = await client.query(`
       INSERT INTO public.proofs 
-      (yearbook_id, round_number, round_name, proof_version_status, file_path, checksum_sha256, generated_by, created_by, generated_at)
-      VALUES ($1, 1, 'Proofreading Round 1', 'open_for_review', $2, $3, $4, $4, now())
+      (yearbook_id, round_number, round_name, proof_version_status, file_path, checksum_sha256, page_count, generated_by, created_by, generated_at)
+      VALUES ($1, 1, 'Proofreading Round 1', 'open_for_review', $2, $3, 138, $4, $4, now())
       RETURNING id;
     `, [yearbookId, proofFilePath, sha256, superAdminId]);
     const proofId = proofRes.rows[0].id;
+
+    // Canonical Google Drive Proof Storage Object
+    await client.query(`
+      INSERT INTO public.proof_storage_objects
+      (proof_id, yearbook_id, center_id, provider, provider_file_id, provider_folder_id, original_filename, mime_type, file_size_bytes, page_count, checksum_sha256, uploaded_by, verified_at)
+      VALUES ($1, $2, $3, 'google_drive', 'gdrive_file_icas_138_r1', 'gdrive_folder_icas_proofs', 'ICAS_Milestone_2025_Authoritative_138_Pages.pdf', 'application/pdf', $4, 138, $5, $6, now())
+      ON CONFLICT (proof_id) DO UPDATE SET checksum_sha256 = EXCLUDED.checksum_sha256, verified_at = now();
+    `, [proofId, yearbookId, centerId, pdfBuf.length, sha256, superAdminId]);
 
     // Link proof pages
     const pagesList = (await client.query(`SELECT id, physical_index FROM public.pages WHERE yearbook_id = $1 ORDER BY physical_index ASC`, [yearbookId])).rows;
@@ -353,7 +380,7 @@ async function main() {
       `, [proofId, p.id, yearbookId, p.physical_index]);
     }
 
-    // Set designated signoff requirements for Round 1
+    // Set designated signoff requirements for Round 1 (All 4 distinct institutional signatories)
     await client.query(`
       INSERT INTO public.proof_signoff_requirements 
       (proof_id, yearbook_id, signatory_role, designated_user_id, assigned_by, is_active)
@@ -361,8 +388,8 @@ async function main() {
         ($1, $2, 'editor_in_chief', $3, $4, true),
         ($1, $2, 'coordinator', $5, $4, true),
         ($1, $2, 'principal', $6, $4, true),
-        ($1, $2, 'school_director', $4, $4, true);
-    `, [proofId, yearbookId, studentEditorId, superAdminId, coordId, principalAdvisorId]);
+        ($1, $2, 'school_director', $7, $4, true);
+    `, [proofId, yearbookId, studentEditorId, superAdminId, coordId, principalId, directorId]);
 
     await client.query("COMMIT;");
 

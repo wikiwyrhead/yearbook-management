@@ -955,3 +955,147 @@ export interface PlatformSettingsHistory {
   changed_at: string;
 }
 
+export interface SectionCategory {
+  id: string;
+  yearbook_id: string;
+  name: string;
+  code: string;
+  color: string;
+  sort_order: number;
+  description?: string | null;
+  created_at: string;
+}
+
+export interface LayoutType {
+  id: string;
+  yearbook_id: string;
+  name: string;
+  code: string;
+  default_span: "single_page" | "facing_spread_left" | "facing_spread_right" | "two_page_spread" | "cover" | "unnumbered";
+  slot_count?: number | null;
+  row_count?: number | null;
+  col_count?: number | null;
+  description?: string | null;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface DesignPacketSnapshot {
+  id: string;
+  page_id: string;
+  yearbook_id: string;
+  version: number;
+  parent_snapshot_id?: string | null;
+  snapshot_sha256: string;
+  prepared_by: string;
+  created_at: string;
+  snapshot_payload: any;
+}
+
+export interface DesignPacketReview {
+  id: string;
+  snapshot_id: string;
+  page_id: string;
+  yearbook_id: string;
+  stage: "eic_review" | "coordinator_approval" | "super_admin_check";
+  reviewer_user_id: string;
+  decision: "approved" | "changes_requested" | "rejected";
+  notes?: string | null;
+  created_at: string;
+}
+
+export interface DesignPacketAssetTransfer {
+  id: string;
+  design_packet_id: string;
+  page_id: string;
+  yearbook_id: string;
+  asset_requirement_id: string;
+  source_asset_id: string;
+  provider: string;
+  provider_upload_job_id?: string | null;
+  provider_asset_id?: string | null;
+  transfer_status: "pending" | "uploading" | "processing" | "available" | "failed" | "cancelled";
+  attempt_count: number;
+  idempotency_key: string;
+  error_summary?: string | null;
+  uploaded_by: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  created_at: string;
+}
+
+export interface ProofStorageObject {
+  id: string;
+  proof_id: string;
+  yearbook_id: string;
+  center_id: string;
+  storage_connection_id?: string | null;
+  provider: string;
+  provider_file_id: string;
+  provider_folder_id: string;
+  original_filename: string;
+  mime_type: string;
+  file_size_bytes: number;
+  page_count: number;
+  checksum_sha256: string;
+  uploaded_by: string;
+  uploaded_at: string;
+  verified_at: string;
+}
+
+export interface ProofAccessRequest {
+  id: string;
+  proof_id: string;
+  yearbook_id: string;
+  requested_by_user_id: string;
+  target_user_id: string;
+  scope: "page" | "section" | "edition";
+  target_page_id?: string | null;
+  target_section_id?: string | null;
+  reason: string;
+  due_at?: string | null;
+  status: "pending" | "approved" | "rejected";
+  reviewed_by_user_id?: string | null;
+  reviewed_at?: string | null;
+  review_notes?: string | null;
+  created_at: string;
+}
+
+export interface ProductionPrintSpecification {
+  id: string;
+  yearbook_id: string;
+  status: "unconfirmed" | "confirmed" | "verified";
+  trim_width?: number | null;
+  trim_height?: number | null;
+  dimension_unit: "in" | "mm";
+  bleed_size: number;
+  color_profile: string;
+  paper_stock_interior: string;
+  paper_stock_cover: string;
+  binding_type: string;
+  cover_finish: string;
+  print_quantity: number;
+  service_bureau_name?: string | null;
+  service_bureau_notes?: string | null;
+  confirmed_by?: string | null;
+  confirmed_at?: string | null;
+  verified_by?: string | null;
+  verified_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ServiceBureauReleasePackage {
+  id: string;
+  yearbook_id: string;
+  proof_id: string;
+  package_filename: string;
+  package_sha256: string;
+  package_size_bytes: number;
+  storage_path: string;
+  specifications_snapshot: any;
+  approvals_snapshot: any;
+  released_by_super_admin_id: string;
+  released_at: string;
+}
+

@@ -2,17 +2,17 @@
  * Hidden Super-Admin Design Provider — Administrative Server Functions
  * All functions strictly require active super_admin role and session-derived actor identity.
  */
-import { query, getDbPool } from "../db/pool.server.ts";
-import { openCredentials } from "../storage/credentials.server.ts";
+import { query, getDbPool } from "../db/pool.server";
+import { openCredentials } from "../storage/credentials.server";
 import {
   generateCorrelationState,
   generateOAuthState,
   deriveCodeVerifier,
   codeChallengeS256,
-} from "../storage/oauth-state.server.ts";
-import { canvaProvider } from "./canva.provider.ts";
-import type { DesignRef } from "./design-provider.ts";
-import { getOAuthCallbackUrl } from "../app-url.ts";
+} from "../storage/oauth-state.server";
+import { canvaProvider } from "./canva.provider";
+import type { DesignRef } from "./design-provider";
+import { getOAuthCallbackUrl } from "../app-url";
 
 export interface AuthenticatedActor {
   id: string;

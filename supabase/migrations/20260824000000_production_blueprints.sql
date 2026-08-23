@@ -62,20 +62,40 @@ CREATE TABLE IF NOT EXISTS public.section_categories (
   code TEXT NOT NULL,
   color TEXT NOT NULL DEFAULT '#3b82f6',
   sort_order INT NOT NULL DEFAULT 0,
+  description TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT uq_section_categories_composite UNIQUE (id, yearbook_id)
 );
+
+ALTER TABLE public.section_categories ADD COLUMN IF NOT EXISTS description TEXT;
 
 CREATE TABLE IF NOT EXISTS public.layout_types (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE RESTRICT,
   name TEXT NOT NULL,
   code TEXT NOT NULL,
-  default_span TEXT NOT NULL DEFAULT 'single_page' CHECK (default_span IN ('single_page', 'facing_spread_left', 'facing_spread_right', 'two_page_spread')),
+  default_span TEXT NOT NULL DEFAULT 'single_page' CHECK (default_span IN ('single_page', 'facing_spread_left', 'facing_spread_right', 'two_page_spread', 'cover', 'unnumbered')),
+  slot_count INT,
+  row_count INT,
+  col_count INT,
+  description TEXT,
   sort_order INT NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT uq_layout_types_composite UNIQUE (id, yearbook_id)
 );
+
+ALTER TABLE public.layout_types ADD COLUMN IF NOT EXISTS slot_count INT;
+ALTER TABLE public.layout_types ADD COLUMN IF NOT EXISTS row_count INT;
+ALTER TABLE public.layout_types ADD COLUMN IF NOT EXISTS col_count INT;
+ALTER TABLE public.layout_types ADD COLUMN IF NOT EXISTS description TEXT;
+
+-- Update layout_types check constraint for spans
+DO $$ BEGIN
+  ALTER TABLE public.layout_types DROP CONSTRAINT IF EXISTS layout_types_default_span_check;
+  ALTER TABLE public.layout_types ADD CONSTRAINT layout_types_default_span_check 
+    CHECK (default_span IN ('single_page', 'facing_spread_left', 'facing_spread_right', 'two_page_spread', 'cover', 'unnumbered'));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- 4. Extend Pages Table with Navigation & Structural Columns
 ALTER TABLE public.pages ADD COLUMN IF NOT EXISTS physical_index INT;
@@ -201,6 +221,159 @@ CREATE TABLE IF NOT EXISTS public.preparation_reviews (
     (scope = 'section' AND section_id IS NOT NULL AND page_id IS NULL) OR
     (scope = 'edition' AND page_id IS NULL AND section_id IS NULL)
   )
+);
+
+-- Design Packet Snapshots (Immutable payload with SHA-256)
+CREATE TABLE IF NOT EXISTS public.design_packet_snapshots (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  page_id UUID NOT NULL REFERENCES public.pages(id) ON DELETE CASCADE,
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  version INT NOT NULL DEFAULT 1,
+  parent_snapshot_id UUID REFERENCES public.design_packet_snapshots(id),
+  snapshot_sha256 TEXT NOT NULL,
+  prepared_by UUID NOT NULL REFERENCES public.users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  snapshot_payload JSONB NOT NULL,
+  CONSTRAINT uq_design_packet_snapshot_version UNIQUE (page_id, version)
+);
+
+CREATE OR REPLACE FUNCTION public.fn_prevent_design_snapshot_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'Design packet snapshots are strictly immutable and cannot be updated or deleted.';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_prevent_design_snapshot_mutation ON public.design_packet_snapshots;
+CREATE TRIGGER trg_prevent_design_snapshot_mutation
+  BEFORE UPDATE OR DELETE ON public.design_packet_snapshots
+  FOR EACH ROW
+  EXECUTE FUNCTION public.fn_prevent_design_snapshot_mutation();
+
+-- Append-Only Design Packet Reviews
+CREATE TABLE IF NOT EXISTS public.design_packet_reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  snapshot_id UUID NOT NULL REFERENCES public.design_packet_snapshots(id) ON DELETE CASCADE,
+  page_id UUID NOT NULL REFERENCES public.pages(id) ON DELETE CASCADE,
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  stage TEXT NOT NULL CHECK (stage IN ('eic_review', 'coordinator_approval', 'super_admin_check')),
+  reviewer_user_id UUID NOT NULL REFERENCES public.users(id),
+  decision TEXT NOT NULL CHECK (decision IN ('approved', 'changes_requested', 'rejected')),
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE OR REPLACE FUNCTION public.fn_prevent_design_review_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'Design packet review decisions are append-only and cannot be updated or deleted.';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_prevent_design_review_mutation ON public.design_packet_reviews;
+CREATE TRIGGER trg_prevent_design_review_mutation
+  BEFORE UPDATE OR DELETE ON public.design_packet_reviews
+  FOR EACH ROW
+  EXECUTE FUNCTION public.fn_prevent_design_review_mutation();
+
+-- Auditable Design Packet Asset Transfers (Canva / Provider)
+CREATE TABLE IF NOT EXISTS public.design_packet_asset_transfers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  design_packet_id UUID NOT NULL REFERENCES public.design_packet_snapshots(id) ON DELETE CASCADE,
+  page_id UUID NOT NULL REFERENCES public.pages(id) ON DELETE CASCADE,
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  asset_requirement_id UUID NOT NULL REFERENCES public.page_asset_requirements(id) ON DELETE CASCADE,
+  source_asset_id UUID NOT NULL REFERENCES public.assets(id) ON DELETE RESTRICT,
+  provider TEXT NOT NULL DEFAULT 'canva',
+  provider_upload_job_id TEXT,
+  provider_asset_id TEXT,
+  transfer_status TEXT NOT NULL DEFAULT 'pending' CHECK (transfer_status IN ('pending', 'uploading', 'processing', 'available', 'failed', 'cancelled')),
+  attempt_count INT NOT NULL DEFAULT 0,
+  idempotency_key TEXT UNIQUE NOT NULL,
+  error_summary TEXT,
+  uploaded_by UUID NOT NULL REFERENCES public.users(id),
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Canonical Proof Storage Objects (Google Drive Proof Vault)
+CREATE TABLE IF NOT EXISTS public.proof_storage_objects (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  proof_id UUID UNIQUE NOT NULL REFERENCES public.proofs(id) ON DELETE CASCADE,
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  center_id UUID NOT NULL REFERENCES public.schools(id) ON DELETE CASCADE,
+  storage_connection_id UUID REFERENCES public.center_storage_connections(id) ON DELETE SET NULL,
+  provider TEXT NOT NULL DEFAULT 'google_drive',
+  provider_file_id TEXT NOT NULL,
+  provider_folder_id TEXT NOT NULL,
+  original_filename TEXT NOT NULL,
+  mime_type TEXT NOT NULL DEFAULT 'application/pdf',
+  file_size_bytes BIGINT NOT NULL,
+  page_count INT NOT NULL,
+  checksum_sha256 TEXT NOT NULL,
+  uploaded_by UUID NOT NULL REFERENCES public.users(id),
+  uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  verified_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Proof Access Requests (Coordinator Request -> Super Admin Approval Queue)
+CREATE TABLE IF NOT EXISTS public.proof_access_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  proof_id UUID NOT NULL REFERENCES public.proofs(id) ON DELETE CASCADE,
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  requested_by_user_id UUID NOT NULL REFERENCES public.users(id),
+  target_user_id UUID NOT NULL REFERENCES public.users(id),
+  scope TEXT NOT NULL CHECK (scope IN ('page', 'section', 'edition')),
+  target_page_id UUID REFERENCES public.pages(id),
+  target_section_id UUID REFERENCES public.sections(id),
+  reason TEXT NOT NULL,
+  due_at TIMESTAMPTZ,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  reviewed_by_user_id UUID REFERENCES public.users(id),
+  reviewed_at TIMESTAMPTZ,
+  review_notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Production Print Specifications (Confirmed vs Unconfirmed)
+CREATE TABLE IF NOT EXISTS public.production_print_specifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  yearbook_id UUID UNIQUE NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'unconfirmed' CHECK (status IN ('unconfirmed', 'confirmed', 'verified')),
+  trim_width NUMERIC(6,2),
+  trim_height NUMERIC(6,2),
+  dimension_unit TEXT NOT NULL DEFAULT 'in' CHECK (dimension_unit IN ('in', 'mm')),
+  bleed_size NUMERIC(5,3) NOT NULL DEFAULT 0.125,
+  color_profile TEXT NOT NULL DEFAULT 'CMYK Fogra39 / GRACoL',
+  paper_stock_interior TEXT NOT NULL DEFAULT '100# Gloss Text',
+  paper_stock_cover TEXT NOT NULL DEFAULT '120# Matte Cover',
+  binding_type TEXT NOT NULL DEFAULT 'Smyth Sewn Hardcover',
+  cover_finish TEXT NOT NULL DEFAULT 'Matte Lamination + Spot UV',
+  print_quantity INT NOT NULL DEFAULT 500,
+  service_bureau_name TEXT,
+  service_bureau_notes TEXT,
+  confirmed_by UUID REFERENCES public.users(id),
+  confirmed_at TIMESTAMPTZ,
+  verified_by UUID REFERENCES public.users(id),
+  verified_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Service Bureau Release Packages (ZIP Release Archive Record)
+CREATE TABLE IF NOT EXISTS public.service_bureau_release_packages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  proof_id UUID NOT NULL REFERENCES public.proofs(id) ON DELETE RESTRICT,
+  package_filename TEXT NOT NULL,
+  package_sha256 TEXT NOT NULL,
+  package_size_bytes BIGINT NOT NULL,
+  storage_path TEXT NOT NULL,
+  specifications_snapshot JSONB NOT NULL,
+  approvals_snapshot JSONB NOT NULL,
+  released_by_super_admin_id UUID NOT NULL REFERENCES public.users(id),
+  released_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- 7. Proofing, Multi-Round & Governance Tables
