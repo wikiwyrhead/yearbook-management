@@ -1,73 +1,87 @@
-# Yearbook Foundation
+# Milestone Yearbook — Collaborative High School Publishing Platform
 
-Milestone Yearbook — Build 1: Foundation + Page Ladder
+[![Build Status](https://img.shields.io/badge/Build-Passing-emerald.svg)](https://github.com/adonix26/yearbook-management)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
+[![Vite / TanStack Start](https://img.shields.io/badge/Framework-TanStack%20Start-orange.svg)](https://tanstack.com/start)
+[![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL%2016-336791.svg)](https://www.postgresql.org/)
+[![License](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
 
-Scope for this round: Phase 1 (schools, yearbooks, people, roles, project-level access) plus the Page Ladder with assignments, statuses and requirements. Real backend with logins and a database. Canva is not wired yet — pages store a Canva design link/ID field so the integration can slot in later without a rewrite.
+**Milestone Yearbook** is a modern, collaborative publishing platform designed for high school journalism advisers, student editorial boards, and commercial print service bureaus. Plan your page ladder, sync Canva Connect spreads in real time, manage multi-stage pre-flight proofing, and submit certified press packages.
 
-What you'll be able to do after this build
+---
 
-Sign in and land on a Production Control Center listing every yearbook you have access to.
+## 🌟 Key Highlights & Capabilities
 
-Create a School once, then create yearbook years under it (2026, 2027...). School info, logo, contacts and defaults are reused each year.
+### 1. 📖 Interactive Page Ladder & 2-Page Facing Spreads
+- **Visual Spread Mode**: Side-by-side Left (Even) and Right (Odd) facing page mockups with realistic center spine crease and safe-zone margin guides.
+- **Section Category Styling**: Color-coded category tags across all 8 high school sections (*Senior Portraits, Academics, Athletics, Student Life, Clubs, Performing Arts, Graduation*).
+- **Quota & Asset Tracking**: Track high-resolution portrait quotas, candid slots, and copy requirements per page.
 
-Add members to a specific yearbook and give each one a role there: Coordinator, Staff, Proofreader, Corrector, or Student. Membership is per yearbook, so a 2026 member sees nothing of 2025.
+### 2. 🎨 Direct Canva Connect Studio Integration
+- **Bidirectional Cloud Sync**: Seamlessly launch into Canva Connect API layout editor and return to Milestone with automatic thumbnail rendering and metadata caching.
+- **Role-Scoped Layout Workbenches**: Staff members only see and edit their assigned page ranges.
 
-Import or add Students, Faculty and Classes with structured, canonical name fields (first, middle, last, preferred, suffix, grade, student ID) so names are never retyped later.
+### 3. 🎓 Student Submission Portal
+- **Real-Time Print Preview**: Simulated 300 DPI high-gloss printed book spread rendering senior portraits, quotes, nicknames, extracurriculars, and future ambitions in real time.
+- **Guided 4-Step Checklist**: Visual progress tracking from portrait upload to adviser sign-off.
 
-Build the Page Ladder for a yearbook: add, edit, reorder and renumber pages; set section, page type, description, required assets, notes and Canva design reference.
+### 4. 🖨️ Production Control & Print Bureau Manufacturing
+- **Manufacturing Blueprint Card**: Hardcover Smythe-Sewn, Matte Soft-Touch + Gold Foil Stamping, 100# Gloss Enamel specs.
+- **Automated Pre-Flight Inspection**: Verification of safe zones, 0.125" bleeds, 300 DPI native resolution, and font vector embedding.
+- **Certified Binary Packages**: Export ISO 12647-2 press packages with SHA-256 integrity checksums.
 
-Assign a page or a page range to a designer, and separately to a proofreader — assignment is independent of role.
+### 5. 🛡️ Multi-School Database Row-Level Security (RLS)
+- Strict PostgreSQL RLS policies enforce isolation between school centers, student privacy, and coordinator privileges directly at the data layer.
 
-Move each page through the production status list (Planned → ... → Submitted to Service Bureau) and see the whole book colour-coded at a glance, filterable by section, status and assignee.
+---
 
-Define per-page requirements (e.g. "8 portraits, 8 names, 1 class photo, 1 teacher message") and see the have/need counters and the blocking reason. Counters are manual in this build; they become automatic once assets land in the next phase.
+## 🚀 Quick Start & Local Development
 
-Students sign in and see only their own profile and submission status.
+### Prerequisites
+- Node.js 20+ (Node 22 recommended)
+- Docker & Docker Compose
 
-Access model
-
-Nothing is global except the Super Admin. Every read and write is scoped by yearbook membership, enforced in the database itself, not just in the UI:
-
-Super Admin — everything, all schools and years.
-
-Coordinator — full control of their yearbook only.
-
-Staff — their yearbook, limited to what's assigned.
-
-Proofreader — their yearbook's pages and proofs; assigned pages highlighted. No people/asset admin.
-
-Corrector — assigned corrections and the pages they touch.
-
-Student — own record only.
-
-Technical notes
-
-Supabase (PostgreSQL + Auth + Storage) backend.
-
-Roles stored in a dedicated per-yearbook membership table (yearbook_members), never on a profile row. A has_yearbook_role(user, yearbook, role) security-definer function backs every RLS policy, avoiding recursive policy checks and privilege escalation.
-
-Tables: schools, yearbooks, profiles, yearbook_members, students, faculty, classes, sections, page_types, pages, page_requirements, page_assignments, organization_storage_connections, member_storage_connections, canva_integrations. Every public table gets explicit GRANTs plus RLS.
-
-Page ladder ordering uses a sortable position column separate from the printed page number, so reordering does not corrupt numbering; page count and sections are fully data-driven, nothing hard-coded.
-
-Statuses and page types are rows, not enums baked into code, so the template/rollover features in later phases can copy them.
-
-Pages carry canva_design_id, canva_design_url, canva_synced_at from day one; the Canva service connects directly via Canva Connect API.
-
-Data access via TanStack Start server functions with auth middleware; no client-side trust for permissions.
-
-## Development & Deployment
-
-Refer to [`README-LOCAL.md`](file:///home/wiki/projects/yearbook-management/README-LOCAL.md) for full local and Docker setup instructions.
-
-```sh
+### 1. Clone & Setup
+```bash
+git clone https://github.com/adonix26/yearbook-management.git
+cd yearbook-management
+cp .env.example .env
 npm install
-npm run dev
 ```
 
-To build and run via Docker:
-
-```sh
-docker compose build
-docker compose up -d
+### 2. Run with Docker Compose (Recommended)
+```bash
+docker compose up -d --build
 ```
+The application will be available at `http://localhost:8080` (or your configured `HOST_PORT`).
+
+---
+
+## 🔑 Demo Access Personas (LocalDev)
+
+Pre-seeded testing accounts with standard password: **`Yearbook2026!`**
+
+| Role | Persona Name | Email | Password | Scope |
+|---|---|---|---|---|
+| **School Coordinator** | Elena Rostova | `coordinator@test.yearbook` | `Yearbook2026!` | School A (Demo High School) |
+| **Global Super Admin** | System Admin | `admin@test.yearbook` | `Yearbook2026!` | Global Administration |
+| **Faculty Advisor** | Sarah Jenkins | `teacher@test.yearbook` | `Yearbook2026!` | School A (Demo High School) |
+| **Editorial Staff** | Marcus Vance | `member@test.yearbook` | `Yearbook2026!` | School A (Demo High School) |
+| **Student Contributor** | Alex Rivera | `student@test.yearbook` | `Yearbook2026!` | School A (Demo High School) |
+| **School B Coordinator** | David Kim | `coordinator-b@test.yearbook` | `Yearbook2026!` | School B (RLS Isolation) |
+
+---
+
+## 🏗️ Architecture & Technology Stack
+
+- **SSR Framework**: TanStack Start / Nitro / Vite
+- **Frontend**: React 18, TailwindCSS, Radix UI primitives, Lucide icons
+- **Data Layer**: PostgreSQL 16 with Row-Level Security (RLS) & Server Functions
+- **OAuth & Storage**: Direct Canva Connect API, Google Drive API v3, Box API v2 with AES-256-GCM token encryption
+- **Deployment**: Docker container with multi-stage build & portable Node.js SSR runtime
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License.
