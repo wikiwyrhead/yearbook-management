@@ -33,17 +33,13 @@ export function getAppBaseUrl(request?: Request): string {
     return window.location.origin.replace(/\/+$/, "");
   }
 
-  if (
-    envUrl &&
-    typeof envUrl === "string" &&
-    envUrl.trim().length > 0 &&
-    envUrl !== "http://yearbook-manager.test"
-  ) {
+  if (envUrl && typeof envUrl === "string" && envUrl.trim().length > 0) {
     return envUrl.trim().replace(/\/+$/, "");
   }
 
-  // 4. Default fallback
-  return "https://milestone-portal.arnelbg.com";
+  // 4. Generic fallback — set VITE_APP_URL in your .env to override
+  //    e.g. VITE_APP_URL=https://your-tunnel.example.com
+  return "http://localhost:8080";
 }
 
 export function getOAuthCallbackUrl(request?: Request): string {

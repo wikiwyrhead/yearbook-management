@@ -864,8 +864,8 @@ export async function seedDemoData() {
   await client.query(
     `INSERT INTO public.service_bureaus (name, code, contact_email, notes)
      VALUES 
-       ('Milestone Press & Print', 'milestone_press', 'press@milestoneyearbooks.com', 'Primary high-volume offset yearbook printing partner'),
-       ('Precision Bindery & Litho', 'precision_bindery', 'orders@precisionbindery.com', 'Specialty foil stamping and leatherette hardbound editions')
+       ('Milestone Press & Print', 'milestone_press', 'press@milestone.example.com', 'Primary high-volume offset yearbook printing partner'),
+       ('Precision Bindery & Litho', 'precision_bindery', 'orders@precisionbindery.example.com', 'Specialty foil stamping and leatherette hardbound editions')
      ON CONFLICT (code) DO NOTHING`,
   );
 

@@ -81,3 +81,30 @@ screenshots/
 captures/
 *.screenshot.png
 *.capture.png
+
+# =====================================================
+# DEV-ONLY SCRIPTS (contain personal paths/domains)
+# Only seed-demo-data.mjs and init-local-db.mjs are kept public
+# =====================================================
+scripts/audit-*.mjs
+scripts/capture-*.mjs
+scripts/check-*.mjs
+scripts/cleanup-*.mjs
+scripts/diagnose-*.mjs
+scripts/e2e-*.mjs
+scripts/execute-*.mjs
+scripts/generate-oauth-url.mjs
+scripts/inspect-*.mjs
+scripts/migrate-*.mjs
+scripts/qa-*.mjs
+scripts/reconcile-*.mjs
+scripts/regenerate-*.mjs
+scripts/report-*.mjs
+scripts/restore-*.mjs
+scripts/rotate-*.mjs
+scripts/run-*.mjs
+scripts/smoke-*.mjs
+scripts/test-*.mjs
+scripts/trace-*.mjs
+scripts/verify-*.mjs
+scripts/fix-*.mjs
