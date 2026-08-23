@@ -31,6 +31,8 @@ dist-ssr
 # Local dev credentials, test account passwords, generated assets
 .localdev
 .localdev/*
+scratch/
+scratch/*
 
 # AES / crypto key files
 *.key

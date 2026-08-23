@@ -16,7 +16,7 @@ import { assertYearbookOperational } from "@/lib/operating-mode.server";
 export const adminGetDesignProvider = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { adminGetDesignProviderConnection } = await import("./design/admin-design.server.ts");
+    const { adminGetDesignProviderConnection } = await import("./design/admin-design.server");
     return adminGetDesignProviderConnection({ id: context.userId, email: "" });
   });
 
@@ -30,7 +30,7 @@ export const adminStartCanvaOAuthFlow = createServerFn({ method: "POST" })
     if (data.yearbookId) {
       await assertYearbookOperational(data.yearbookId);
     }
-    const { adminStartCanvaOAuth } = await import("./design/admin-design.server.ts");
+    const { adminStartCanvaOAuth } = await import("./design/admin-design.server");
     return adminStartCanvaOAuth({ id: context.userId, email: "" }, data.yearbookId);
   });
 
@@ -40,7 +40,7 @@ export const adminStartCanvaOAuthFlow = createServerFn({ method: "POST" })
 export const adminDisconnectDesignProviderFlow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { adminDisconnectDesignProvider } = await import("./design/admin-design.server.ts");
+    const { adminDisconnectDesignProvider } = await import("./design/admin-design.server");
     return adminDisconnectDesignProvider({ id: context.userId, email: "" });
   });
 
@@ -51,7 +51,7 @@ export const adminListExternalDesignsFlow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ search: z.string().optional() }))
   .handler(async ({ data, context }) => {
-    const { adminListExternalDesigns } = await import("./design/admin-design.server.ts");
+    const { adminListExternalDesigns } = await import("./design/admin-design.server");
     return adminListExternalDesigns({ id: context.userId, email: "" }, data.search);
   });
 
@@ -63,7 +63,7 @@ export const adminLinkYearbookDesignFlow = createServerFn({ method: "POST" })
   .inputValidator(z.object({ yearbookId: z.string(), externalDesignId: z.string() }))
   .handler(async ({ data, context }) => {
     await assertYearbookOperational(data.yearbookId);
-    const { adminLinkYearbookDesign } = await import("./design/admin-design.server.ts");
+    const { adminLinkYearbookDesign } = await import("./design/admin-design.server");
     return adminLinkYearbookDesign(
       { id: context.userId, email: "" },
       data.yearbookId,
@@ -79,7 +79,7 @@ export const adminReplaceYearbookDesignFlow = createServerFn({ method: "POST" })
   .inputValidator(z.object({ yearbookId: z.string(), newExternalDesignId: z.string() }))
   .handler(async ({ data, context }) => {
     await assertYearbookOperational(data.yearbookId);
-    const { adminReplaceYearbookDesign } = await import("./design/admin-design.server.ts");
+    const { adminReplaceYearbookDesign } = await import("./design/admin-design.server");
     return adminReplaceYearbookDesign(
       { id: context.userId, email: "" },
       data.yearbookId,
@@ -101,12 +101,27 @@ export const adminMapDesignPagesFlow = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertYearbookOperational(data.yearbookId);
-    const { adminMapDesignPages } = await import("./design/admin-design.server.ts");
+    const { adminMapDesignPages } = await import("./design/admin-design.server");
     return adminMapDesignPages(
       { id: context.userId, email: "" },
       data.yearbookId,
       data.pageId,
       data.externalPageNumbers,
+    );
+  });
+
+/**
+ * Super Admin: Batch map all pages of a yearbook 1-to-1 to Canva pages.
+ */
+export const adminBatchMapSequentialPagesFlow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ yearbookId: z.string() }))
+  .handler(async ({ data, context }) => {
+    await assertYearbookOperational(data.yearbookId);
+    const { adminBatchMapSequentialPages } = await import("./design/admin-design.server");
+    return adminBatchMapSequentialPages(
+      { id: context.userId, email: "" },
+      data.yearbookId,
     );
   });
 
@@ -119,7 +134,7 @@ export const adminOpenExternalDesignFlow = createServerFn({ method: "POST" })
   .inputValidator(z.object({ yearbookId: z.string() }))
   .handler(async ({ data, context }) => {
     await assertYearbookOperational(data.yearbookId);
-    const { adminOpenExternalDesign } = await import("./design/admin-design.server.ts");
+    const { adminOpenExternalDesign } = await import("./design/admin-design.server");
     return adminOpenExternalDesign({ id: context.userId, email: "" }, data.yearbookId);
   });
 
@@ -135,7 +150,7 @@ export const getYearbookLayout = createServerFn({ method: "POST" })
   .inputValidator(z.object({ yearbookId: z.string() }))
   .handler(async ({ data, context }) => {
     await assertYearbookOperational(data.yearbookId);
-    const { getYearbookLayoutStatus } = await import("./design/layout.server.ts");
+    const { getYearbookLayoutStatus } = await import("./design/layout.server");
     return getYearbookLayoutStatus({ id: context.userId, email: "" }, data.yearbookId);
   });
 
@@ -153,7 +168,7 @@ export const requestLayoutProof = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertYearbookOperational(data.yearbookId);
-    const { requestProofGeneration } = await import("./design/layout.server.ts");
+    const { requestProofGeneration } = await import("./design/layout.server");
     return requestProofGeneration(
       { id: context.userId, email: "" },
       data.yearbookId,
@@ -176,7 +191,7 @@ export const sendAssetToLayout = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertYearbookOperational(data.yearbookId);
-    const { uploadAssetToLayout } = await import("./design/layout.server.ts");
+    const { uploadAssetToLayout } = await import("./design/layout.server");
     return uploadAssetToLayout({ id: context.userId, email: "" }, data.yearbookId, {
       assetId: data.assetId,
       targetPageId: data.targetPageId,
