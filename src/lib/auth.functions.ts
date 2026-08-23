@@ -145,6 +145,69 @@ export const signupWithPassword = createServerFn({ method: "POST" })
     return { success: true, user };
   });
 
+export const loginWithDemoRole = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      role: z.enum([
+        "coordinator",
+        "admin",
+        "teacher",
+        "member",
+        "student",
+        "coordinator_b",
+        "student_b",
+      ]),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const isLocal = (process.env["DATA_BACKEND"] || "local") === "local";
+    if (!isLocal) {
+      throw new Error("Demo role login is only available in local/demo deployments.");
+    }
+
+    const emailMap: Record<string, string> = {
+      coordinator: "coordinator@test.yearbook",
+      admin: "admin@test.yearbook",
+      teacher: "teacher@test.yearbook",
+      member: "member@test.yearbook",
+      student: "student@test.yearbook",
+      coordinator_b: "coordinator-b@test.yearbook",
+      student_b: "student-b@test.yearbook",
+    };
+
+    const targetEmail = emailMap[data.role];
+    if (!targetEmail) {
+      throw new Error("Invalid demo role selected.");
+    }
+
+    const { query } = await import("./db/pool.server");
+    const { createSession } = await import("./auth/session.server");
+
+    const res = await query(
+      `SELECT id, email, full_name, avatar_url FROM public.users WHERE email = $1`,
+      [targetEmail],
+    );
+
+    if (res.rows.length === 0) {
+      throw new Error(`Demo account for ${data.role} (${targetEmail}) was not found in the database. Please run seed-demo-data.mjs first.`);
+    }
+
+    const user = res.rows[0];
+    const { sessionId } = await createSession(user.id);
+    const cookie = getSessionCookie(sessionId);
+    setResponseHeader("Set-Cookie", cookie);
+
+    return {
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.full_name,
+        avatarUrl: user.avatar_url,
+      },
+    };
+  });
+
 export const logout = createServerFn({ method: "POST" }).handler(async () => {
   const request = getRequest();
   const cookieHeader = request?.headers?.get("cookie");
@@ -156,7 +219,8 @@ export const logout = createServerFn({ method: "POST" }).handler(async () => {
   }
 
   const expiredCookie = getSessionCookie("", 0);
-  setResponseHeader("Set-Cookie", expiredCookie);
+  setResponseHeader("Set-Cookie", cookieHeader ? expiredCookie : "");
 
   return { success: true };
 });
+

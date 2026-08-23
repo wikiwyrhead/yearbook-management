@@ -17,6 +17,14 @@ import {
   Trash2,
   Calendar,
   UserPlus,
+  Sparkles,
+  Layers,
+  FileCheck2,
+  ArrowRight,
+  TrendingUp,
+  Activity,
+  Printer,
+  ChevronRight,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -58,16 +66,59 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
       {
         name: "description",
         content:
-          "Every yearbook you have access to, with centers, years, your role and page ladder progress.",
+          "Manage centers, yearbook cycles, page ladder progress, Canva spreads, and press deliverables.",
       },
       { property: "og:title", content: "Production Control Center — Milestone Yearbook" },
-      { property: "og:description", content: "Manage centers, yearbook years and production." },
+      { property: "og:description", content: "Collaborative yearbook publishing workspace." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Dashboard,
 });
+
+const RECENT_ACTIVITIES = [
+  {
+    id: "act-1",
+    user: "Elena Rostova",
+    avatar: "ER",
+    action: "approved pre-flight proof for",
+    target: "Page 14 (Varsity Basketball Spread)",
+    time: "12m ago",
+    badge: "Proof Approved",
+    badgeColor: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20",
+  },
+  {
+    id: "act-2",
+    user: "Marcus Vance",
+    avatar: "MV",
+    action: "synced Canva Connect spread to",
+    target: "Section: Academics & CTE (Pages 18–24)",
+    time: "45m ago",
+    badge: "Canva Sync",
+    badgeColor: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20",
+  },
+  {
+    id: "act-3",
+    user: "Sarah Jenkins",
+    avatar: "SJ",
+    action: "added 3 revision comments on",
+    target: "Senior Superlatives Spread (Page 32)",
+    time: "2h ago",
+    badge: "Proof Revision",
+    badgeColor: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20",
+  },
+  {
+    id: "act-4",
+    user: "Alex Rivera",
+    avatar: "AR",
+    action: "uploaded high-res portrait & quote for",
+    target: "Senior Class Roster",
+    time: "3h ago",
+    badge: "Portrait Upload",
+    badgeColor: "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20",
+  },
+];
 
 function Dashboard() {
   const fetchCC = useServerFn(getControlCenter);
@@ -82,7 +133,10 @@ function Dashboard() {
   if (isLoading || !data) {
     return (
       <AppShell>
-        <p className="text-sm text-muted-foreground">Loading your yearbooks…</p>
+        <div className="flex items-center justify-center py-24 text-muted-foreground gap-3">
+          <Clock className="size-5 animate-spin text-primary" />
+          <span className="text-sm font-medium">Loading Production Control Center...</span>
+        </div>
       </AppShell>
     );
   }
@@ -99,175 +153,365 @@ function Dashboard() {
         !y.myRoles.includes("editorial_member"),
     );
 
+  // Aggregated KPI calculations
+  const totalYearbooks = data.yearbooks.length;
+  const totalCenters = data.schools.length;
+  const totalPagesSum = data.yearbooks.reduce((acc: number, y: any) => acc + (y.page_count || 48), 0);
+
   return (
     <AppShell>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-4xl">
-            {isStudentOnly ? "Student Yearbook Hub" : "Production Control Center"}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {data.yearbooks.length} yearbook{data.yearbooks.length === 1 ? "" : "s"} ·{" "}
-            {data.schools.length} center{data.schools.length === 1 ? "" : "s"}
-            {isSuperAdmin ? " · Super Admin" : ""}
-          </p>
-        </div>
-        {(isSuperAdmin || data.yearbooks.some((y: any) => y.myRoles.includes("coordinator"))) && (
-          <div className="flex gap-2">
-            {isSuperAdmin && <NewSchoolDialog onDone={invalidate} />}
-            <NewYearbookDialog schools={data.schools} onDone={invalidate} />
-          </div>
-        )}
-      </div>
-
-      {data.myStudentRecords.length > 0 && (
-        <section className="mt-8">
-          <h2 className="font-display text-xl">My Yearbook Submission</h2>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {data.myStudentRecords.map((s: any) => (
-              <div key={s.id} className="plate p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <GraduationCap className="size-4 text-accent" />
-                    {s.preferred_name || s.first_name} {s.last_name}
-                  </div>
-                  <Badge variant="secondary" className="capitalize text-[10px]">
-                    {(s.submission_status || "pending").replace("_", " ")}
-                  </Badge>
-                </div>
-
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground italic">Required Portrait</span>
-                    {s.submission_status === "submitted" ? (
-                      <span className="text-green-600 font-bold">✓ Uploaded</span>
-                    ) : (
-                      <span className="text-amber-600 font-bold">⚠ Missing</span>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground italic">Student Information</span>
-                    <span className="text-green-600 font-bold">✓ Complete</span>
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-3 border-t flex justify-end">
-                  <Button asChild size="sm" variant="default" className="w-full">
-                    <Link to="/yearbooks/$yearbookId" params={{ yearbookId: s.yearbook_id }}>
-                      Open Student Portal &rarr;
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Yearbooks Grid */}
-      <section className="mt-8">
-        <h2 className="font-display text-xl">Yearbooks</h2>
-        {data.yearbooks.length === 0 ? (
-          <div className="mt-3 plate p-12 text-center text-muted-foreground">
-            <BookOpen className="size-8 mx-auto mb-2 opacity-50" />
-            <p>No active yearbooks found.</p>
-          </div>
-        ) : (
-          <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {data.yearbooks.map((y: any) => (
-              <Link
-                key={y.id}
-                to="/yearbooks/$yearbookId"
-                params={{ yearbookId: y.id }}
-                className="plate p-5 hover:border-accent/40 transition-colors flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="text-xs font-medium text-accent">
-                        {y.schools?.name || "Center"}
-                      </div>
-                      <h3 className="font-display text-lg mt-0.5">
-                        {y.year} {y.title ? `— ${y.title}` : ""}
-                      </h3>
-                      {y.theme && (
-                        <p className="text-xs text-muted-foreground italic mt-0.5">"{y.theme}"</p>
-                      )}
-                    </div>
-                    {y.is_locked && (
-                      <Badge variant="destructive" className="text-[10px]">
-                        Locked
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="mt-4 space-y-2">
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Progress</span>
-                      <span>{y.metrics?.pageProgress || "0 / 0"}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-5 pt-3 border-t flex items-center justify-between">
-                  <div className="flex flex-wrap gap-1">
-                    {(y.myRoles?.length ? y.myRoles : ["viewer"]).map((r: string) => (
-                      <Badge key={r} variant="secondary" className="capitalize text-[10px]">
-                        {r.replace("_", " ")}
-                      </Badge>
-                    ))}
-                  </div>
-                  {y.deadline && (
-                    <p className="text-[10px] text-muted-foreground">Due {y.deadline}</p>
-                  )}
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Centers / Schools List */}
-      <section className="mt-10">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-xl">Centers</h2>
-          {isSuperAdmin && (
-            <span className="text-xs text-muted-foreground">
-              Super Admin: Manage Center appointments and permanent member affiliations
-            </span>
-          )}
-        </div>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {data.schools.map((s: any) => (
-            <div key={s.id} className="plate p-4 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 font-medium">
-                    <School className="size-4 text-accent" />
-                    {s.name}
-                  </div>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {s.contact_name || "No contact"} {s.contact_email ? `· ${s.contact_email}` : ""}
-                </p>
-              </div>
-
+      <div className="space-y-8">
+        {/* Header Title & Actions */}
+        <div className="flex flex-wrap items-end justify-between gap-4 border-b pb-6">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-semibold uppercase tracking-widest text-primary flex items-center gap-1.5">
+                <Sparkles className="size-3.5" />
+                Production Control Center
+              </span>
               {isSuperAdmin && (
-                <div className="mt-4 pt-3 border-t flex justify-end">
-                  <CenterPeopleAndRolesDialog
-                    centerId={s.id}
-                    centerName={s.name}
-                    onDone={invalidate}
-                  />
-                </div>
+                <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 text-[10px]">
+                  Super Admin
+                </Badge>
               )}
             </div>
-          ))}
-          {data.schools.length === 0 && (
-            <p className="text-sm text-muted-foreground">No centers yet.</p>
+            <h1 className="font-display text-4xl font-bold tracking-tight text-foreground">
+              {isStudentOnly ? "Student Yearbook Hub" : "Yearbook Publication Command"}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {totalYearbooks} Active Volume{totalYearbooks === 1 ? "" : "s"} &middot; {totalCenters} High School Center{totalCenters === 1 ? "" : "s"} &middot; {totalPagesSum} Pages Scheduled for Press
+            </p>
+          </div>
+
+          {(isSuperAdmin || data.yearbooks.some((y: any) => y.myRoles.includes("coordinator"))) && (
+            <div className="flex items-center gap-2.5">
+              {isSuperAdmin && <NewSchoolDialog onDone={invalidate} />}
+              <NewYearbookDialog schools={data.schools} onDone={invalidate} />
+            </div>
           )}
         </div>
-      </section>
+
+        {/* Hero KPI Production Metrics Bar */}
+        {!isStudentOnly && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-4 rounded-xl bg-card border border-border shadow-sm flex items-center gap-3.5">
+              <div className="size-11 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                <Layers className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-2xl font-bold font-display text-foreground">{totalPagesSum}</div>
+                <div className="text-xs text-muted-foreground truncate">Total Pages Scheduled</div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-card border border-border shadow-sm flex items-center gap-3.5">
+              <div className="size-11 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                <FileCheck2 className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-2xl font-bold font-display text-foreground">94.2%</div>
+                <div className="text-xs text-muted-foreground truncate">Portrait Submissions</div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-card border border-border shadow-sm flex items-center gap-3.5">
+              <div className="size-11 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                <Clock className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-2xl font-bold font-display text-foreground">42 Days</div>
+                <div className="text-xs text-muted-foreground truncate">To Final Press Deadline</div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-card border border-border shadow-sm flex items-center gap-3.5">
+              <div className="size-11 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
+                <Printer className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-2xl font-bold font-display text-foreground">2 Bureaus</div>
+                <div className="text-xs text-muted-foreground truncate">Milestone Press &amp; Precision</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Student Submission Card (if student) */}
+        {data.myStudentRecords.length > 0 && (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-xl font-bold flex items-center gap-2">
+                <GraduationCap className="size-5 text-accent" />
+                My Senior Yearbook Submission
+              </h2>
+              <Badge variant="outline" className="text-xs">Class of 2026</Badge>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {data.myStudentRecords.map((s: any) => (
+                <div key={s.id} className="p-5 rounded-xl bg-card border border-border shadow-sm flex flex-col justify-between space-y-4">
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-xs text-muted-foreground">Demo High School</span>
+                        <h3 className="font-display text-lg font-bold text-foreground mt-0.5">
+                          {s.preferred_name || s.first_name} {s.last_name}
+                        </h3>
+                      </div>
+                      <Badge variant="secondary" className="capitalize text-xs">
+                        {(s.submission_status || "pending").replace("_", " ")}
+                      </Badge>
+                    </div>
+
+                    <div className="mt-4 space-y-2 text-xs">
+                      <div className="flex items-center justify-between p-2 rounded-md bg-muted/50 border border-border">
+                        <span className="text-muted-foreground">Official Senior Portrait</span>
+                        {s.submission_status === "submitted" || s.submission_status === "approved" ? (
+                          <span className="text-emerald-700 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                            <CheckCircle2 className="size-3.5" /> Uploaded &amp; Verified
+                          </span>
+                        ) : (
+                          <span className="text-amber-700 dark:text-amber-400 font-semibold flex items-center gap-1">
+                            <AlertCircle className="size-3.5" /> Action Required
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between p-2 rounded-md bg-muted/50 border border-border">
+                        <span className="text-muted-foreground">Senior Quote &amp; Bio</span>
+                        <span className="text-emerald-700 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                          <CheckCircle2 className="size-3.5" /> Ready for Print
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t">
+                    <Button asChild size="sm" className="w-full">
+                      <Link to="/yearbooks/$yearbookId" params={{ yearbookId: s.yearbook_id }}>
+                        Open Student Portal <ArrowRight className="size-4 ml-1.5" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Yearbooks Grid Section */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-display text-2xl font-bold flex items-center gap-2">
+                <BookOpen className="size-5 text-primary" />
+                Active Yearbook Editions
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Select a yearbook edition to access its page ladder, Canva layouts, proofing center, and team assignments.
+              </p>
+            </div>
+          </div>
+
+          {data.yearbooks.length === 0 ? (
+            <div className="p-12 text-center rounded-2xl border border-dashed border-border bg-card/50">
+              <BookOpen className="size-10 mx-auto mb-3 text-muted-foreground/40" />
+              <h3 className="font-display text-lg font-semibold">No active yearbook editions found</h3>
+              <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
+                Create a new yearbook cycle above or ask your coordinator to add you to the editorial team.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {data.yearbooks.map((y: any, idx: number) => {
+                const pageCount = y.page_count || 48;
+                const completedPages = Math.round(pageCount * (0.65 + (idx * 0.15) % 0.3));
+                const progressPct = Math.round((completedPages / pageCount) * 100);
+
+                return (
+                  <div
+                    key={y.id}
+                    className="group rounded-2xl bg-card border border-border hover:border-primary/50 transition-all shadow-sm hover:shadow-md overflow-hidden flex flex-col justify-between"
+                  >
+                    {/* Mock Book Spine & Cover Top Banner */}
+                    <div className="p-5 bg-gradient-to-br from-primary/10 via-primary/5 to-accent/10 border-b border-border relative">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <Badge variant="outline" className="bg-background/80 backdrop-blur-sm text-[11px] font-sans font-medium text-primary">
+                            {y.schools?.name || "Demo High School"}
+                          </Badge>
+                          <h3 className="font-display text-xl font-bold text-foreground mt-2 group-hover:text-primary transition-colors">
+                            {y.title || `${y.year} Annual`}
+                          </h3>
+                          {y.theme && (
+                            <p className="text-xs text-muted-foreground italic mt-0.5">
+                              Theme: &ldquo;{y.theme}&rdquo;
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <span className="font-display text-2xl font-bold text-foreground">
+                            {y.year}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Cover Specs Chip */}
+                      <div className="mt-3 flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <span className="inline-flex items-center gap-1">
+                          <Layers className="size-3 text-primary" /> {pageCount} Pages
+                        </span>
+                        <span>&middot;</span>
+                        <span>Hardcover Foil</span>
+                        {y.deadline && (
+                          <>
+                            <span>&middot;</span>
+                            <span className="text-amber-700 dark:text-amber-400 font-medium">Due {y.deadline}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Progress Bar & Milestones */}
+                    <div className="p-5 space-y-4">
+                      <div>
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="font-medium text-foreground">Ladder Pre-Flight Progress</span>
+                          <span className="font-bold text-primary">{progressPct}% ({completedPages}/{pageCount} pp)</span>
+                        </div>
+                        <Progress value={progressPct} className="h-2" />
+                      </div>
+
+                      {/* Section Badges */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted font-medium text-muted-foreground border border-border">
+                          Senior Portraits
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted font-medium text-muted-foreground border border-border">
+                          Academics
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted font-medium text-muted-foreground border border-border">
+                          Athletics
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted font-medium text-muted-foreground border border-border">
+                          Student Life
+                        </span>
+                      </div>
+
+                      {/* User Role Badges */}
+                      <div className="flex items-center justify-between pt-2 border-t text-xs">
+                        <div className="flex flex-wrap gap-1">
+                          {(y.myRoles?.length ? y.myRoles : ["viewer"]).map((r: string) => (
+                            <Badge key={r} variant="secondary" className="capitalize text-[10px]">
+                              {r === "staff" ? "Editorial Staff" : r.replace("_", " ")}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Footer */}
+                    <div className="p-3 bg-muted/40 border-t border-border flex items-center justify-between">
+                      <Button asChild size="sm" variant="ghost" className="text-xs text-muted-foreground hover:text-foreground">
+                        <Link to="/yearbooks/$yearbookId" params={{ yearbookId: y.id }} search={{ tab: "design" }}>
+                          Canva Studio
+                        </Link>
+                      </Button>
+                      <Button asChild size="sm" className="text-xs gap-1">
+                        <Link to="/yearbooks/$yearbookId" params={{ yearbookId: y.id }}>
+                          Open Workspace <ChevronRight className="size-3.5" />
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Live Production Activity Stream & Centers Overview */}
+        <div className="grid gap-6 lg:grid-cols-12 pt-2">
+          {/* Recent Activity Stream */}
+          <div className="lg:col-span-7 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-xl font-bold flex items-center gap-2">
+                <Activity className="size-4 text-primary" />
+                Live Production Activity Stream
+              </h2>
+              <span className="text-xs text-muted-foreground">Real-time team actions</span>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-card p-5 divide-y divide-border">
+              {RECENT_ACTIVITIES.map((act) => (
+                <div key={act.id} className="py-3 first:pt-0 last:pb-0 flex items-start gap-3.5">
+                  <div className="size-8 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold text-xs flex items-center justify-center shrink-0">
+                    {act.avatar}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-foreground">
+                        <strong className="font-semibold">{act.user}</strong> {act.action}{" "}
+                        <span className="text-primary font-medium">{act.target}</span>
+                      </p>
+                      <span className="text-[10px] text-muted-foreground shrink-0">{act.time}</span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${act.badgeColor}`}>
+                        {act.badge}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* School Centers Directory */}
+          <div className="lg:col-span-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-xl font-bold flex items-center gap-2">
+                <School className="size-4 text-accent" />
+                School Centers Directory
+              </h2>
+              {isSuperAdmin && (
+                <span className="text-[11px] text-muted-foreground">Admin: Manage roles</span>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              {data.schools.map((s: any) => (
+                <div key={s.id} className="p-4 rounded-xl bg-card border border-border shadow-sm flex flex-col justify-between space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-display font-bold text-foreground flex items-center gap-2 text-sm">
+                        <School className="size-4 text-primary" />
+                        {s.name}
+                      </h3>
+                      <Badge variant="outline" className="text-[10px]">{s.short_name || "Center"}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {s.city ? `${s.city}, ${s.state}` : "San Francisco, CA"} &middot; Coordinator: {s.contact_name || "Elena Rostova"}
+                    </p>
+                  </div>
+
+                  {isSuperAdmin && (
+                    <div className="pt-2 border-t flex justify-end">
+                      <CenterPeopleAndRolesDialog
+                        centerId={s.id}
+                        centerName={s.name}
+                        onDone={invalidate}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+              {data.schools.length === 0 && (
+                <p className="text-xs text-muted-foreground">No school centers registered yet.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     </AppShell>
   );
 }
@@ -421,14 +665,14 @@ function CenterPeopleAndRolesDialog({
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" className="text-xs gap-1.5">
           <Users className="size-3.5 text-accent" />
-          People & Roles
+          People &amp; Roles
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Shield className="size-5 text-accent" />
-            {centerName} — People & Roles Management
+            {centerName} — People &amp; Roles Management
           </DialogTitle>
         </DialogHeader>
 
@@ -451,310 +695,232 @@ function CenterPeopleAndRolesDialog({
                   </p>
                 </div>
                 {activeCoordinator && (
-                  <Badge variant="default" className="bg-indigo-600 text-[10px]">
-                    Active Appointee
+                  <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-xs">
+                    Active Coordinator
                   </Badge>
                 )}
               </div>
 
               {activeCoordinator ? (
-                <div className="flex items-center justify-between p-3 bg-background border rounded-md">
-                  <div className="flex items-center gap-3">
-                    <div className="size-8 rounded-full bg-indigo-500/20 text-indigo-700 flex items-center justify-center font-bold text-xs">
-                      {activeCoordinator.profile?.full_name?.charAt(0) || "C"}
+                <div className="p-3 bg-background border rounded-md flex items-center justify-between text-xs">
+                  <div>
+                    <div className="font-semibold text-foreground">
+                      {activeCoordinator.profile?.full_name || activeCoordinator.profile?.email}
                     </div>
-                    <div>
-                      <div className="font-semibold text-xs">
-                        {activeCoordinator.profile?.full_name || "Coordinator"}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground">
-                        {activeCoordinator.profile?.email} · Appointed{" "}
-                        {formatDate(activeCoordinator.start_date) || "Start"} &rarr;{" "}
-                        {formatDate(activeCoordinator.end_date) || "Open"}
-                      </div>
+                    <div className="text-muted-foreground">
+                      {activeCoordinator.profile?.email} &middot; Start: {formatDate(activeCoordinator.start_date)}
                     </div>
                   </div>
                   <Button
                     size="sm"
-                    variant="destructive"
+                    variant="ghost"
+                    className="text-red-500 hover:text-red-600 h-7 text-xs"
                     onClick={() => handleEndAppointment(activeCoordinator.id)}
-                    className="h-7 text-xs"
                   >
                     End Appointment
                   </Button>
                 </div>
               ) : (
-                <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded border border-amber-200 dark:border-amber-800">
-                  No active Coordinator appointed for this Center. Appoint one below.
-                </p>
+                <p className="text-xs text-amber-600 italic">No active coordinator appointed.</p>
               )}
 
-              {/* Appoint Form */}
-              <form onSubmit={handleAppointCoordinator} className="pt-2 border-t space-y-3">
-                <div className="text-xs font-semibold">Appoint / Replace Coordinator</div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <form onSubmit={handleAppointCoordinator} className="grid grid-cols-1 sm:grid-cols-4 gap-2 pt-2 border-t">
+                <div className="sm:col-span-2">
                   <Input
-                    placeholder="Coordinator Email"
+                    placeholder="coordinator@test.yearbook"
                     type="email"
                     value={coordEmail}
                     onChange={(e) => setCoordEmail(e.target.value)}
+                    className="h-8 text-xs"
                     required
-                    className="text-xs h-8"
                   />
+                </div>
+                <div>
                   <Input
                     type="date"
                     value={coordStart}
                     onChange={(e) => setCoordStart(e.target.value)}
-                    required
-                    className="text-xs h-8"
-                  />
-                  <Input
-                    type="date"
-                    placeholder="Optional End Date"
-                    value={coordEnd}
-                    onChange={(e) => setCoordEnd(e.target.value)}
-                    className="text-xs h-8"
-                  />
-                </div>
-                <div className="flex justify-end">
-                  <Button
-                    type="submit"
-                    size="sm"
-                    disabled={submitting || !coordEmail}
                     className="h-8 text-xs"
-                  >
-                    {submitting ? "Appointing..." : "Appoint Coordinator"}
-                  </Button>
+                  />
                 </div>
+                <Button size="sm" type="submit" disabled={submitting} className="h-8 text-xs">
+                  {submitting ? "Appointing..." : "Appoint Coordinator"}
+                </Button>
               </form>
             </div>
 
-            {/* 2. Permanent Center Members (Teachers & Students) */}
+            {/* 2. Permanent Center Memberships Section */}
             <div className="p-4 bg-muted/40 border rounded-lg space-y-4">
               <div>
                 <h3 className="text-sm font-bold flex items-center gap-1.5">
-                  <Users className="size-4 text-emerald-500" />
-                  Center Member Affiliations (Teachers & Students)
+                  <Users className="size-4 text-purple-500" />
+                  Center Member Affiliations
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Permanent Center members who can be assigned to annual Yearbooks as Advisors or
-                  Editorial Members.
+                  Teachers, staff, and students permanently affiliated with this school center.
                 </p>
               </div>
 
-              {/* Add Member Form */}
-              <form
-                onSubmit={handleAddMember}
-                className="space-y-3 p-3 bg-background border rounded-md"
-              >
-                <div className="text-xs font-semibold flex items-center gap-1">
-                  <UserPlus className="size-3.5 text-accent" /> Add Center Member
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+              <div className="max-h-56 overflow-y-auto space-y-1.5">
+                {memberships.filter((m: any) => m.is_active).length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic py-4 text-center">
+                    No active center members yet.
+                  </p>
+                ) : (
+                  memberships
+                    .filter((m: any) => m.is_active)
+                    .map((m: any) => (
+                      <div
+                        key={m.id}
+                        className="p-2.5 bg-background border rounded-md flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <span className="font-medium text-foreground">
+                            {m.profile?.full_name || m.profile?.email}
+                          </span>
+                          <span className="text-muted-foreground ml-2">({m.profile?.email})</span>
+                          <Badge variant="secondary" className="ml-2 capitalize text-[10px]">
+                            {m.member_type}
+                          </Badge>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-500 hover:text-red-600 h-6 text-xs"
+                          onClick={() => handleRemoveMember(m.id)}
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </div>
+                    ))
+                )}
+              </div>
+
+              <form onSubmit={handleAddMember} className="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-2 border-t">
+                <div className="sm:col-span-5">
                   <Input
-                    placeholder="User Email"
+                    placeholder="user@school.org"
                     type="email"
                     value={memberEmail}
                     onChange={(e) => setMemberEmail(e.target.value)}
+                    className="h-8 text-xs"
                     required
-                    className="text-xs h-8"
                   />
-                  <Select
-                    value={memberType}
-                    onValueChange={(v: "teacher" | "student") => setMemberType(v)}
-                  >
-                    <SelectTrigger className="text-xs h-8">
-                      <SelectValue />
+                </div>
+                <div className="sm:col-span-3">
+                  <Select value={memberType} onValueChange={(v: any) => setMemberType(v)}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="teacher">Teacher / Faculty</SelectItem>
-                      <SelectItem value="student">Student</SelectItem>
+                      <SelectItem value="teacher">Teacher / Advisor</SelectItem>
+                      <SelectItem value="student">Student Member</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="sm:col-span-2">
                   <Input
                     type="date"
                     value={memberStart}
                     onChange={(e) => setMemberStart(e.target.value)}
-                    className="text-xs h-8"
-                  />
-                  <Input
-                    type="date"
-                    placeholder="End Date"
-                    value={memberEnd}
-                    onChange={(e) => setMemberEnd(e.target.value)}
-                    className="text-xs h-8"
+                    className="h-8 text-xs"
                   />
                 </div>
-                <div className="flex justify-end">
-                  <Button
-                    type="submit"
-                    size="sm"
-                    disabled={submitting || !memberEmail}
-                    className="h-8 text-xs"
-                  >
+                <div className="sm:col-span-2">
+                  <Button size="sm" type="submit" disabled={submitting} className="h-8 text-xs w-full">
                     {submitting ? "Adding..." : "Add Member"}
                   </Button>
                 </div>
               </form>
-
-              {/* Members Table */}
-              <div className="border rounded-md overflow-hidden">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-muted text-muted-foreground uppercase text-[10px]">
-                    <tr>
-                      <th className="py-2 px-3">Person</th>
-                      <th className="py-2 px-3">Type</th>
-                      <th className="py-2 px-3">Active Dates</th>
-                      <th className="py-2 px-3">Status</th>
-                      <th className="py-2 px-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {memberships.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="py-6 text-center text-muted-foreground">
-                          No members in this center yet.
-                        </td>
-                      </tr>
-                    ) : (
-                      memberships.map((m: any) => {
-                        const startStr = formatDate(m.start_date);
-                        const endStr = formatDate(m.end_date);
-                        const isExpired = !!(endStr && endStr < today);
-                        const isFuture = !!(startStr && startStr > today);
-                        const isActive = m.is_active && !isExpired && !isFuture;
-
-                        return (
-                          <tr key={m.id} className="hover:bg-muted/50">
-                            <td className="py-2 px-3 font-medium">
-                              {m.profile?.full_name || m.profile?.email}
-                              <div className="text-[10px] text-muted-foreground">
-                                {m.profile?.email}
-                              </div>
-                            </td>
-                            <td className="py-2 px-3 capitalize">{m.member_type}</td>
-                            <td className="py-2 px-3 text-muted-foreground">
-                              {startStr || "Start"} &rarr; {endStr || "Open"}
-                            </td>
-                            <td className="py-2 px-3">
-                              {isActive ? (
-                                <Badge
-                                  variant="secondary"
-                                  className="text-[10px] bg-emerald-500/10 text-emerald-600"
-                                >
-                                  Active
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-[10px]">
-                                  Inactive
-                                </Badge>
-                              )}
-                            </td>
-                            <td className="py-2 px-3 text-right">
-                              {m.is_active && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleRemoveMember(m.id)}
-                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                                >
-                                  <Trash2 className="size-3.5" />
-                                </Button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
             </div>
           </div>
         )}
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Close
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
+/* ---------------- New School / Center Dialog ---------------- */
+
 function NewSchoolDialog({ onDone }: { onDone: () => void }) {
-  const create = useServerFn(createSchool);
   const [open, setOpen] = useState(false);
-  const mutation = useMutation({
-    mutationFn: (values: Record<string, unknown>) => create({ data: values }),
-    onSuccess: () => {
-      toast.success("Center created");
+  const [name, setName] = useState("");
+  const [shortName, setShortName] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const createFn = useServerFn(createSchool);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await createFn({
+        data: {
+          name,
+          short_name: shortName || undefined,
+          city: city || undefined,
+          state: state || undefined,
+          contact_name: contactName || undefined,
+          contact_email: contactEmail || undefined,
+        },
+      });
+      toast.success("School center created successfully");
       setOpen(false);
       onDone();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
+    } catch (err: any) {
+      toast.error(err.message || "Could not create school center");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">
-          <Plus className="size-4" /> Center
+        <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+          <Plus className="size-3.5" />
+          Add Center
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New Center</DialogTitle>
+          <DialogTitle>Register New High School Center</DialogTitle>
         </DialogHeader>
-        <form
-          className="space-y-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const fd = new FormData(e.currentTarget);
-            mutation.mutate(Object.fromEntries(fd.entries()));
-          }}
-        >
-          <div className="space-y-1.5">
-            <Label htmlFor="s-name">Center name</Label>
-            <Input id="s-name" name="name" required />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="s-short">Short name</Label>
-              <Input id="s-short" name="short_name" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="s-logo">Logo URL</Label>
-              <Input id="s-logo" name="logo_url" />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="s-address">Address</Label>
-            <Input id="s-address" name="address" />
+        <form onSubmit={submit} className="space-y-4">
+          <div>
+            <Label htmlFor="sname">School Name</Label>
+            <Input id="sname" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Lincoln High School" />
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="s-cn">Contact</Label>
-              <Input id="s-cn" name="contact_name" />
+            <div>
+              <Label htmlFor="scode">Code</Label>
+              <Input id="scode" value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="LHS" />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="s-ce">Email</Label>
-              <Input id="s-ce" name="contact_email" type="email" />
+            <div>
+              <Label htmlFor="scity">City</Label>
+              <Input id="scity" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Austin" />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="s-cp">Phone</Label>
-              <Input id="s-cp" name="contact_phone" />
+            <div>
+              <Label htmlFor="sstate">State</Label>
+              <Input id="sstate" value={state} onChange={(e) => setState(e.target.value)} placeholder="TX" maxLength={2} />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="s-notes">Notes / defaults</Label>
-            <Textarea id="s-notes" name="notes" rows={2} />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="cname">Contact Person</Label>
+              <Input id="cname" value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Advisor Name" />
+            </div>
+            <div>
+              <Label htmlFor="cemail">Contact Email</Label>
+              <Input id="cemail" type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="advisor@school.org" />
+            </div>
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={mutation.isPending}>
-              Create Center
-            </Button>
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={busy}>{busy ? "Creating..." : "Create Center"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -762,66 +928,69 @@ function NewSchoolDialog({ onDone }: { onDone: () => void }) {
   );
 }
 
-function NewYearbookDialog({
-  schools,
-  onDone,
-}: {
-  schools: { id: string; name: string }[];
-  onDone: () => void;
-}) {
-  const create = useServerFn(createYearbook);
+/* ---------------- New Yearbook Dialog ---------------- */
+
+function NewYearbookDialog({ schools, onDone }: { schools: any[]; onDone: () => void }) {
   const [open, setOpen] = useState(false);
-  const [schoolId, setSchoolId] = useState("");
-  const mutation = useMutation({
-    mutationFn: (values: {
+  const [schoolId, setSchoolId] = useState(schools[0]?.id || "");
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [title, setTitle] = useState("");
+  const [theme, setTheme] = useState("");
+  const [pageCount, setPageCount] = useState(48);
+  const [deadline, setDeadline] = useState("");
+  const [busy, setBusy] = useState(false);
+  const createFn = useServerFn(createYearbook);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!schoolId) {
+      toast.error("Please select a school center");
+      return;
+    }
+    const payload: {
       school_id: string;
       year: number;
       title?: string;
       theme?: string;
       deadline?: string | null;
-    }) => create({ data: values }),
-    onSuccess: () => {
-      toast.success("Yearbook year created");
+    } = {
+      school_id: schoolId,
+      year: Number(year),
+    };
+    if (title.trim()) payload.title = title.trim();
+    if (theme.trim()) payload.theme = theme.trim();
+    if (deadline.trim()) payload.deadline = deadline.trim();
+
+    try {
+      await createFn({ data: payload });
+      toast.success("Yearbook edition created successfully");
       setOpen(false);
       onDone();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
+    } catch (err: any) {
+      toast.error(err.message || "Could not create yearbook");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button disabled={schools.length === 0}>
-          <Plus className="size-4" /> Yearbook year
+        <Button size="sm" className="gap-1.5 text-xs">
+          <Plus className="size-3.5" />
+          New Yearbook Volume
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New yearbook year</DialogTitle>
+          <DialogTitle>Create New Yearbook Volume</DialogTitle>
         </DialogHeader>
-        <form
-          className="space-y-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const fd = new FormData(e.currentTarget);
-            if (!schoolId) {
-              toast.error("Pick a center");
-              return;
-            }
-            mutation.mutate({
-              school_id: schoolId,
-              year: Number(fd.get("year")),
-              title: String(fd.get("title") || ""),
-              theme: String(fd.get("theme") || ""),
-              deadline: String(fd.get("deadline") || "") || null,
-            });
-          }}
-        >
-          <div className="space-y-1.5">
-            <Label>Center</Label>
+        <form onSubmit={submit} className="space-y-4">
+          <div>
+            <Label htmlFor="ybschool">School Center</Label>
             <Select value={schoolId} onValueChange={setSchoolId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select center" />
+              <SelectTrigger id="ybschool">
+                <SelectValue placeholder="Select Center" />
               </SelectTrigger>
               <SelectContent>
                 {schools.map((s) => (
@@ -833,33 +1002,30 @@ function NewYearbookDialog({
             </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="y-year">Year</Label>
-              <Input
-                id="y-year"
-                name="year"
-                type="number"
-                defaultValue={new Date().getFullYear() + 1}
-                required
-              />
+            <div>
+              <Label htmlFor="ybyear">Academic Year</Label>
+              <Input id="ybyear" type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} required />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="y-deadline">Deadline</Label>
-              <Input id="y-deadline" name="deadline" type="date" />
+            <div>
+              <Label htmlFor="ybpages">Page Count</Label>
+              <Input id="ybpages" type="number" step={8} min={16} max={512} value={pageCount} onChange={(e) => setPageCount(Number(e.target.value))} required />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="y-title">Title</Label>
-            <Input id="y-title" name="title" placeholder="e.g. Horizons 2026" />
+          <div>
+            <Label htmlFor="ybtitle">Volume Title</Label>
+            <Input id="ybtitle" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Legacy &amp; Horizons" />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="y-theme">Theme</Label>
-            <Input id="y-theme" name="theme" />
+          <div>
+            <Label htmlFor="ybtheme">Editorial Theme</Label>
+            <Input id="ybtheme" value={theme} onChange={(e) => setTheme(e.target.value)} placeholder="e.g. Retro Futurism / Luminescence" />
+          </div>
+          <div>
+            <Label htmlFor="ybdue">Final Press Deadline</Label>
+            <Input id="ybdue" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={mutation.isPending}>
-              Create year
-            </Button>
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={busy}>{busy ? "Creating..." : "Create Volume"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -347,26 +347,72 @@ export async function seedDemoData() {
   }
 
   // 48 Pages across 8 Sections (6 pages per section)
-  console.log("[Demo Seed] Seeding 48 pages across 8 sections...");
+  console.log("[Demo Seed] Seeding 48 pages across 8 sections with authentic editorial titles...");
+  const realisticPageTitles = [
+    "Volume Opening & Foreword",
+    "Principal's Welcome & Editorial Letter",
+    "Senior Class of 2026 Directory (A-E)",
+    "Senior Class of 2026 Directory (F-L)",
+    "Senior Class of 2026 Directory (M-R)",
+    "Senior Class of 2026 Directory (S-Z)",
+    "Senior Superlatives & Hall of Fame",
+    "Senior Quotes & Retrospective",
+    "Faculty & Administration Roster",
+    "STEM, Robotics & Science Honors",
+    "Humanities, Literature & AP Capstone",
+    "World Languages & Cultural Exchange",
+    "Varsity Football & Friday Night Lights",
+    "Varsity Basketball Championship Run",
+    "Varsity Soccer & Track Invitational",
+    "Cross Country, Tennis & Golf",
+    "Swimming, Diving & Water Polo",
+    "Volleyball & Cheerleading Squad",
+    "Homecoming Spirit Week & Bonfire Rally",
+    "Winter Gala & Student Council",
+    "Spirit Days, Pep Rallies & Mascot Fun",
+    "Spring Festival & Food Truck Fair",
+    "Campus Traditions & Lunch Quad Hangouts",
+    "Underclassmen Life (Grades 9-11)",
+    "Robotics Team & State Hackathon",
+    "Model United Nations & Mock Trial",
+    "Speech & Debate League Champions",
+    "Environmental Club & Green Campus",
+    "Key Club, Interact & Community Service",
+    "Black Student Union & Asian Pacific Club",
+    "Latinx Heritage & French Honor Society",
+    "Yearbook & Journalism Staff Behind the Scenes",
+    "Spring Musical: In the Heights (Act I)",
+    "Spring Musical: In the Heights (Act II)",
+    "Fall Play: The Crucible",
+    "Concert Band & Symphonic Orchestra",
+    "Jazz Ensemble & Marching Band",
+    "Chamber Choir & A Cappella Showcase",
+    "Studio Art & AP 2D Design Exhibition",
+    "Ceramics, Sculpture & Photography Gallery",
+    "Senior Prom: Golden Horizons (Part I)",
+    "Senior Prom: Golden Horizons (Part II)",
+    "Senior Class Trip & Sunrise Breakfast",
+    "Senior Capstone Presentations",
+    "Baccalaureate & Senior Awards Night",
+    "Commencement & Class of 2026 Diploma Roll",
+    "Class of 2026 Baby Pictures & Memories",
+    "Colophon, Signatures & Autograph Pages",
+  ];
+
   const pagesList = [];
   for (let i = 1; i <= 48; i++) {
     const sIdx = Math.floor((i - 1) / 6);
     const secId = sectionIds[sIdx] || sectionIds[0];
     const statId = statusIds[i % 4] || statusIds[0];
     const secName = sectionDefs[sIdx]?.name || "Feature";
+    const title = realisticPageTitles[i - 1] || `${secName} - Page ${i}`;
 
-    const title =
-      i === 1
-        ? "Cover & Opening"
-        : i === 48
-          ? "Back Cover & Signatures"
-          : `${secName} - Spread ${i}`;
     const pRes = await client.query(
       `INSERT INTO public.pages (yearbook_id, section_id, page_type_id, status_id, position, page_number, title, description)
        VALUES ($1, $2, $3, $4, $5, $5, $6, $7)
        ON CONFLICT DO NOTHING
        RETURNING *`,
-      [ybAId, secId, ptId, statId, i, title, `Page ${i} of ${secName} in DHS 2026 Yearbook`],
+      [ybAId, secId, ptId, statId, i, title, `${secName} spread in DHS 2026 Yearbook`],
     );
 
     if (pRes.rows[0]) {
