@@ -205,33 +205,36 @@ function Workspace() {
 
   return (
     <AppShell>
-      <Link
-        to="/dashboard"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ChevronLeft className="size-4" /> Control center
-      </Link>
+      <div className="space-y-6">
+        <Link
+          to="/dashboard"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ChevronLeft className="size-4" /> Control center
+        </Link>
 
-      <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">
-            {yb.schools?.name}
-          </p>
-          <h1 className="font-display text-4xl">{yb.title || `${yb.year} Yearbook`}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {yb.year}
-            {yb.theme ? ` · ${yb.theme}` : ""}
-            {yb.deadline ? ` · deadline ${yb.deadline}` : ""}
-          </p>
+        <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0 max-w-full">
+            <p className="text-xs uppercase tracking-widest text-muted-foreground">
+              {yb.schools?.name}
+            </p>
+            <h1 className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-foreground break-words">
+              {yb.title || `${yb.year} Yearbook`}
+            </h1>
+            <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
+              {yb.year}
+              {yb.theme ? ` · ${yb.theme}` : ""}
+              {yb.deadline ? ` · deadline ${yb.deadline}` : ""}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-1.5 shrink-0">
+            {(data.myRoles.length ? data.myRoles : ["viewer"]).map((r) => (
+              <Badge key={r} variant="secondary" className="capitalize">
+                {r === "staff" ? "Staff/Member" : r.replace("_", " ")}
+              </Badge>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {(data.myRoles.length ? data.myRoles : ["viewer"]).map((r) => (
-            <Badge key={r} variant="secondary" className="capitalize">
-              {r === "staff" ? "Staff/Member" : r.replace("_", " ")}
-            </Badge>
-          ))}
-        </div>
-      </div>
 
       {/* 2. DEDICATED STAFF WORKBENCH */}
       {isStaffOnly ? (
@@ -241,10 +244,10 @@ function Workspace() {
           }
           className="mt-8"
         >
-          <TabsList>
-            <TabsTrigger value="workbench">My Workbench</TabsTrigger>
-            <TabsTrigger value="design">Layout & Proofing</TabsTrigger>
-            <TabsTrigger value="assets">Asset Library</TabsTrigger>
+          <TabsList className="w-full justify-start overflow-x-auto no-scrollbar scroll-smooth h-auto p-1.5 flex flex-nowrap gap-1">
+            <TabsTrigger value="workbench" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">My Workbench</TabsTrigger>
+            <TabsTrigger value="design" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">Layout & Proofing</TabsTrigger>
+            <TabsTrigger value="assets" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">Asset Library</TabsTrigger>
           </TabsList>
 
           <TabsContent value="workbench" className="mt-6">
@@ -277,19 +280,19 @@ function Workspace() {
       ) : (
         /* 3. FULL COORDINATOR / SUPER ADMIN COCKPIT */
         <Tabs value={cockpitTab} onValueChange={setCockpitTab} className="mt-8">
-          <TabsList>
-            <TabsTrigger value="ladder">Page ladder</TabsTrigger>
-            <TabsTrigger value="design">
+          <TabsList className="w-full justify-start overflow-x-auto no-scrollbar scroll-smooth h-auto p-1.5 flex flex-nowrap gap-1">
+            <TabsTrigger value="ladder" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">Page ladder</TabsTrigger>
+            <TabsTrigger value="design" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">
               {user?.roles?.includes("super_admin") ? "Design Integration" : "Layout & Proofing"}
             </TabsTrigger>
-            <TabsTrigger value="proofreading" className="gap-2">
+            <TabsTrigger value="proofreading" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium gap-1.5">
               <BookCheck className="size-4" /> Proofreading
             </TabsTrigger>
-            <TabsTrigger value="assets">Assets</TabsTrigger>
-            <TabsTrigger value="people">People</TabsTrigger>
-            <TabsTrigger value="production">Production</TabsTrigger>
-            <TabsTrigger value="storage">Storage</TabsTrigger>
-            <TabsTrigger value="team">Team</TabsTrigger>
+            <TabsTrigger value="assets" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">Assets</TabsTrigger>
+            <TabsTrigger value="people" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">People</TabsTrigger>
+            <TabsTrigger value="production" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">Production</TabsTrigger>
+            <TabsTrigger value="storage" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">Storage</TabsTrigger>
+            <TabsTrigger value="team" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">Team</TabsTrigger>
           </TabsList>
 
           <TabsContent value="ladder" className="mt-6">
@@ -419,6 +422,7 @@ function Workspace() {
           </div>
         </DialogContent>
       </Dialog>
+      </div>
     </AppShell>
   );
 }

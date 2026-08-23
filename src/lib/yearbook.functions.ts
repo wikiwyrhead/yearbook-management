@@ -13,6 +13,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import {
+  getPlatformOperatingContext,
+  assertCanCreateCenter,
+  assertCenterOperational,
+  assertYearbookOperational,
+  updatePlatformOperatingMode,
+} from "@/lib/operating-mode.server";
+import { query } from "@/lib/db/pool.server";
 
 type Json = Record<string, unknown>;
 
@@ -73,6 +81,7 @@ export const getControlCenter = createServerFn({ method: "POST" })
     ).some((r: any) => r.role === "super_admin");
 
     const today = new Date().toISOString().split("T")[0]!;
+    const operatingContext = await getPlatformOperatingContext();
 
     // Active Coordinator appointments on Centers
     const appointmentsRes = await supabase
@@ -113,8 +122,11 @@ export const getControlCenter = createServerFn({ method: "POST" })
         .eq("user_id", userId),
     );
 
-    // Filter yearbooks based on role scoping
+    // Filter yearbooks based on role scoping & operating mode
     const accessibleYearbooks = (yearbooks ?? []).filter((y: any) => {
+      if (operatingContext.operatingMode === "single_center") {
+        if (y.school_id !== operatingContext.primaryCenterId) return false;
+      }
       if (isSuperAdmin) return true;
       if (coordinatorCenterIds.includes(y.school_id)) return true;
       if (validAssignments.some((a: any) => a.yearbook_id === y.id)) return true;
@@ -122,12 +134,18 @@ export const getControlCenter = createServerFn({ method: "POST" })
       return false;
     });
 
+    const accessibleSchools = (schools ?? []).filter((s: any) => {
+      if (operatingContext.operatingMode === "single_center") {
+        return s.id === operatingContext.primaryCenterId;
+      }
+      return isSuperAdmin || coordinatorCenterIds.includes(s.id);
+    });
+
     return {
       userId,
       isSuperAdmin,
-      schools: (schools ?? []).filter(
-        (s: any) => isSuperAdmin || coordinatorCenterIds.includes(s.id),
-      ),
+      operatingContext,
+      schools: accessibleSchools,
       yearbooks: await Promise.all(
         accessibleYearbooks.map(async (y: any) => {
           const isCoord = coordinatorCenterIds.includes(y.school_id);
@@ -207,10 +225,65 @@ export const getControlCenter = createServerFn({ method: "POST" })
     };
   });
 
+export const getPlatformOperatingSettings = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const isSuperAdmin = (
+      (unwrap(await supabase.from("user_roles").select("role").eq("user_id", userId)) as any[]) ??
+      []
+    ).some((r: any) => r.role === "super_admin");
+
+    if (!isSuperAdmin) {
+      throw new Error("Unauthorized: Only Super Administrators can view platform operating settings.");
+    }
+
+    const operatingContext = await getPlatformOperatingContext();
+    const allSchoolsRes = await query(
+      `SELECT id, name, short_name, is_active FROM public.schools ORDER BY name ASC`
+    );
+    const historyRes = await query(
+      `SELECT id, previous_operating_mode, new_operating_mode, previous_primary_center_id, previous_primary_center_name, new_primary_center_id, new_primary_center_name, changed_by, changed_at
+       FROM public.platform_settings_history
+       ORDER BY changed_at DESC
+       LIMIT 20`
+    );
+
+    return {
+      operatingContext,
+      availableCenters: allSchoolsRes.rows,
+      auditHistory: historyRes.rows,
+    };
+  });
+
+export const updatePlatformOperatingModeAction = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (d: { operatingMode: "single_center" | "multi_center"; primaryCenterId?: string | null }) => d
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const isSuperAdmin = (
+      (unwrap(await supabase.from("user_roles").select("role").eq("user_id", userId)) as any[]) ??
+      []
+    ).some((r: any) => r.role === "super_admin");
+
+    if (!isSuperAdmin) {
+      throw new Error("Unauthorized: Only Super Administrators can modify platform operating mode.");
+    }
+
+    return updatePlatformOperatingMode({
+      operatingMode: data.operatingMode,
+      primaryCenterId: data.primaryCenterId ?? null,
+      userId,
+    });
+  });
+
 export const createSchool = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: Json) => d)
   .handler(async ({ data, context }) => {
+    await assertCanCreateCenter();
     const { supabase, userId } = context;
     const row = unwrap(
       await supabase
@@ -235,16 +308,17 @@ export const createSchool = createServerFn({ method: "POST" })
 export const updateSchool = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { id: string; patch: Json }) => d)
-  .handler(async ({ data, context }) =>
-    unwrap(
+  .handler(async ({ data, context }) => {
+    await assertCenterOperational(data.id);
+    return unwrap(
       await context.supabase
         .from("schools")
         .update(data.patch as never)
         .eq("id", data.id)
         .select()
         .single(),
-    ),
-  );
+    );
+  });
 
 export const createYearbook = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -258,6 +332,7 @@ export const createYearbook = createServerFn({ method: "POST" })
     }) => d,
   )
   .handler(async ({ data, context }) => {
+    await assertCenterOperational(data.school_id);
     const { supabase, userId } = context;
     const yb = unwrap(
       await supabase
@@ -404,6 +479,7 @@ export const getYearbook = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const id = data.yearbookId;
+    await assertYearbookOperational(id);
 
     const yearbook = unwrap(
       await supabase.from("yearbooks").select("*, schools(*)").eq("id", id).single(),

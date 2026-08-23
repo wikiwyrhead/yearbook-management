@@ -3,40 +3,24 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  loginWithPassword,
-  signupWithPassword,
-  getCurrentUser,
-  loginWithDemoRole,
-} from "@/lib/auth.functions";
+import { loginWithPassword, signupWithPassword, getCurrentUser } from "@/lib/auth.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  BookOpen,
-  Sparkles,
-  Shield,
-  GraduationCap,
-  Users,
-  PenTool,
-  CheckCircle2,
-  Printer,
-  Layers,
-  ArrowRight,
-} from "lucide-react";
+import { BookOpen, Sparkles, Shield, Lock, Mail, ArrowRight } from "lucide-react";
+import { APP_NAME, APP_SUBTITLE } from "@/lib/constants/wording";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — Milestone Yearbook Production Control Center" },
+      { title: `Sign in — ${APP_NAME}` },
       {
         name: "description",
-        content:
-          "Sign in to Milestone Yearbook to manage schools, yearbook ladders, Canva layouts, proofing, and press releases.",
+        content: `Sign in to ${APP_NAME} to manage yearbooks, ladders, layout spreads, and proofing.`,
       },
-      { property: "og:title", content: "Sign in — Milestone Yearbook Production" },
+      { property: "og:title", content: `Sign in — ${APP_NAME}` },
       {
         property: "og:description",
         content: "Collaborative yearbook publishing for student staffs and journalism advisors.",
@@ -48,71 +32,16 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-const DEMO_ROLES = [
-  {
-    id: "coordinator",
-    title: "School Coordinator",
-    name: "Elena Rostova",
-    email: "coordinator@test.yearbook",
-    scope: "Demo High School (School A)",
-    icon: GraduationCap,
-    badgeColor: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/20",
-    description: "Manage page ladder, Canva layouts, student roster & press approvals",
-  },
-  {
-    id: "admin",
-    title: "Global Super Admin",
-    name: "System Administrator",
-    email: "admin@test.yearbook",
-    scope: "Multi-Center Platform",
-    icon: Shield,
-    badgeColor: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20",
-    description: "Manage all high school centers, Canva credentials & print service bureaus",
-  },
-  {
-    id: "teacher",
-    title: "Faculty Advisor",
-    name: "Sarah Jenkins",
-    email: "teacher@test.yearbook",
-    scope: "Journalism & Media Arts",
-    icon: PenTool,
-    badgeColor: "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20",
-    description: "Review page spreads, approve student submissions & leave proofing notes",
-  },
-  {
-    id: "member",
-    title: "Editorial Staff Member",
-    name: "Marcus Vance",
-    email: "member@test.yearbook",
-    scope: "Academics & Sports Sections",
-    icon: Users,
-    badgeColor: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20",
-    description: "Assigned spread layout drafting, photo selection & caption proofing",
-  },
-  {
-    id: "student",
-    title: "Student Contributor",
-    name: "Alex Rivera",
-    email: "student@test.yearbook",
-    scope: "Senior Class of 2026",
-    icon: Sparkles,
-    badgeColor: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20",
-    description: "Upload senior portrait, submit quote, and tag candid memories",
-  },
-];
-
 function AuthPage() {
   const getCurrentUserFn = useServerFn(getCurrentUser);
   const loginWithPasswordFn = useServerFn(loginWithPassword);
   const signupWithPasswordFn = useServerFn(signupWithPassword);
-  const loginWithDemoRoleFn = useServerFn(loginWithDemoRole);
 
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [busy, setBusy] = useState(false);
-  const [activeDemoId, setActiveDemoId] = useState<string | null>(null);
 
   useEffect(() => {
     getCurrentUserFn()
@@ -135,7 +64,7 @@ function AuthPage() {
           supabase.auth.signOut().catch(() => {});
         } catch {}
         setBusy(false);
-        toast.success("Welcome back to Milestone!");
+        toast.success(`Welcome back to ${APP_NAME}!`);
         window.location.href = "/dashboard";
         return;
       }
@@ -143,24 +72,6 @@ function AuthPage() {
       setBusy(false);
       toast.error(err.message || "Invalid email or password.");
       return;
-    }
-  }
-
-  async function handleDemoRoleLogin(roleId: string) {
-    setBusy(true);
-    setActiveDemoId(roleId);
-
-    try {
-      const res = await loginWithDemoRoleFn({ data: { role: roleId as any } });
-      if (res.success) {
-        toast.success(`Logged in as ${res.user.fullName || res.user.email}`);
-        window.location.href = "/dashboard";
-        return;
-      }
-    } catch (err: any) {
-      setBusy(false);
-      setActiveDemoId(null);
-      toast.error(err.message || "Could not log in with demo account.");
     }
   }
 
@@ -201,38 +112,22 @@ function AuthPage() {
     toast.success("Account created. You can sign in now.");
   }
 
-  async function google() {
-    setBusy(true);
-    const { getAppBaseUrl } = await import("@/lib/app-url");
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${getAppBaseUrl()}/dashboard`,
-      },
-    });
-    setBusy(false);
-    if (error) {
-      toast.error(error.message || "Google sign-in failed.");
-      return;
-    }
-  }
-
   return (
     <div className="grid min-h-screen lg:grid-cols-12 bg-background">
       {/* Editorial Left Hero Showcase */}
-      <div className="ink-panel hidden flex-col justify-between p-12 lg:col-span-6 lg:flex xl:col-span-7 relative overflow-hidden">
+      <div className="ink-panel hidden flex-col justify-between p-8 sm:p-12 lg:col-span-6 lg:flex xl:col-span-7 relative overflow-hidden">
         {/* Background Subtle Gradient Accents */}
         <div className="absolute top-0 right-0 -mt-24 -mr-24 w-96 h-96 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 -mb-24 -ml-24 w-96 h-96 bg-accent/20 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10">
-          <Link to="/" className="inline-flex items-center gap-2 font-display text-2xl tracking-tight">
+          <Link to="/" className="inline-flex items-center gap-2 font-display text-2xl tracking-tight text-white focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none rounded-md px-1">
             <div className="size-8 rounded-lg bg-accent/20 border border-accent/40 flex items-center justify-center text-accent">
               <BookOpen className="size-4" />
             </div>
-            <span>Milestone<span className="text-accent">.</span></span>
+            <span>{APP_NAME}<span className="text-accent">.</span></span>
             <Badge variant="outline" className="ml-2 border-white/20 text-white/80 text-[10px] font-sans uppercase tracking-widest">
-              Publishing Suite
+              {APP_SUBTITLE}
             </Badge>
           </Link>
         </div>
@@ -240,213 +135,192 @@ function AuthPage() {
         <div className="relative z-10 max-w-xl my-auto py-8">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs text-white/90 mb-6 backdrop-blur-md">
             <Sparkles className="size-3.5 text-accent" />
-            <span>2026 Academic Publishing Cycle</span>
+            <span>Academic Publishing Suite</span>
           </div>
 
-          <h1 className="font-display text-5xl xl:text-6xl leading-[1.1] font-bold text-white tracking-tight">
+          <h1 className="font-display text-4xl sm:text-5xl xl:text-6xl leading-[1.1] font-bold text-white tracking-tight">
             From Candid Memories to Hardcover Press.
           </h1>
 
-          <p className="mt-5 text-base text-white/80 leading-relaxed font-sans">
-            The modern publishing platform for school journalism advisers, student editors, and print service bureaus. Plan your page ladder, sync Canva spreads in real time, and manage pre-flight proofing in one unified workspace.
+          <p className="mt-5 text-sm sm:text-base text-white/80 leading-relaxed font-sans">
+            The collaborative publishing platform for school journalism advisers, student editors, and print service bureaus. Plan your page ladder, organize photographic assets, and manage pre-flight proofing in one unified workspace.
           </p>
 
           {/* Real Production Metrics Grid */}
-          <div className="mt-8 grid grid-cols-3 gap-4 border-t border-white/15 pt-8">
+          <div className="mt-8 grid grid-cols-3 gap-4 border-t border-white/15 pt-6">
             <div>
-              <div className="text-3xl font-bold font-display text-white">48,000+</div>
+              <div className="text-2xl sm:text-3xl font-bold font-display text-white">48,000+</div>
               <div className="text-xs text-white/70 mt-1">Pages Published</div>
             </div>
             <div>
-              <div className="text-3xl font-bold font-display text-accent">99.8%</div>
+              <div className="text-2xl sm:text-3xl font-bold font-display text-accent">99.8%</div>
               <div className="text-xs text-white/70 mt-1">On-Time Press Rate</div>
             </div>
             <div>
-              <div className="text-3xl font-bold font-display text-white">Direct</div>
-              <div className="text-xs text-white/70 mt-1">Canva &amp; Cloud Sync</div>
-            </div>
-          </div>
-
-          {/* Real Adviser Testimonial Card */}
-          <div className="mt-8 p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-            <p className="text-xs text-white/90 italic leading-relaxed">
-              &ldquo;Milestone gave our 32-student editorial team real-time visibility into every spread and proof correction. We finalized 144 pages two weeks ahead of our spring print deadline.&rdquo;
-            </p>
-            <div className="mt-3 flex items-center gap-3">
-              <div className="size-7 rounded-full bg-primary/40 border border-white/20 flex items-center justify-center text-[11px] font-bold text-white">
-                ER
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-white">Elena Rostova</div>
-                <div className="text-[10px] text-white/60">Journalism Adviser &amp; Yearbook Coordinator · Demo High School</div>
-              </div>
+              <div className="text-2xl sm:text-3xl font-bold font-display text-white">300 DPI</div>
+              <div className="text-xs text-white/70 mt-1">Commercial Quality</div>
             </div>
           </div>
         </div>
 
         <div className="relative z-10 flex items-center justify-between text-xs text-white/50 border-t border-white/10 pt-4">
-          <span>Milestone Yearbook Platform v2.4</span>
+          <span>{APP_NAME} &middot; {APP_SUBTITLE}</span>
           <span className="flex items-center gap-1.5">
-            <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-            Live Cloud Service Bureau Connected
+            <span className="size-2 rounded-full bg-emerald-400" />
+            Secure Encrypted Session
           </span>
         </div>
       </div>
 
-      {/* Auth & Quick Demo Panel */}
-      <div className="flex flex-col justify-center p-6 sm:p-10 lg:col-span-6 xl:col-span-5 overflow-y-auto">
+      {/* Auth Form Panel */}
+      <div className="flex flex-col justify-center p-4 sm:p-8 md:p-12 lg:col-span-6 xl:col-span-5">
         <div className="w-full max-w-md mx-auto space-y-6">
-          <div className="space-y-1">
+          <div className="space-y-2 text-center sm:text-left">
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-3xl font-bold text-foreground">Sign In</h2>
+              <h2 className="font-display text-2xl sm:text-3xl font-bold text-foreground">Sign In</h2>
               <Badge variant="outline" className="text-xs font-medium">
-                Production Portal
+                {APP_SUBTITLE}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Enter your credentials or choose a pre-configured demo persona.
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Enter your authorized school publishing credentials to access your workspace.
             </p>
           </div>
 
-          {/* Quick Demo Role Selector Card */}
-          <div className="p-4 rounded-xl bg-card border border-border shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Sparkles className="size-3.5 text-primary" />
-                Instant Demo Access
-              </span>
-              <span className="text-[11px] text-muted-foreground">One-click login</span>
-            </div>
-
-            <div className="grid gap-2">
-              {DEMO_ROLES.map((role) => {
-                const Icon = role.icon;
-                const isSelected = activeDemoId === role.id && busy;
-                return (
-                  <button
-                    key={role.id}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => handleDemoRoleLogin(role.id)}
-                    className={`w-full text-left p-2.5 rounded-lg border transition-all flex items-center gap-3 group hover:border-primary/50 hover:bg-muted/50 ${
-                      isSelected
-                        ? "border-primary bg-primary/10"
-                        : "border-border bg-background"
-                    }`}
-                  >
-                    <div className={`size-8 rounded-md flex items-center justify-center shrink-0 border ${role.badgeColor}`}>
-                      <Icon className="size-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs font-semibold text-foreground truncate group-hover:text-primary transition-colors">
-                          {role.title}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground truncate shrink-0">
-                          {role.name}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground truncate">
-                        {role.description}
-                      </p>
-                    </div>
-                    <ArrowRight className="size-3.5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="h-px flex-1 bg-border" />
-            <span>or sign in with password</span>
-            <span className="h-px flex-1 bg-border" />
-          </div>
-
           <Tabs defaultValue="signin" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Standard Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Register Account</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 h-11">
+              <TabsTrigger value="signin" className="h-9 text-xs sm:text-sm font-medium">
+                Sign In
+              </TabsTrigger>
+              <TabsTrigger value="signup" className="h-9 text-xs sm:text-sm font-medium">
+                Register Account
+              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="signin" className="mt-4">
+            <TabsContent value="signin" className="mt-6">
               <form onSubmit={signIn} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email address</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="coordinator@test.yearbook"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
+                  <Label htmlFor="signin-email" className="text-xs sm:text-sm font-medium">
+                    Email address
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      id="signin-email"
+                      type="email"
+                      autoComplete="username"
+                      placeholder="name@school.org"
+                      className="pl-9 h-11 text-sm focus-visible:ring-2 focus-visible:ring-primary"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
+
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
-                    <span className="text-[11px] text-muted-foreground font-mono">
-                      Demo password: <strong className="text-primary">Yearbook2026!</strong>
-                    </span>
+                    <Label htmlFor="signin-password" className="text-xs sm:text-sm font-medium">
+                      Password
+                    </Label>
                   </div>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Yearbook2026!"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      id="signin-password"
+                      type="password"
+                      autoComplete="current-password"
+                      placeholder="••••••••••••"
+                      className="pl-9 h-11 text-sm focus-visible:ring-2 focus-visible:ring-primary"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
-                <Button type="submit" className="w-full" disabled={busy}>
-                  {busy && !activeDemoId ? "Signing in..." : "Sign In to Control Center"}
+
+                <Button
+                  type="submit"
+                  className="w-full h-11 text-sm font-medium gap-2 mt-2 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  disabled={busy}
+                >
+                  {busy ? "Signing in..." : "Sign In to Workspace"}
+                  <ArrowRight className="size-4" />
                 </Button>
               </form>
             </TabsContent>
 
-            <TabsContent value="signup" className="mt-4">
+            <TabsContent value="signup" className="mt-6">
               <form onSubmit={signUp} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full name</Label>
+                  <Label htmlFor="signup-name" className="text-xs sm:text-sm font-medium">
+                    Full name
+                  </Label>
                   <Input
-                    id="name"
+                    id="signup-name"
                     placeholder="Jane Doe"
+                    autoComplete="name"
+                    className="h-11 text-sm focus-visible:ring-2 focus-visible:ring-primary"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="email2">Email address</Label>
-                  <Input
-                    id="email2"
-                    type="email"
-                    placeholder="advisor@school.org"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
+                  <Label htmlFor="signup-email" className="text-xs sm:text-sm font-medium">
+                    Email address
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      id="signup-email"
+                      type="email"
+                      autoComplete="username"
+                      placeholder="advisor@school.org"
+                      className="pl-9 h-11 text-sm focus-visible:ring-2 focus-visible:ring-primary"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="password2">Create Password</Label>
-                  <Input
-                    id="password2"
-                    type="password"
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
+                  <Label htmlFor="signup-password" className="text-xs sm:text-sm font-medium">
+                    Create Password
+                  </Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      id="signup-password"
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={6}
+                      placeholder="Minimum 6 characters"
+                      className="pl-9 h-11 text-sm focus-visible:ring-2 focus-visible:ring-primary"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
-                <Button type="submit" className="w-full" disabled={busy}>
-                  {busy ? "Creating account..." : "Create New Production Account"}
+
+                <Button
+                  type="submit"
+                  className="w-full h-11 text-sm font-medium gap-2 mt-2 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  disabled={busy}
+                >
+                  {busy ? "Creating account..." : "Create New Publishing Account"}
+                  <ArrowRight className="size-4" />
                 </Button>
               </form>
             </TabsContent>
           </Tabs>
 
-          <div className="pt-2 text-center text-xs text-muted-foreground">
-            Protected by role-based Row Level Security (RLS) &middot; Milestone Self-Hosted
+          <div className="pt-4 text-center text-xs text-muted-foreground border-t border-border flex items-center justify-center gap-2">
+            <Shield className="size-3.5 text-muted-foreground" />
+            <span>Authorized access only &middot; Encrypted session management</span>
           </div>
         </div>
       </div>

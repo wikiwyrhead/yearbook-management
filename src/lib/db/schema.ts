@@ -758,6 +758,84 @@ CREATE TABLE IF NOT EXISTS public.design_provider_assets (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (provider_connection_id, asset_id)
 );
+
+-- 11. PLATFORM OPERATING MODE
+ALTER TABLE public.schools ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+
+CREATE TABLE IF NOT EXISTS public.platform_settings (
+  id TEXT PRIMARY KEY DEFAULT 'global' CHECK (id = 'global'),
+  operating_mode TEXT NOT NULL DEFAULT 'multi_center' CHECK (operating_mode IN ('single_center', 'multi_center')),
+  primary_center_id UUID REFERENCES public.schools(id) ON DELETE SET NULL,
+  changed_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  changed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_single_center_has_primary CHECK (
+    operating_mode = 'multi_center' OR primary_center_id IS NOT NULL
+  )
+);
+
+INSERT INTO public.platform_settings (id, operating_mode, primary_center_id)
+VALUES ('global', 'multi_center', NULL)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS public.platform_settings_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  previous_operating_mode TEXT NOT NULL,
+  new_operating_mode TEXT NOT NULL,
+  previous_primary_center_id UUID,
+  previous_primary_center_name TEXT,
+  new_primary_center_id UUID,
+  new_primary_center_name TEXT,
+  changed_by UUID,
+  changed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE OR REPLACE FUNCTION public.block_platform_settings_history_mutation()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'platform_settings_history is append-only and immutable.';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_block_history_mutation ON public.platform_settings_history;
+CREATE TRIGGER trg_block_history_mutation
+BEFORE UPDATE OR DELETE ON public.platform_settings_history
+FOR EACH ROW EXECUTE FUNCTION public.block_platform_settings_history_mutation();
+
+CREATE OR REPLACE FUNCTION public.check_primary_center_integrity()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF EXISTS (
+      SELECT 1 FROM public.platform_settings
+      WHERE id = 'global'
+        AND operating_mode = 'single_center'
+        AND primary_center_id = OLD.id
+    ) THEN
+      RAISE EXCEPTION 'Cannot delete active Primary Center "%" while Single-Center operating mode is enabled. Restore Multiple-Center mode or select a different Primary Center first.', OLD.name;
+    END IF;
+    RETURN OLD;
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    IF (OLD.is_active = true AND NEW.is_active = false) AND EXISTS (
+      SELECT 1 FROM public.platform_settings
+      WHERE id = 'global'
+        AND operating_mode = 'single_center'
+        AND primary_center_id = OLD.id
+    ) THEN
+      RAISE EXCEPTION 'Cannot deactivate active Primary Center "%" while Single-Center operating mode is enabled. Restore Multiple-Center mode or select a different Primary Center first.', OLD.name;
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_prevent_primary_center_modification ON public.schools;
+CREATE TRIGGER trg_prevent_primary_center_modification
+BEFORE DELETE OR UPDATE OF is_active ON public.schools
+FOR EACH ROW EXECUTE FUNCTION public.check_primary_center_integrity();
 `;
 
 export interface DesignProviderConnection {
@@ -830,3 +908,26 @@ export interface DesignProviderAsset {
   external_asset_id: string;
   created_at: string;
 }
+
+export type PlatformOperatingMode = "single_center" | "multi_center";
+
+export interface PlatformSettings {
+  id: "global";
+  operating_mode: PlatformOperatingMode;
+  primary_center_id?: string | null;
+  changed_by?: string | null;
+  changed_at: string;
+}
+
+export interface PlatformSettingsHistory {
+  id: string;
+  previous_operating_mode: string;
+  new_operating_mode: string;
+  previous_primary_center_id?: string | null;
+  previous_primary_center_name?: string | null;
+  new_primary_center_id?: string | null;
+  new_primary_center_name?: string | null;
+  changed_by?: string | null;
+  changed_at: string;
+}
+

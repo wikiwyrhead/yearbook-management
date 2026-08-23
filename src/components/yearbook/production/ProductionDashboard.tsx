@@ -194,7 +194,7 @@ export function ProductionDashboard({ yearbookId, canManage }: ProductionDashboa
         {/* Main 2-Column Tabs */}
         <div className="lg:col-span-2 space-y-6">
           <Tabs defaultValue="snapshots">
-            <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+            <TabsList className="w-full overflow-x-auto justify-start border-b rounded-none h-auto p-0 bg-transparent">
               <TabsTrigger
                 value="snapshots"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2.5 px-4 font-semibold text-xs"

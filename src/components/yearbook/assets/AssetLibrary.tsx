@@ -109,6 +109,7 @@ export function AssetLibrary({
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
             <Input
+              aria-label="Search assets by file name or title"
               placeholder="Search assets..."
               className="pl-8"
               value={search}
@@ -116,7 +117,7 @@ export function AssetLibrary({
             />
           </div>
           <Select value={type} onValueChange={setType}>
-            <SelectTrigger className="w-[130px]">
+            <SelectTrigger className="w-[130px]" aria-label="Filter assets by file type">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
@@ -128,7 +129,7 @@ export function AssetLibrary({
             </SelectContent>
           </Select>
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="w-[130px]">
+            <SelectTrigger className="w-[130px]" aria-label="Filter assets by approval status">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -239,6 +240,7 @@ export function AssetLibrary({
                       <Button
                         variant="secondary"
                         size="icon"
+                        aria-label={`Asset actions for ${asset.file_name}`}
                         className="size-6 rounded-full shadow-sm"
                       >
                         <MoreVertical className="size-3" />

@@ -62,7 +62,7 @@ export function PeopleTab({ yearbookId, canEdit }: { yearbookId: string; canEdit
   return (
     <Tabs defaultValue="students">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <TabsList>
+        <TabsList className="overflow-x-auto max-w-full justify-start">
           <TabsTrigger value="students">Students ({data?.students.length ?? 0})</TabsTrigger>
           <TabsTrigger value="faculty">Faculty ({data?.faculty.length ?? 0})</TabsTrigger>
           <TabsTrigger value="classes">Classes ({data?.classes.length ?? 0})</TabsTrigger>
@@ -126,6 +126,7 @@ function DeleteButton({ kind, id, onDone }: { kind: Kind; id: string; onDone: ()
     <Button
       size="icon"
       variant="ghost"
+      aria-label={`Delete ${kind.slice(0, -1)} entry`}
       onClick={() =>
         del({ data: { table: kind, id } })
           .then(onDone)
@@ -156,7 +157,7 @@ function PersonDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {existing ? (
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" aria-label={`Edit ${label}`}>
             Edit
           </Button>
         ) : (
@@ -248,6 +249,7 @@ function ImportDialog({ yearbookId, onDone }: { yearbookId: string; onDone: () =
           </p>
           <Textarea
             rows={10}
+            aria-label="CSV tabular text data for import"
             value={csv}
             onChange={(e) => setCsv(e.target.value)}
             placeholder={"first_name,last_name,grade\nAva,Nguyen,11"}

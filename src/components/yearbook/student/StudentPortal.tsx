@@ -296,7 +296,7 @@ export function StudentPortal({
               Welcome, {userName || "Senior"}!
             </h1>
             <p className="text-sm text-muted-foreground max-w-xl">
-              {schoolName || "Demo High School"} &middot;{" "}
+              {schoolName || "Yearbook Center"} &middot;{" "}
               <span className="font-medium text-foreground">
                 {yearbookTitle || `${yearbookYear} Annual Edition`}
               </span>

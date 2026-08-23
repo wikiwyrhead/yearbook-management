@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { createHash } from "crypto";
 import { Database } from "@/integrations/supabase/types";
+import { assertYearbookOperational } from "@/lib/operating-mode.server";
 
 type Json = Record<string, unknown>;
 
@@ -17,6 +18,7 @@ export const getReadinessReport = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ yearbookId: z.string() }))
   .handler(async ({ data, context }) => {
+    await assertYearbookOperational(data.yearbookId);
     const { supabase } = context;
     const yId = data.yearbookId;
 
@@ -130,6 +132,7 @@ export const createProductionSnapshot = createServerFn({ method: "POST" })
     }): Promise<Database["public"]["Tables"]["production_snapshots"]["Row"]> => {
       const { supabase, userId } = context;
       const yId = data.yearbookId;
+      await assertYearbookOperational(yId);
 
       const [yearbook, pages, proofs, approvals, checklists] = await Promise.all([
         supabase.from("yearbooks").select("*").eq("id", yId).single(),
@@ -200,6 +203,7 @@ export const generateProductionPackage = createServerFn({ method: "POST" })
     }): Promise<Database["public"]["Tables"]["production_packages"]["Row"]> => {
       const { supabase, userId } = context;
       const { yearbookId, snapshotId } = data;
+      await assertYearbookOperational(yearbookId);
 
       const snapshotRes = await supabase
         .from("production_snapshots")
@@ -446,6 +450,7 @@ export const getProductionDashboardData = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     const yId = data.yearbookId;
+    await assertYearbookOperational(yId);
 
     const [snapshots, packages, submissions, reports, serviceBureaus] = await Promise.all([
       supabase

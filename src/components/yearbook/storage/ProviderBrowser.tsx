@@ -160,7 +160,7 @@ export function ProviderBrowser({
       <div className="p-3 border-b bg-muted/30 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           {history.length > 0 || currentFolderId ? (
-            <Button variant="ghost" size="icon" className="size-8" onClick={goBack}>
+            <Button variant="ghost" size="icon" aria-label="Go back to previous folder" className="size-8" onClick={goBack}>
               <ChevronLeft className="size-4" />
             </Button>
           ) : null}
