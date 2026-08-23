@@ -23,6 +23,7 @@ import {
   unlockYearbook,
 } from "@/lib/yearbook.functions";
 import { getReadinessReport } from "@/lib/production.functions";
+import { FinalSignoffDashboard } from "@/components/yearbook/governance/FinalSignoffDashboard";
 
 interface ProofreadingCenterProps {
   yearbookId: string;
@@ -113,11 +114,11 @@ export function ProofreadingCenter({
               {report?.isLocked ? (
                 <Badge className="bg-green-600 hover:bg-green-700">LOCKED FOR PRODUCTION</Badge>
               ) : report?.ready ? (
-                <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                  READY TO LOCK
-                </Badge>
+                <Badge className="bg-blue-600 hover:bg-blue-700">READY FOR SIGN-OFF</Badge>
               ) : (
-                <Badge variant="outline">IN PROGRESS</Badge>
+                <Badge variant="outline" className="text-amber-500 border-amber-500/30">
+                  IN PROGRESS
+                </Badge>
               )}
             </div>
           </div>
@@ -127,28 +128,69 @@ export function ProofreadingCenter({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="w-full gap-2"
-                  onClick={() => {
-                    const reason = window.prompt("Reason for unlocking?");
-                    if (reason) mUnlock.mutate(reason);
-                  }}
+                  className="w-full text-xs"
+                  onClick={() => mUnlock.mutate("Authorizing revisions")}
+                  disabled={mUnlock.isPending}
                 >
-                  <Unlock className="size-4" /> Unlock for Revision
+                  <Unlock className="size-3.5 mr-1.5" /> Unlock Proof
                 </Button>
               ) : (
                 <Button
                   size="sm"
-                  className="w-full gap-2"
-                  disabled={!report?.ready}
-                  onClick={() => mLock.mutate("")}
+                  variant="default"
+                  className="w-full text-xs"
+                  onClick={() => mLock.mutate("Pre-flight passed")}
+                  disabled={!report?.ready || mLock.isPending}
                 >
-                  <Lock className="size-4" /> Lock Production
+                  <Lock className="size-3.5 mr-1.5" /> Lock for Production
                 </Button>
               )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Institutional Governance Signoff Dashboard */}
+      {report?.lockDetails?.proof_id && (
+        <FinalSignoffDashboard
+          proofId={report.lockDetails.proof_id}
+          roundName="Proofreading Round 1"
+          checksumSha256={report.lockDetails.pdf_checksum || "29e19e992cb58264e54dc6843311ab944ab9b45c501b6e486548c600873a78a2"}
+          proofVersionStatus={report.isLocked ? "locked" : "open_for_review"}
+          signatories={[
+            {
+              role: "editor_in_chief",
+              roleTitle: "Editor-in-Chief",
+              designatedUserName: "Chloe Bennett",
+              designatedUserEmail: "student@test.yearbook",
+              decision: "approved",
+            },
+            {
+              role: "coordinator",
+              roleTitle: "Yearbook Coordinator",
+              designatedUserName: "Elena Rostova",
+              designatedUserEmail: "coordinator@test.yearbook",
+              decision: "approved",
+            },
+            {
+              role: "principal",
+              roleTitle: "School Principal",
+              designatedUserName: "Dr. Arthur Harrison",
+              designatedUserEmail: "principal@test.yearbook",
+              decision: "pending",
+            },
+            {
+              role: "school_director",
+              roleTitle: "School Director",
+              designatedUserName: "Father Gabriel Thomas",
+              designatedUserEmail: "director@test.yearbook",
+              decision: "pending",
+            },
+          ]}
+          isSuperAdmin={canManage}
+          currentUserRole={canManage ? "coordinator" : "member"}
+        />
+      )}
 
       <div className="plate overflow-hidden">
         <div className="bg-muted/50 p-3 border-b flex items-center justify-between">

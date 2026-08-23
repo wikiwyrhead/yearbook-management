@@ -389,3 +389,74 @@ export async function adminOpenExternalDesign(actor: AuthenticatedActor, yearboo
     designId: binding.external_design_id,
   };
 }
+
+/**
+ * Batch map all pages of a yearbook 1-to-1 to Canva pages (Super Admin only).
+ * Pre-validates live Canva page count.
+ */
+export async function adminBatchMapSequentialPages(
+  actor: AuthenticatedActor,
+  yearbookId: string,
+) {
+  await requireSuperAdmin(actor);
+
+  const bindingRes = await query(
+    `SELECT id, external_design_id FROM public.yearbook_design_bindings 
+     WHERE yearbook_id = $1 AND is_active = true LIMIT 1`,
+    [yearbookId],
+  );
+
+  if (bindingRes.rows.length === 0) {
+    throw new Error("No active layout design bound to this Yearbook.");
+  }
+
+  const binding = bindingRes.rows[0];
+  const { ref } = await getActivePlatformCanvaCredentials();
+  const design = await canvaProvider.getDesign(ref, binding.external_design_id);
+
+  if (!design || !design.id) {
+    throw new Error("Bound layout design not found in Canva.");
+  }
+
+  const pagesRes = await query(
+    `SELECT id, physical_index FROM public.pages 
+     WHERE yearbook_id = $1 
+     ORDER BY physical_index ASC`,
+    [yearbookId],
+  );
+
+  const totalMilestonePages = pagesRes.rows.length;
+  const totalCanvaPages = design.pageCount || 1;
+
+  if (totalCanvaPages < totalMilestonePages) {
+    throw new Error(
+      `Canva design has ${totalCanvaPages} pages, but Yearbook has ${totalMilestonePages} pages. Please ensure Canva layout matches total pages before batch mapping.`
+    );
+  }
+
+  const pool = getDbPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN;");
+
+    for (const page of pagesRes.rows) {
+      const canvaPageNum = page.physical_index;
+      await client.query(
+        `INSERT INTO public.yearbook_design_page_mappings 
+         (yearbook_id, binding_id, milestone_page_id, external_page_numbers, created_by, updated_at)
+         VALUES ($1, $2, $3, ARRAY[$4]::int[], $5, now())
+         ON CONFLICT (binding_id, milestone_page_id)
+         DO UPDATE SET external_page_numbers = ARRAY[$4]::int[], updated_at = now()`,
+        [yearbookId, binding.id, page.id, canvaPageNum, actor.id]
+      );
+    }
+
+    await client.query("COMMIT;");
+    return { mappedCount: totalMilestonePages };
+  } catch (err) {
+    await client.query("ROLLBACK;");
+    throw err;
+  } finally {
+    client.release();
+  }
+}

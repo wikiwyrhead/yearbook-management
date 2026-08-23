@@ -223,16 +223,35 @@ export function AdminCanvaManager({ yearbookId }: { yearbookId: string }) {
 
       {/* 3. Page Mapping Table */}
       <div className="rounded-xl border bg-card overflow-hidden">
-        <div className="p-4 border-b bg-muted/30 flex items-center justify-between">
+        <div className="p-4 border-b bg-muted/30 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h4 className="font-medium text-sm">Canva-to-Milestone Page Mappings</h4>
             <p className="text-xs text-muted-foreground mt-0.5">
               Map each Milestone page or spread to the corresponding 1-indexed Canva design pages.
             </p>
           </div>
-          <Badge variant="secondary" className="text-xs">
-            {pages.length} Total Pages
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs gap-1.5"
+              onClick={async () => {
+                try {
+                  const res = await (await import("@/lib/design.functions")).adminBatchMapSequentialPagesFlow({ data: { yearbookId } });
+                  await qc.invalidateQueries({ queryKey: ["ladder", yearbookId] });
+                  toast.success(`Batch mapped ${res?.mappedCount || pages.length} pages sequentially!`);
+                } catch (e: any) {
+                  toast.error(e.message || "Failed to batch map pages");
+                }
+              }}
+            >
+              <Layers className="size-3.5" />
+              Batch Map All Pages (1:1)
+            </Button>
+            <Badge variant="secondary" className="text-xs">
+              {pages.length} Total Pages
+            </Badge>
+          </div>
         </div>
 
         <div className="divide-y max-h-[500px] overflow-y-auto">

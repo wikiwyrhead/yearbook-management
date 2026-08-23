@@ -188,6 +188,133 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_active_yearbook_assignment
   ON public.yearbook_team_assignments (yearbook_id, user_id, role)
   WHERE is_active = true;
 
+CREATE TABLE IF NOT EXISTS public.yearbook_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  role public.yearbook_role NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (yearbook_id, user_id, role)
+);
+
+-- 5. LADDERS, SECTIONS, PAGES, ROSTER
+CREATE TABLE IF NOT EXISTS public.sections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT '#64748b',
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_sections_composite UNIQUE (id, yearbook_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.page_types (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.page_statuses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT '#64748b',
+  position INTEGER NOT NULL DEFAULT 0,
+  is_terminal BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.classes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  grade TEXT,
+  homeroom TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.students (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  class_id UUID REFERENCES public.classes(id) ON DELETE SET NULL,
+  user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  student_number TEXT,
+  first_name TEXT NOT NULL,
+  middle_name TEXT,
+  last_name TEXT NOT NULL,
+  preferred_name TEXT,
+  suffix TEXT,
+  grade TEXT,
+  email TEXT,
+  submission_status TEXT NOT NULL DEFAULT 'pending',
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.faculty (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  first_name TEXT NOT NULL,
+  middle_name TEXT,
+  last_name TEXT NOT NULL,
+  preferred_name TEXT,
+  suffix TEXT,
+  title TEXT,
+  department TEXT,
+  email TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.pages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  section_id UUID REFERENCES public.sections(id) ON DELETE SET NULL,
+  page_type_id UUID REFERENCES public.page_types(id) ON DELETE SET NULL,
+  status_id UUID REFERENCES public.page_statuses(id) ON DELETE SET NULL,
+  position INTEGER NOT NULL DEFAULT 0,
+  page_number INTEGER,
+  title TEXT,
+  description TEXT,
+  required_assets TEXT,
+  notes TEXT,
+  blocking_reason TEXT,
+  canva_design_id TEXT,
+  canva_design_url TEXT,
+  canva_synced_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_pages_composite UNIQUE (id, yearbook_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.page_requirements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  page_id UUID NOT NULL REFERENCES public.pages(id) ON DELETE CASCADE,
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  label TEXT NOT NULL,
+  needed INTEGER NOT NULL DEFAULT 0,
+  have INTEGER NOT NULL DEFAULT 0,
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.page_assignments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  page_id UUID NOT NULL REFERENCES public.pages(id) ON DELETE CASCADE,
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL DEFAULT 'designer',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (page_id, user_id, kind)
+);
+
 CREATE TABLE IF NOT EXISTS public.yearbook_assignment_pages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   assignment_id UUID NOT NULL,
@@ -208,15 +335,6 @@ CREATE TABLE IF NOT EXISTS public.yearbook_assignment_sections (
   FOREIGN KEY (assignment_id, yearbook_id) REFERENCES public.yearbook_team_assignments(id, yearbook_id) ON DELETE CASCADE,
   FOREIGN KEY (section_id, yearbook_id) REFERENCES public.sections(id, yearbook_id) ON DELETE CASCADE,
   UNIQUE (assignment_id, section_id)
-);
-
-CREATE TABLE IF NOT EXISTS public.yearbook_members (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  role public.yearbook_role NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (yearbook_id, user_id, role)
 );
 
 CREATE OR REPLACE FUNCTION public.is_active_coordinator(_user_id uuid, _center_id uuid)
@@ -313,122 +431,6 @@ CREATE OR REPLACE FUNCTION public.is_yearbook_locked(yb_id uuid)
 RETURNS boolean LANGUAGE sql STABLE AS $$
   SELECT COALESCE((SELECT is_locked FROM public.yearbooks WHERE id = yb_id), false);
 $$;
-
--- 5. LADDERS, SECTIONS, PAGES, ROSTER
-CREATE TABLE IF NOT EXISTS public.sections (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  color TEXT NOT NULL DEFAULT '#64748b',
-  position INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.page_types (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  description TEXT,
-  position INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.page_statuses (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  color TEXT NOT NULL DEFAULT '#64748b',
-  position INTEGER NOT NULL DEFAULT 0,
-  is_terminal BOOLEAN NOT NULL DEFAULT false,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.classes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  grade TEXT,
-  homeroom TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.students (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  class_id UUID REFERENCES public.classes(id) ON DELETE SET NULL,
-  user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
-  student_number TEXT,
-  first_name TEXT NOT NULL,
-  middle_name TEXT,
-  last_name TEXT NOT NULL,
-  preferred_name TEXT,
-  suffix TEXT,
-  grade TEXT,
-  email TEXT,
-  submission_status TEXT NOT NULL DEFAULT 'pending',
-  notes TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.faculty (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  user_id REFERENCES public.users(id) ON DELETE SET NULL,
-  first_name TEXT NOT NULL,
-  middle_name TEXT,
-  last_name TEXT NOT NULL,
-  preferred_name TEXT,
-  suffix TEXT,
-  title TEXT,
-  department TEXT,
-  email TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.pages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  section_id UUID REFERENCES public.sections(id) ON DELETE SET NULL,
-  page_type_id UUID REFERENCES public.page_types(id) ON DELETE SET NULL,
-  status_id UUID REFERENCES public.page_statuses(id) ON DELETE SET NULL,
-  position INTEGER NOT NULL DEFAULT 0,
-  page_number INTEGER,
-  title TEXT,
-  description TEXT,
-  required_assets TEXT,
-  notes TEXT,
-  blocking_reason TEXT,
-  canva_design_id TEXT,
-  canva_design_url TEXT,
-  canva_synced_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.page_requirements (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  page_id UUID NOT NULL REFERENCES public.pages(id) ON DELETE CASCADE,
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  label TEXT NOT NULL,
-  needed INTEGER NOT NULL DEFAULT 0,
-  have INTEGER NOT NULL DEFAULT 0,
-  position INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.page_assignments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  page_id UUID NOT NULL REFERENCES public.pages(id) ON DELETE CASCADE,
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  kind TEXT NOT NULL DEFAULT 'designer',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (page_id, user_id, kind)
-);
 
 -- 6. ASSETS & STORAGE
 CREATE TABLE IF NOT EXISTS public.assets (
@@ -718,6 +720,28 @@ CREATE TABLE IF NOT EXISTS public.yearbook_design_bindings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT yearbook_design_bindings_composite_key UNIQUE (id, yearbook_id)
 );
+
+CREATE OR REPLACE FUNCTION public.validate_positive_unique_int_array(arr INT[])
+RETURNS BOOLEAN LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE
+  elem INT;
+  seen_count INT;
+BEGIN
+  IF arr IS NULL OR array_length(arr, 1) IS NULL THEN
+    RETURN FALSE;
+  END IF;
+  FOREACH elem IN ARRAY arr LOOP
+    IF elem IS NULL OR elem <= 0 THEN
+      RETURN FALSE;
+    END IF;
+  END LOOP;
+  SELECT COUNT(DISTINCT x) INTO seen_count FROM unnest(arr) AS x;
+  IF seen_count <> array_length(arr, 1) THEN
+    RETURN FALSE;
+  END IF;
+  RETURN TRUE;
+END;
+$$;
 
 CREATE TABLE IF NOT EXISTS public.yearbook_design_page_mappings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
