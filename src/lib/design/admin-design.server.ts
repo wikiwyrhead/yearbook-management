@@ -2,17 +2,17 @@
  * Hidden Super-Admin Design Provider — Administrative Server Functions
  * All functions strictly require active super_admin role and session-derived actor identity.
  */
-import { query, getDbPool } from "../db/pool.server";
-import { openCredentials } from "../storage/credentials.server";
+import { query, getDbPool } from "../db/pool.server.ts";
+import { openCredentials } from "../storage/credentials.server.ts";
 import {
   generateCorrelationState,
   generateOAuthState,
   deriveCodeVerifier,
   codeChallengeS256,
-} from "../storage/oauth-state.server";
-import { canvaProvider } from "./canva.provider";
-import type { DesignRef } from "./design-provider";
-import { getOAuthCallbackUrl } from "../app-url";
+} from "../storage/oauth-state.server.ts";
+import { canvaProvider } from "./canva.provider.ts";
+import type { DesignRef } from "./design-provider.ts";
+import { getOAuthCallbackUrl } from "../app-url.ts";
 
 export interface AuthenticatedActor {
   id: string;
@@ -47,9 +47,9 @@ export async function adminGetDesignProviderConnection(actor: AuthenticatedActor
   await requireSuperAdmin(actor);
 
   const res = await query(
-    `SELECT id, provider, connected_by, external_user_id, external_team_id, display_name, scopes, is_active, status, connected_at, disconnected_at, created_at, updated_at 
-     FROM public.design_provider_connections 
-     WHERE provider = 'canva' AND is_active = true 
+    `SELECT id, provider, connected_by, external_user_id, external_team_id, display_name, scopes, is_active, status, connected_at, disconnected_at, created_at, updated_at
+     FROM public.design_provider_connections
+     WHERE provider = 'canva' AND is_active = true
      LIMIT 1`,
   );
 
@@ -82,8 +82,8 @@ export async function getActivePlatformCanvaCredentials(): Promise<{
   ref: DesignRef;
 }> {
   const res = await query(
-    `SELECT id, encrypted_credentials FROM public.design_provider_connections 
-     WHERE provider = 'canva' AND is_active = true AND status = 'connected' 
+    `SELECT id, encrypted_credentials FROM public.design_provider_connections
+     WHERE provider = 'canva' AND is_active = true AND status = 'connected'
      LIMIT 1`,
   );
 
@@ -129,7 +129,7 @@ export async function adminStartCanvaOAuth(actor: AuthenticatedActor, yearbookId
   url.searchParams.set("client_id", process.env["CANVA_CLIENT_ID"] || "");
   url.searchParams.set(
     "scope",
-    "profile:read asset:read asset:write design:meta:read design:content:read design:content:write",
+    "profile:read asset:read asset:write design:meta:read design:content:read design:content:write folder:read folder:write",
   );
   url.searchParams.set("state", state);
   url.searchParams.set("code_challenge", challenge);
@@ -153,8 +153,8 @@ export async function adminDisconnectDesignProvider(actor: AuthenticatedActor) {
   try {
     await client.query("BEGIN");
     await client.query(
-      `UPDATE public.design_provider_connections 
-       SET is_active = false, status = 'disconnected', disconnected_at = now(), encrypted_credentials = null, updated_at = now() 
+      `UPDATE public.design_provider_connections
+       SET is_active = false, status = 'disconnected', disconnected_at = now(), encrypted_credentials = null, updated_at = now()
        WHERE provider = 'canva' AND is_active = true`,
     );
     await client.query("COMMIT");
@@ -217,7 +217,7 @@ export async function adminLinkYearbookDesign(
 
     // Check if design is active on another yearbook
     const otherYbCheck = await client.query(
-      `SELECT yearbook_id FROM public.yearbook_design_bindings 
+      `SELECT yearbook_id FROM public.yearbook_design_bindings
        WHERE external_design_id = $1 AND is_active = true AND yearbook_id != $2 FOR UPDATE`,
       [externalDesignId, yearbookId],
     );
@@ -227,8 +227,8 @@ export async function adminLinkYearbookDesign(
 
     // Deactivate previous active binding for this yearbook
     await client.query(
-      `UPDATE public.yearbook_design_bindings 
-       SET is_active = false, replaced_at = now(), replaced_by = $1, updated_at = now() 
+      `UPDATE public.yearbook_design_bindings
+       SET is_active = false, replaced_at = now(), replaced_by = $1, updated_at = now()
        WHERE yearbook_id = $2 AND is_active = true`,
       [actor.id, yearbookId],
     );
@@ -243,7 +243,7 @@ export async function adminLinkYearbookDesign(
         assigned_by,
         assigned_at,
         is_active
-      ) VALUES ($1, $2, $3, $4, $5, now(), true) 
+      ) VALUES ($1, $2, $3, $4, $5, now(), true)
       RETURNING id, yearbook_id, external_design_id, external_design_title, is_active, assigned_at`,
       [yearbookId, connectionId, design.id, design.title || "Yearbook Layout", actor.id],
     );
@@ -304,7 +304,7 @@ export async function adminMapDesignPages(
 
   // Resolve active binding for this yearbook
   const bindingRes = await query(
-    `SELECT id, external_design_id FROM public.yearbook_design_bindings 
+    `SELECT id, external_design_id FROM public.yearbook_design_bindings
      WHERE yearbook_id = $1 AND is_active = true LIMIT 1`,
     [yearbookId],
   );
@@ -327,19 +327,30 @@ export async function adminMapDesignPages(
   }
 
   // Upsert into yearbook_design_page_mappings
+  const pageRes = await query(`SELECT physical_index FROM public.pages WHERE id = $1`, [pageId]);
+  const expectedPageNum = pageRes.rows[0]?.physical_index ?? null;
+  const driftStatus =
+    design.pageCount && maxPage > design.pageCount ? "page_count_mismatch" : "aligned";
+
   const res = await query(
     `INSERT INTO public.yearbook_design_page_mappings (
       yearbook_id,
       binding_id,
       milestone_page_id,
       external_page_numbers,
+      expected_page_number,
+      drift_status,
       created_by,
       updated_at
-    ) VALUES ($1, $2, $3, $4, $5, now()) 
-    ON CONFLICT (binding_id, milestone_page_id) 
-    DO UPDATE SET external_page_numbers = EXCLUDED.external_page_numbers, updated_at = now() 
-    RETURNING id, binding_id, milestone_page_id, external_page_numbers`,
-    [yearbookId, binding.id, pageId, externalPageNumbers, actor.id],
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+    ON CONFLICT (binding_id, milestone_page_id)
+    DO UPDATE SET
+      external_page_numbers = EXCLUDED.external_page_numbers,
+      expected_page_number = EXCLUDED.expected_page_number,
+      drift_status = EXCLUDED.drift_status,
+      updated_at = now()
+    RETURNING id, binding_id, milestone_page_id, external_page_numbers, expected_page_number, drift_status`,
+    [yearbookId, binding.id, pageId, externalPageNumbers, expectedPageNum, driftStatus, actor.id],
   );
 
   return {
@@ -356,7 +367,7 @@ export async function adminOpenExternalDesign(actor: AuthenticatedActor, yearboo
   await requireSuperAdmin(actor);
 
   const bindingRes = await query(
-    `SELECT id, external_design_id, external_design_title FROM public.yearbook_design_bindings 
+    `SELECT id, external_design_id, external_design_title FROM public.yearbook_design_bindings
      WHERE yearbook_id = $1 AND is_active = true LIMIT 1`,
     [yearbookId],
   );
@@ -392,16 +403,13 @@ export async function adminOpenExternalDesign(actor: AuthenticatedActor, yearboo
 
 /**
  * Batch map all pages of a yearbook 1-to-1 to Canva pages (Super Admin only).
- * Pre-validates live Canva page count.
+ * Pre-validates live Canva page count and stores expected_page_number and drift_status.
  */
-export async function adminBatchMapSequentialPages(
-  actor: AuthenticatedActor,
-  yearbookId: string,
-) {
+export async function adminBatchMapSequentialPages(actor: AuthenticatedActor, yearbookId: string) {
   await requireSuperAdmin(actor);
 
   const bindingRes = await query(
-    `SELECT id, external_design_id FROM public.yearbook_design_bindings 
+    `SELECT id, external_design_id FROM public.yearbook_design_bindings
      WHERE yearbook_id = $1 AND is_active = true LIMIT 1`,
     [yearbookId],
   );
@@ -419,8 +427,8 @@ export async function adminBatchMapSequentialPages(
   }
 
   const pagesRes = await query(
-    `SELECT id, physical_index FROM public.pages 
-     WHERE yearbook_id = $1 
+    `SELECT id, physical_index FROM public.pages
+     WHERE yearbook_id = $1
      ORDER BY physical_index ASC`,
     [yearbookId],
   );
@@ -430,7 +438,7 @@ export async function adminBatchMapSequentialPages(
 
   if (totalCanvaPages < totalMilestonePages) {
     throw new Error(
-      `Canva design has ${totalCanvaPages} pages, but Yearbook has ${totalMilestonePages} pages. Please ensure Canva layout matches total pages before batch mapping.`
+      `Canva design has ${totalCanvaPages} pages, but Yearbook has ${totalMilestonePages} pages. Please ensure Canva layout matches total pages before batch mapping.`,
     );
   }
 
@@ -442,12 +450,16 @@ export async function adminBatchMapSequentialPages(
     for (const page of pagesRes.rows) {
       const canvaPageNum = page.physical_index;
       await client.query(
-        `INSERT INTO public.yearbook_design_page_mappings 
-         (yearbook_id, binding_id, milestone_page_id, external_page_numbers, created_by, updated_at)
-         VALUES ($1, $2, $3, ARRAY[$4]::int[], $5, now())
+        `INSERT INTO public.yearbook_design_page_mappings
+         (yearbook_id, binding_id, milestone_page_id, external_page_numbers, expected_page_number, drift_status, created_by, updated_at)
+         VALUES ($1, $2, $3, ARRAY[$4]::int[], $4, 'aligned', $5, now())
          ON CONFLICT (binding_id, milestone_page_id)
-         DO UPDATE SET external_page_numbers = ARRAY[$4]::int[], updated_at = now()`,
-        [yearbookId, binding.id, page.id, canvaPageNum, actor.id]
+         DO UPDATE SET
+           external_page_numbers = ARRAY[$4]::int[],
+           expected_page_number = EXCLUDED.expected_page_number,
+           drift_status = 'aligned',
+           updated_at = now()`,
+        [yearbookId, binding.id, page.id, canvaPageNum, actor.id],
       );
     }
 
@@ -459,4 +471,30 @@ export async function adminBatchMapSequentialPages(
   } finally {
     client.release();
   }
+}
+
+/**
+ * Checks if the active Canva platform connection has folder scopes authorized (Super Admin only).
+ */
+export async function getCanvaFolderScopeStatus(actor: AuthenticatedActor): Promise<{
+  isConnected: boolean;
+  hasFolderScopes: boolean;
+  status: "authorized" | "reauthorization_required" | "disconnected";
+  scopes: string[];
+}> {
+  await requireSuperAdmin(actor);
+  const conn = await query(
+    `SELECT scopes, is_active, status FROM public.design_provider_connections WHERE provider = 'canva' AND is_active = true LIMIT 1`,
+  );
+  if (conn.rows.length === 0) {
+    return { isConnected: false, hasFolderScopes: false, status: "disconnected", scopes: [] };
+  }
+  const scopes: string[] = conn.rows[0].scopes || [];
+  const hasFolderScopes = scopes.includes("folder:read") && scopes.includes("folder:write");
+  return {
+    isConnected: true,
+    hasFolderScopes,
+    status: hasFolderScopes ? "authorized" : "reauthorization_required",
+    scopes,
+  };
 }

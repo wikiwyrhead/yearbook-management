@@ -1,11 +1,11 @@
 /**
  * Yearbook System - Phase 3 Canva & Production Workflow
- * 
+ *
  * '''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''
- *                                        
- *                                            
+ *
+ *
  *                                            is the app ready and alreayd been pulish to github?
- * 
+ *
  * Architecture Decisions:
  * 1. Multi-tenancy: Enforced at the RLS level using security definer functions.
 ...
@@ -2211,11 +2211,18 @@ export const getProofs = createServerFn({ method: "POST" })
     z.object({
       yearbookId: z.string(),
       pageId: z.string().optional(),
+      includeAuditRounds: z.boolean().optional(),
     }),
   )
   .handler(async ({ data, context }): Promise<any> => {
-    const { supabase } = context;
-    const { data: proofs, error } = await (supabase as any)
+    const { supabase, claims } = context;
+    const isSuperAdmin =
+      claims?.role === "super_admin" ||
+      claims?.app_metadata?.role === "super_admin" ||
+      (claims?.roles as string[])?.includes("super_admin");
+    const showAudit = isSuperAdmin && data.includeAuditRounds === true;
+
+    let queryBuilder = (supabase as any)
       .from("proofs")
       .select(
         `
@@ -2225,6 +2232,12 @@ export const getProofs = createServerFn({ method: "POST" })
       )
       .eq("yearbook_id", data.yearbookId)
       .order("version", { ascending: false });
+
+    if (!showAudit) {
+      queryBuilder = queryBuilder.eq("round_classification", "official_master");
+    }
+
+    const { data: proofs, error } = await queryBuilder;
 
     if (error) throw error;
 

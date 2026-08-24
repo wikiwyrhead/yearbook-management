@@ -198,6 +198,67 @@ export async function getPagePreparationPacket(
 }
 
 /**
+ * Strict Editorial Scope Assertion:
+ * Only assigned annual Editorial Members may prepare assigned pages.
+ * Coordinators and Super Admins may review, request changes, and approve, but direct content-editing attempts return 403 Forbidden.
+ * Generic Staff or Center members are strictly rejected with 403 Forbidden.
+ */
+export async function assertEditorialPageEditAccess(
+  userId: string,
+  pageId: string,
+): Promise<{ yearbookId: string; pageNumber: number }> {
+  // 1. Fetch page and yearbook details
+  const pageRes = await query(
+    `SELECT p.id, p.yearbook_id, p.physical_index, p.section_id, y.school_id as center_id
+     FROM public.pages p
+     JOIN public.yearbooks y ON y.id = p.yearbook_id
+     WHERE p.id = $1`,
+    [pageId],
+  );
+  if (pageRes.rows.length === 0) {
+    throw new Error("NOT_FOUND: Page not found");
+  }
+  const { yearbook_id, physical_index, section_id } = pageRes.rows[0];
+
+  // 2. Annual Editorial Member Check (Must be assigned to this specific page or section)
+  const directAssign = await query(
+    `SELECT 1 FROM public.page_assignments WHERE page_id = $1 AND user_id = $2`,
+    [pageId, userId],
+  );
+  if (directAssign.rows.length > 0) {
+    return { yearbookId: yearbook_id, pageNumber: physical_index };
+  }
+
+  const yapAssign = await query(
+    `SELECT 1 FROM public.yearbook_assignment_pages yap
+     JOIN public.yearbook_team_assignments yta ON yta.id = yap.assignment_id
+     WHERE yap.page_id = $1 AND yta.user_id = $2 AND yta.is_active = true AND yta.role = 'editorial_member'`,
+    [pageId, userId],
+  );
+  if (yapAssign.rows.length > 0) {
+    return { yearbookId: yearbook_id, pageNumber: physical_index };
+  }
+
+  if (section_id) {
+    const yasAssign = await query(
+      `SELECT 1 FROM public.yearbook_assignment_sections yas
+       JOIN public.yearbook_team_assignments yta ON yta.id = yas.assignment_id
+       WHERE yas.section_id = $1 AND yta.user_id = $2 AND yta.is_active = true AND yta.role = 'editorial_member'`,
+      [section_id, userId],
+    );
+    if (yasAssign.rows.length > 0) {
+      return { yearbookId: yearbook_id, pageNumber: physical_index };
+    }
+  }
+
+  const err = new Error(
+    "FORBIDDEN: Only assigned annual Editorial Members may edit page preparation packets. Coordinators and Super Admins may review, request changes, and approve, but cannot edit page content.",
+  );
+  (err as Error & { statusCode?: number }).statusCode = 403;
+  throw err;
+}
+
+/**
  * Updates textual and metadata properties on a page preparation packet.
  */
 export async function updatePagePreparationPacket(
@@ -210,6 +271,8 @@ export async function updatePagePreparationPacket(
   cookieHeader?: string | null,
 ): Promise<void> {
   const actor = await getAuthenticatedActor(cookieHeader);
+  await assertEditorialPageEditAccess(actor.id, pageId);
+
   const pool = getDbPool();
   const client = await pool.connect();
 
@@ -217,7 +280,7 @@ export async function updatePagePreparationPacket(
     await client.query("BEGIN;");
 
     const pageRes = await client.query(
-      `SELECT p.id, p.yearbook_id, y.school_id 
+      `SELECT p.id, p.yearbook_id, y.school_id
        FROM public.pages p
        JOIN public.yearbooks y ON y.id = p.yearbook_id
        WHERE p.id = $1 FOR UPDATE`,
@@ -292,7 +355,7 @@ export async function signOffPreparationStage(
   }
 
   const res = await query(
-    `INSERT INTO public.preparation_reviews 
+    `INSERT INTO public.preparation_reviews
      (yearbook_id, page_id, section_id, scope, stage, reviewer_user_id, decision, notes, created_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
      RETURNING id`,
@@ -339,7 +402,7 @@ export async function getYearbookPreparationBookMap(
   await getAuthenticatedActor(cookieHeader);
 
   const res = await query(
-    `SELECT 
+    `SELECT
        p.id as page_id,
        p.physical_index,
        p.display_page_label,
@@ -705,28 +768,49 @@ export async function createDesignPacketSnapshot(
   const payloadStr = JSON.stringify(canonicalPayload);
   const snapshotSha256 = createHash("sha256").update(payloadStr).digest("hex");
 
-  // Determine next version and parent snapshot
-  const prevRes = await query(
-    `SELECT id, version FROM public.design_packet_snapshots 
-     WHERE page_id = $1 ORDER BY version DESC LIMIT 1`,
-    [pageId],
-  );
-  const nextVersion = prevRes.rows.length > 0 ? prevRes.rows[0].version + 1 : 1;
-  const parentSnapshotId = prevRes.rows[0]?.id || null;
+  const pool = getDbPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN;");
 
-  const insRes = await query(
-    `INSERT INTO public.design_packet_snapshots 
-     (page_id, yearbook_id, version, parent_snapshot_id, snapshot_sha256, prepared_by, snapshot_payload)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING id`,
-    [pageId, yearbookId, nextVersion, parentSnapshotId, snapshotSha256, actor.id, payloadStr],
-  );
+    // Determine next version and parent snapshot
+    const prevRes = await client.query(
+      `SELECT id, version FROM public.design_packet_snapshots
+       WHERE page_id = $1 ORDER BY version DESC LIMIT 1`,
+      [pageId],
+    );
+    const nextVersion = prevRes.rows.length > 0 ? prevRes.rows[0].version + 1 : 1;
+    const parentSnapshotId = prevRes.rows[0]?.id || null;
 
-  return {
-    snapshotId: insRes.rows[0].id,
-    version: nextVersion,
-    sha256: snapshotSha256,
-  };
+    const insRes = await client.query(
+      `INSERT INTO public.design_packet_snapshots
+       (page_id, yearbook_id, version, parent_snapshot_id, snapshot_sha256, prepared_by, snapshot_payload)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id`,
+      [pageId, yearbookId, nextVersion, parentSnapshotId, snapshotSha256, actor.id, payloadStr],
+    );
+
+    // Supersede active Whole-Yearbook Readiness Manifest since a page has a successor snapshot
+    await client.query(
+      `UPDATE public.edition_readiness_manifests
+       SET status = 'superseded', superseded_at = now()
+       WHERE yearbook_id = $1 AND status = 'active'`,
+      [yearbookId],
+    );
+
+    await client.query("COMMIT;");
+
+    return {
+      snapshotId: insRes.rows[0].id,
+      version: nextVersion,
+      sha256: snapshotSha256,
+    };
+  } catch (err) {
+    await client.query("ROLLBACK;");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /**
@@ -755,7 +839,7 @@ export async function recordDesignPacketReview(
   // Enforce sequential workflow
   if (params.stage === "coordinator_approval") {
     const eicRes = await query(
-      `SELECT 1 FROM public.design_packet_reviews 
+      `SELECT 1 FROM public.design_packet_reviews
        WHERE snapshot_id = $1 AND stage = 'eic_review' AND decision = 'approved'`,
       [params.snapshotId],
     );
@@ -766,7 +850,7 @@ export async function recordDesignPacketReview(
     }
   } else if (params.stage === "super_admin_check") {
     const coordRes = await query(
-      `SELECT 1 FROM public.design_packet_reviews 
+      `SELECT 1 FROM public.design_packet_reviews
        WHERE snapshot_id = $1 AND stage = 'coordinator_approval' AND decision = 'approved'`,
       [params.snapshotId],
     );
@@ -820,7 +904,7 @@ export async function getDesignQueue(
   await getAuthenticatedActor(cookieHeader);
 
   const res = await query(
-    `SELECT 
+    `SELECT
        s.id as snapshot_id,
        s.page_id,
        p.physical_index,
@@ -837,7 +921,7 @@ export async function getDesignQueue(
      WHERE s.yearbook_id = $1
        -- Only latest snapshot per page
        AND s.id = (
-         SELECT id FROM public.design_packet_snapshots s2 
+         SELECT id FROM public.design_packet_snapshots s2
          WHERE s2.page_id = s.page_id ORDER BY s2.version DESC LIMIT 1
        )
      ORDER BY p.physical_index ASC`,
@@ -848,12 +932,302 @@ export async function getDesignQueue(
 }
 
 /**
+ * Creates the Whole-Yearbook Readiness Manifest approved by Super Admin.
+ * Enforces dynamic page count, confirmed preliminary print specifications,
+ * and valid Coordinator approval for every page snapshot.
+ */
+export async function createWholeYearbookReadinessManifest(
+  yearbookId: string,
+  cookieHeader?: string | null,
+): Promise<{ manifestId: string; manifestSha256: string; pageCount: number; version: number }> {
+  const actor = await getAuthenticatedActor(cookieHeader);
+
+  // Super Admin check
+  const saCheck = await query(
+    `SELECT 1 FROM public.user_roles WHERE user_id = $1 AND role = 'super_admin'`,
+    [actor.id],
+  );
+  if (saCheck.rows.length === 0) {
+    const err = new Error(
+      "FORBIDDEN: Only Super Administrators can approve the Whole-Yearbook Readiness Gate.",
+    );
+    (err as Error & { statusCode?: number }).statusCode = 403;
+    throw err;
+  }
+
+  // 1. Check Preliminary Commercial Print Specifications (Stage 1 Confirmation)
+  const specsRes = await query(
+    `SELECT status, trim_width, trim_height, bleed_size, color_profile, binding_type
+     FROM public.production_print_specifications WHERE yearbook_id = $1`,
+    [yearbookId],
+  );
+  const specs = specsRes.rows[0];
+  if (!specs || (specs.status !== "confirmed" && specs.status !== "verified")) {
+    const err = new Error(
+      "PRECONDITION_FAILED: Preliminary commercial print specifications (trim, bleed, color, binding) must be confirmed before approving the Whole-Yearbook Readiness Gate.",
+    );
+    (err as Error & { statusCode?: number }).statusCode = 412;
+    throw err;
+  }
+
+  // 2. Fetch all active pages dynamically
+  const pagesRes = await query(
+    `SELECT id, physical_index, display_page_label, title
+     FROM public.pages
+     WHERE yearbook_id = $1
+     ORDER BY physical_index ASC`,
+    [yearbookId],
+  );
+  const expectedPageCount = pagesRes.rows.length;
+  if (expectedPageCount === 0) {
+    throw new Error("PRECONDITION_FAILED: Yearbook has no pages configured.");
+  }
+
+  // 3. For each page, verify latest snapshot has Coordinator approval
+  const pageSnapshots = [];
+  for (const p of pagesRes.rows) {
+    const snapRes = await query(
+      `SELECT s.id as snapshot_id, s.version, s.snapshot_sha256,
+              EXISTS (SELECT 1 FROM public.design_packet_reviews r WHERE r.snapshot_id = s.id AND r.stage = 'coordinator_approval' AND r.decision = 'approved') as coordinator_approved
+       FROM public.design_packet_snapshots s
+       WHERE s.page_id = $1
+       ORDER BY s.version DESC LIMIT 1`,
+      [p.id],
+    );
+
+    if (snapRes.rows.length === 0) {
+      throw new Error(
+        `PRECONDITION_FAILED: Page ${p.physical_index} (${p.display_page_label}) does not have an approved design packet snapshot.`,
+      );
+    }
+
+    const snap = snapRes.rows[0];
+    if (!snap.coordinator_approved) {
+      throw new Error(
+        `PRECONDITION_FAILED: Page ${p.physical_index} (${p.display_page_label}) snapshot has not been approved by the Coordinator.`,
+      );
+    }
+
+    pageSnapshots.push({
+      page_id: p.id,
+      physical_index: p.physical_index,
+      display_page_label: p.display_page_label,
+      title: p.title,
+      snapshot_id: snap.snapshot_id,
+      version: snap.version,
+      snapshot_sha256: snap.snapshot_sha256,
+    });
+  }
+
+  // 4. Compute canonical SHA-256 for the entire edition manifest
+  const manifestPayload = {
+    yearbook_id: yearbookId,
+    expected_page_count: expectedPageCount,
+    print_specifications: {
+      trim: `${specs.trim_width}x${specs.trim_height}`,
+      bleed: specs.bleed_size,
+      color: specs.color_profile,
+      binding: specs.binding_type,
+    },
+    page_snapshots: pageSnapshots,
+  };
+  const manifestStr = JSON.stringify(manifestPayload);
+  const manifestSha256 = createHash("sha256").update(manifestStr).digest("hex");
+
+  const pool = getDbPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN;");
+
+    // Supersede previous active manifests for this yearbook
+    await client.query(
+      `UPDATE public.edition_readiness_manifests
+       SET status = 'superseded', superseded_at = now()
+       WHERE yearbook_id = $1 AND status = 'active'`,
+      [yearbookId],
+    );
+
+    // Get next version number
+    const verRes = await client.query(
+      `SELECT COALESCE(MAX(version), 0) + 1 as next_version
+       FROM public.edition_readiness_manifests WHERE yearbook_id = $1`,
+      [yearbookId],
+    );
+    const nextVersion = verRes.rows[0].next_version;
+
+    // Insert active manifest
+    const insRes = await client.query(
+      `INSERT INTO public.edition_readiness_manifests
+       (yearbook_id, version, manifest_sha256, expected_page_count, approved_pages_count, snapshots_manifest, status, approved_by, approved_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'active', $7, now())
+       RETURNING id`,
+      [
+        yearbookId,
+        nextVersion,
+        manifestSha256,
+        expectedPageCount,
+        pageSnapshots.length,
+        manifestStr,
+        actor.id,
+      ],
+    );
+
+    await client.query("COMMIT;");
+    return {
+      manifestId: insRes.rows[0].id,
+      manifestSha256,
+      pageCount: expectedPageCount,
+      version: nextVersion,
+    };
+  } catch (err) {
+    await client.query("ROLLBACK;");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Returns current Whole-Yearbook Readiness Gate status.
+ */
+export async function getWholeYearbookReadinessStatus(
+  yearbookId: string,
+  cookieHeader?: string | null,
+): Promise<{
+  isReadyForGate: boolean;
+  isGateApproved: boolean;
+  isManifestStale: boolean;
+  activeManifestId: string | null;
+  manifestSha256: string | null;
+  expectedPageCount: number;
+  approvedPagesCount: number;
+  preliminarySpecsConfirmed: boolean;
+  unapprovedPages: Array<{ physical_index: number; display_page_label: string; title: string }>;
+}> {
+  await getAuthenticatedActor(cookieHeader);
+
+  // 1. Check preliminary specs
+  const specsRes = await query(
+    `SELECT status FROM public.production_print_specifications WHERE yearbook_id = $1`,
+    [yearbookId],
+  );
+  const specsStatus = specsRes.rows[0]?.status;
+  const preliminarySpecsConfirmed = specsStatus === "confirmed" || specsStatus === "verified";
+
+  // 2. Fetch pages and their LATEST snapshot approval states
+  const pagesRes = await query(
+    `SELECT p.id, p.physical_index, p.display_page_label, p.title,
+            ls.snapshot_id, ls.version as snapshot_version, ls.snapshot_sha256, ls.coordinator_approved
+     FROM public.pages p
+     LEFT JOIN LATERAL (
+       SELECT s.id as snapshot_id, s.version, s.snapshot_sha256,
+              EXISTS (
+                SELECT 1 FROM public.design_packet_reviews r
+                WHERE r.snapshot_id = s.id AND r.stage = 'coordinator_approval' AND r.decision = 'approved'
+              ) as coordinator_approved
+       FROM public.design_packet_snapshots s
+       WHERE s.page_id = p.id
+       ORDER BY s.version DESC LIMIT 1
+     ) ls ON true
+     WHERE p.yearbook_id = $1
+     ORDER BY p.physical_index ASC`,
+    [yearbookId],
+  );
+
+  const unapprovedPages = pagesRes.rows
+    .filter((p) => !p.coordinator_approved)
+    .map((p) => ({
+      physical_index: p.physical_index,
+      display_page_label: p.display_page_label,
+      title: p.title,
+    }));
+
+  const expectedPageCount = pagesRes.rows.length;
+  const approvedPagesCount = pagesRes.rows.filter((p) => p.coordinator_approved).length;
+
+  // 3. Check active manifest (strictly read-only)
+  const manifestRes = await query(
+    `SELECT id, manifest_sha256, version, snapshots_manifest
+     FROM public.edition_readiness_manifests
+     WHERE yearbook_id = $1 AND status = 'active'
+     LIMIT 1`,
+    [yearbookId],
+  );
+
+  let isManifestStale = false;
+  let isGateApproved = false;
+  let activeManifestId: string | null = null;
+  let manifestSha256: string | null = null;
+
+  if (manifestRes.rows.length > 0) {
+    activeManifestId = manifestRes.rows[0].id;
+    manifestSha256 = manifestRes.rows[0].manifest_sha256;
+
+    // Validate that every page's current latest snapshot matches what was recorded in the active manifest
+    try {
+      const rawManifest = manifestRes.rows[0].snapshots_manifest;
+      const manifestObj =
+        typeof rawManifest === "string" ? JSON.parse(rawManifest) : rawManifest || {};
+      const recordedSnapshots: Array<{
+        page_id: string;
+        snapshot_id: string;
+        snapshot_sha256: string;
+      }> = manifestObj.page_snapshots || [];
+      const snapMap = new Map(recordedSnapshots.map((s) => [s.page_id, s]));
+
+      if (recordedSnapshots.length !== expectedPageCount) {
+        isManifestStale = true;
+      } else {
+        for (const p of pagesRes.rows) {
+          const rec = snapMap.get(p.id);
+          if (
+            !rec ||
+            rec.snapshot_id !== p.snapshot_id ||
+            rec.snapshot_sha256 !== p.snapshot_sha256
+          ) {
+            isManifestStale = true;
+            break;
+          }
+        }
+      }
+    } catch {
+      isManifestStale = true;
+    }
+
+    isGateApproved = !isManifestStale;
+  }
+
+  const isReadyForGate =
+    expectedPageCount > 0 && unapprovedPages.length === 0 && preliminarySpecsConfirmed;
+
+  return {
+    isReadyForGate,
+    isGateApproved,
+    isManifestStale,
+    activeManifestId,
+    manifestSha256,
+    expectedPageCount,
+    approvedPagesCount,
+    preliminarySpecsConfirmed,
+    unapprovedPages,
+  };
+}
+
+/**
  * Queues verified high-resolution assets for Canva transfer.
+ * Requires Whole-Yearbook Readiness Gate approval before assets can be transferred.
  */
 export async function queueDesignPacketAssetTransfers(
   snapshotId: string,
   cookieHeader?: string | null,
-): Promise<{ queuedCount: number; transfers: any[] }> {
+): Promise<{
+  queuedCount: number;
+  transfers: Array<{
+    id: string;
+    idempotency_key: string;
+    transfer_status: string;
+  }>;
+}> {
   const actor = await getAuthenticatedActor(cookieHeader);
 
   const snapRes = await query(
@@ -868,13 +1242,26 @@ export async function queueDesignPacketAssetTransfers(
   }
   const { page_id, yearbook_id, version, center_id } = snapRes.rows[0];
 
+  // Whole-Yearbook Readiness Gate Check
+  const manifestRes = await query(
+    `SELECT id FROM public.edition_readiness_manifests WHERE yearbook_id = $1 AND status = 'active'`,
+    [yearbook_id],
+  );
+  if (manifestRes.rows.length === 0) {
+    const err = new Error(
+      "PRECONDITION_FAILED: Whole-Yearbook Readiness Gate must be approved by the Super Admin before Canva asset transfer.",
+    );
+    (err as Error & { statusCode?: number }).statusCode = 412;
+    throw err;
+  }
+
   // Fetch verified, non-reference-only production assets
   const reqRes = await query(
     `SELECT ar.id as asset_requirement_id, ar.high_res_asset_id, a.id as asset_id
      FROM public.page_asset_requirements ar
      JOIN public.assets a ON a.id = ar.high_res_asset_id
-     WHERE ar.page_id = $1 
-       AND ar.status = 'verified' 
+     WHERE ar.page_id = $1
+       AND ar.status = 'verified'
        AND ar.is_reference_only = false
        AND a.yearbook_id = $2
        AND (a.school_id IS NULL OR a.school_id = $3)`,

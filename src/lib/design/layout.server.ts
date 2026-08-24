@@ -65,7 +65,7 @@ export async function resolveActorYearbookScope(actor: AuthenticatedActor, yearb
 
   // 4. Check Yearbook Team Assignment (Editorial Member / Advisor / Student Contributor)
   const teamRes = await query(
-    `SELECT role FROM public.yearbook_team_assignments 
+    `SELECT role FROM public.yearbook_team_assignments
      WHERE user_id = $1 AND yearbook_id = $2 AND is_active = true`,
     [actor.id, yearbookId],
   );
@@ -116,7 +116,7 @@ export async function getYearbookLayoutStatus(
 
   // 1. Get active binding
   const bindingRes = await query(
-    `SELECT id, external_design_id FROM public.yearbook_design_bindings 
+    `SELECT id, external_design_id FROM public.yearbook_design_bindings
      WHERE yearbook_id = $1 AND is_active = true LIMIT 1`,
     [yearbookId],
   );
@@ -133,7 +133,7 @@ export async function getYearbookLayoutStatus(
   const mappingsMap = new Map<string, number[]>();
   if (bindingId) {
     const mapRes = await query(
-      `SELECT milestone_page_id, external_page_numbers FROM public.yearbook_design_page_mappings 
+      `SELECT milestone_page_id, external_page_numbers FROM public.yearbook_design_page_mappings
        WHERE binding_id = $1`,
       [bindingId],
     );
@@ -221,8 +221,8 @@ export async function requestProofGeneration(
   // 2. Secure Idempotency Check (Scoped to actor, yearbook, binding, page, key)
   const safeIdempotencyKey = idempotencyKey || `proof-req-${yearbookId}-${pageId}-${Date.now()}`;
   const existingJob = await query(
-    `SELECT id, status, created_proof_id, drive_file_id 
-     FROM public.proof_generation_jobs 
+    `SELECT id, status, created_proof_id, drive_file_id
+     FROM public.proof_generation_jobs
      WHERE requested_by = $1 AND yearbook_id = $2 AND binding_id = $3 AND milestone_page_id = $4 AND idempotency_key = $5 AND status = 'completed'
      LIMIT 1`,
     [actor.id, yearbookId, bindingId, pageId, safeIdempotencyKey],
@@ -380,51 +380,47 @@ export async function requestProofGeneration(
       driveFileId = `local://proofs/${fileName}`;
     }
 
-    // 8. Create immutable proof in public.proofs
-    const maxVerRes = await query(
-      `SELECT COALESCE(MAX(version), 0) + 1 as next_version, COALESCE(MAX(round_number), 0) + 1 as next_round FROM public.proofs WHERE yearbook_id = $1`,
-      [yearbookId],
-    );
-    const nextVersion = Number(maxVerRes.rows[0]?.next_version || 1);
-    const nextRoundNumber = Number(maxVerRes.rows[0]?.next_round || 1);
+    // 8. Isolate single-page draft preview into page_draft_previews (Preserving public.proofs for full-edition master rounds)
+    const { createHash } = await import("node:crypto");
+    const previewChecksum = createHash("sha256").update(pdfBytes).digest("hex");
 
-    const roundName = `Page ${page_number} Proof v${nextVersion} (Round ${nextRoundNumber})`;
-    const proofInsert = await query(
-      `INSERT INTO public.proofs (
+    const previewInsert = await query(
+      `INSERT INTO public.page_draft_previews (
         yearbook_id,
-        round_number,
-        round_name,
-        version,
-        proof_type,
-        storage_path,
+        page_id,
+        external_design_id,
+        external_page_numbers,
         pdf_storage_path,
-        status,
-        page_count,
-        created_by
-      ) VALUES ($1, $2, $3, $4, 'spread', $5, $5, 'ready', 1, $6)
-      RETURNING id, version, status`,
-      [yearbookId, nextRoundNumber, roundName, nextVersion, driveFileId || fileName, actor.id],
+        checksum_sha256,
+        generated_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id, pdf_storage_path, checksum_sha256`,
+      [
+        yearbookId,
+        pageId,
+        external_design_id,
+        external_page_numbers,
+        driveFileId || fileName,
+        previewChecksum,
+        actor.id,
+      ],
     );
-    const newProof = proofInsert.rows[0];
-
-    // Link page to proof
-    await query(
-      `INSERT INTO public.proof_pages (proof_id, page_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-      [newProof.id, pageId],
-    );
+    const newPreview = previewInsert.rows[0];
 
     // Update job status to completed
     await query(
-      `UPDATE public.proof_generation_jobs 
-       SET status = 'completed', created_proof_id = $1, drive_file_id = $2, updated_at = now() 
-       WHERE id = $3`,
-      [newProof.id, driveFileId, jobId],
+      `UPDATE public.proof_generation_jobs
+       SET status = 'completed', drive_file_id = $1, updated_at = now()
+       WHERE id = $2`,
+      [driveFileId, jobId],
     );
 
     return {
-      proofId: newProof.id,
-      version: newProof.version,
-      status: newProof.status,
+      proofId: newPreview.id,
+      previewId: newPreview.id,
+      version: 1,
+      status: "ready",
+      storagePath: driveFileId || fileName,
       isCached: false,
     };
   } catch (err: any) {

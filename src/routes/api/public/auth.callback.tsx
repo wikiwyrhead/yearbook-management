@@ -232,6 +232,8 @@ export const Route = createFileRoute("/api/public/auth/callback")({
                     "design:meta:read",
                     "design:content:read",
                     "design:content:write",
+                    "folder:read",
+                    "folder:write",
                   ],
                 ],
               );
@@ -291,9 +293,10 @@ export const Route = createFileRoute("/api/public/auth/callback")({
             status: 302,
             headers: { Location: redirectUrl },
           });
-        } catch (err: any) {
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
           console.error("Callback error:", err);
-          return new Response(`Authentication error: ${err.message}`, { status: 500 });
+          return new Response(`Authentication error: ${message}`, { status: 500 });
         }
       },
     },

@@ -7,12 +7,27 @@ import { assertYearbookOperational } from "@/lib/operating-mode.server";
 
 type Json = Record<string, unknown>;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function unwrap<T = any>(res: any): T {
   if (res?.error) throw new Error(res.error.message);
   return (res?.data ?? []) as T;
 }
 
 /* ---------------- Preflight ---------------- */
+
+interface PageItem {
+  id: string;
+  position?: number;
+}
+
+interface ApprovalItem {
+  page_id: string;
+}
+
+interface RequirementItem {
+  needed?: number;
+  have?: number;
+}
 
 export const getReadinessReport = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -44,18 +59,15 @@ export const getReadinessReport = createServerFn({ method: "POST" })
     const blockers: string[] = [];
     const warnings: string[] = [];
 
-    const pageList = unwrap(pages);
-    const openCorrections = unwrap(corrections);
-    const requirements = unwrap(reqs);
-    const currentProofs = unwrap(proofs);
-    const pageApprovals = unwrap(approvals);
+    const pageList = unwrap<PageItem[]>(pages);
+    const openCorrections = unwrap<unknown[]>(corrections);
+    const requirements = unwrap<RequirementItem[]>(reqs);
+    const pageApprovals = unwrap<ApprovalItem[]>(approvals);
     const lockDetails = lockRes.data;
 
     if (pageList.length === 0) blockers.push("Yearbook has no pages.");
 
-    const unapprovedPages = (pageList as any[]).filter(
-      (p: any) => !(pageApprovals as any[]).some((a: any) => a.page_id === p.id),
-    );
+    const unapprovedPages = pageList.filter((p) => !pageApprovals.some((a) => a.page_id === p.id));
     if (unapprovedPages.length > 0) {
       blockers.push(`${unapprovedPages.length} pages are not yet approved.`);
     }
@@ -64,7 +76,7 @@ export const getReadinessReport = createServerFn({ method: "POST" })
       blockers.push(`${openCorrections.length} corrections are still open or in progress.`);
     }
 
-    const unfulfilled = (requirements as any[]).filter((r: any) => (r.needed || 0) > (r.have || 0));
+    const unfulfilled = requirements.filter((r) => (r.needed || 0) > (r.have || 0));
     if (unfulfilled.length > 0) {
       warnings.push(`${unfulfilled.length} requirements are not fully met.`);
     }
@@ -220,7 +232,13 @@ export const generateProductionPackage = createServerFn({ method: "POST" })
       const fontBold = await mergedPdf.embedFont(StandardFonts.HelveticaBold);
 
       // 2. Fetch pages from snapshot
-      const pages = (snapshot.snapshot_data as any)?.pages || [];
+      const snapshotData = (snapshot.snapshot_data as Record<string, unknown>) || {};
+      const pages =
+        (snapshotData["pages"] as Array<{
+          position: number;
+          section_name?: string;
+          status?: string;
+        }>) || [];
 
       // 3. Render each yearbook page into real PDF pages
       if (Array.isArray(pages) && pages.length > 0) {
@@ -265,8 +283,9 @@ export const generateProductionPackage = createServerFn({ method: "POST" })
             color: rgb(0.98, 0.98, 0.98),
           });
 
+          const yearbookData = snapshotData["yearbook"] as Record<string, unknown> | undefined;
           pdfPage.drawText(
-            `[ Year: ${(snapshot.snapshot_data as any)?.yearbook?.year || ""} | Production Snapshot v${snapshot.version} ]`,
+            `[ Year: ${yearbookData?.["year"] || ""} | Production Snapshot v${snapshot.version} ]`,
             {
               x: 50,
               y: 55,
@@ -327,7 +346,8 @@ export const generateProductionPackage = createServerFn({ method: "POST" })
         .insert({
           yearbook_id: yearbookId,
           snapshot_id: snapshotId,
-          manifest: manifest as any,
+          manifest:
+            manifest as unknown as Database["public"]["Tables"]["production_packages"]["Insert"]["manifest"],
           storage_path: `yearbooks/${yearbookId}/production/v${snapshot.version}/`,
           checksum_sha256: checksum,
           generated_by: userId,
@@ -412,7 +432,7 @@ export const updateSubmissionStatus = createServerFn({ method: "POST" })
         .single();
       const currentSub = unwrap(currentSubRes);
 
-      const update: any = {
+      const update: Database["public"]["Tables"]["service_bureau_submissions"]["Update"] = {
         status: data.status,
         external_reference: data.externalReference ?? currentSub.external_reference,
         notes: data.notes ?? currentSub.notes,
@@ -500,7 +520,7 @@ export const updatePrintSpecsFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       yearbookId: z.string(),
-      status: z.enum(["NOT_YET_CONFIRMED", "draft", "unconfirmed", "confirmed", "verified"]),
+      status: z.enum(["NOT_YET_CONFIRMED", "draft", "confirmed", "verified"]),
       trimWidth: z.number(),
       trimHeight: z.number(),
       dimensionUnit: z.enum(["in", "mm"]),
@@ -513,18 +533,19 @@ export const updatePrintSpecsFn = createServerFn({ method: "POST" })
       printQuantity: z.number(),
       serviceBureauName: z.string(),
       serviceBureauNotes: z.string().optional(),
-    })
+    }),
   )
   .handler(async ({ data, context }) => {
     const { updateProductionPrintSpecs } = await import("./production/release-package.server");
-    return await updateProductionPrintSpecs(data as any, context.userId);
+    return await updateProductionPrintSpecs(data, context.userId);
   });
 
 export const generateReleasePackageFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ proofId: z.string() }))
   .handler(async ({ data, context }) => {
-    const { generateServiceBureauReleasePackage } = await import("./production/release-package.server");
+    const { generateServiceBureauReleasePackage } =
+      await import("./production/release-package.server");
     return await generateServiceBureauReleasePackage(data.proofId, context.userId);
   });
 
@@ -560,12 +581,12 @@ export const requestProofAccessGrantFn = createServerFn({ method: "POST" })
       targetSectionId: z.string().optional(),
       reason: z.string(),
       dueAt: z.string().optional(),
-    })
+    }),
   )
   .handler(async ({ data, context }) => {
     const { query } = await import("./db/pool.server");
     const res = await query(
-      `INSERT INTO public.proof_access_requests 
+      `INSERT INTO public.proof_access_requests
        (proof_id, yearbook_id, requested_by_user_id, target_user_id, scope, target_page_id, target_section_id, reason, due_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id, status`,
@@ -579,7 +600,7 @@ export const requestProofAccessGrantFn = createServerFn({ method: "POST" })
         data.targetSectionId || null,
         data.reason,
         data.dueAt || null,
-      ]
+      ],
     );
     return res.rows[0];
   });
@@ -591,7 +612,7 @@ export const reviewProofAccessRequestFn = createServerFn({ method: "POST" })
       requestId: z.string(),
       decision: z.enum(["approved", "rejected"]),
       notes: z.string().optional(),
-    })
+    }),
   )
   .handler(async ({ data, context }) => {
     const { query } = await import("./db/pool.server");
@@ -600,24 +621,23 @@ export const reviewProofAccessRequestFn = createServerFn({ method: "POST" })
     // Require Super Admin
     const adminRes = await query(
       `SELECT 1 FROM public.user_roles WHERE user_id = $1 AND role = 'super_admin'`,
-      [context.userId]
+      [context.userId],
     );
     if (adminRes.rows.length === 0) {
       throw new Error("FORBIDDEN: Only Super Administrators can approve proof access requests.");
     }
 
-    const reqRes = await query(
-      `SELECT * FROM public.proof_access_requests WHERE id = $1`,
-      [data.requestId]
-    );
+    const reqRes = await query(`SELECT * FROM public.proof_access_requests WHERE id = $1`, [
+      data.requestId,
+    ]);
     if (reqRes.rows.length === 0) throw new Error("Request not found");
     const req = reqRes.rows[0];
 
     await query(
-      `UPDATE public.proof_access_requests 
+      `UPDATE public.proof_access_requests
        SET status = $1, reviewed_by_user_id = $2, reviewed_at = now(), review_notes = $3
        WHERE id = $4`,
-      [data.decision, context.userId, data.notes || null, data.requestId]
+      [data.decision, context.userId, data.notes || null, data.requestId],
     );
 
     if (data.decision === "approved") {
@@ -627,19 +647,19 @@ export const reviewProofAccessRequestFn = createServerFn({ method: "POST" })
          (yearbook_id, proof_id, user_id, can_view, can_comment, granted_by, starts_at, expires_at)
          VALUES ($1, $2, $3, true, true, $4, now(), COALESCE($5, now() + INTERVAL '14 days'))
          RETURNING id`,
-        [req.yearbook_id, req.proof_id, req.target_user_id, context.userId, req.due_at]
+        [req.yearbook_id, req.proof_id, req.target_user_id, context.userId, req.due_at],
       );
       const grantId = grantRes.rows[0].id;
 
       if (req.scope === "page" && req.target_page_id) {
         await query(
           `INSERT INTO public.proof_access_grant_pages (grant_id, page_id, yearbook_id) VALUES ($1, $2, $3)`,
-          [grantId, req.target_page_id, req.yearbook_id]
+          [grantId, req.target_page_id, req.yearbook_id],
         );
       } else if (req.scope === "section" && req.target_section_id) {
         await query(
           `INSERT INTO public.proof_access_grant_sections (grant_id, section_id, yearbook_id) VALUES ($1, $2, $3)`,
-          [grantId, req.target_section_id, req.yearbook_id]
+          [grantId, req.target_section_id, req.yearbook_id],
         );
       }
 
@@ -661,7 +681,7 @@ export const addCorrectionAttachmentFn = createServerFn({ method: "POST" })
       fileSizeBytes: z.number(),
       checksumSha256: z.string(),
       storageProviderFileId: z.string(),
-    })
+    }),
   )
   .handler(async ({ data, context }) => {
     const { query } = await import("./db/pool.server");
@@ -680,8 +700,152 @@ export const addCorrectionAttachmentFn = createServerFn({ method: "POST" })
         data.fileSizeBytes,
         data.checksumSha256,
         context.userId,
-      ]
+      ],
     );
     return res.rows[0];
   });
 
+/* ---------------- Multi-Round Proofing & Governance Signoff Server Functions ---------------- */
+
+export const lockProofRoundFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ proofId: z.string(), lockNotes: z.string().optional() }))
+  .handler(async ({ data, context }) => {
+    const { lockProofRound } = await import("./proofing/rounds.server");
+    return await lockProofRound(
+      {
+        proofId: data.proofId,
+        ...(data.lockNotes !== undefined ? { lockNotes: data.lockNotes } : {}),
+      },
+      context.userId,
+    );
+  });
+
+export const createProofRoundFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      yearbookId: z.string(),
+      roundName: z.string().optional(),
+      filePath: z.string(),
+      checksumSha256: z.string(),
+      canvaExportJobId: z.string().optional(),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const { createProofRound } = await import("./proofing/rounds.server");
+    return await createProofRound(
+      {
+        yearbookId: data.yearbookId,
+        filePath: data.filePath,
+        checksumSha256: data.checksumSha256,
+        ...(data.roundName !== undefined ? { roundName: data.roundName } : {}),
+        ...(data.canvaExportJobId !== undefined ? { canvaExportJobId: data.canvaExportJobId } : {}),
+      },
+      context.userId,
+    );
+  });
+
+export const coordinatorApproveCorrectionFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      correctionId: z.string(),
+      canvaTaskNotes: z.string().optional(),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const { coordinatorApproveCorrection } = await import("./proofing/rounds.server");
+    return await coordinatorApproveCorrection(
+      {
+        correctionId: data.correctionId,
+        ...(data.canvaTaskNotes !== undefined ? { canvaTaskNotes: data.canvaTaskNotes } : {}),
+      },
+      context.userId,
+    );
+  });
+
+export const getProofSignoffStatusFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ proofId: z.string() }))
+  .handler(async ({ data, context }) => {
+    const { getProofSignoffStatus } = await import("./proofing/rounds.server");
+    return await getProofSignoffStatus(data.proofId, context.userId);
+  });
+
+export const submitGovernanceSignoffFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      proofId: z.string(),
+      decision: z.enum(["approved", "approved_with_notes", "changes_requested"]),
+      notes: z.string().optional(),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const { submitGovernanceSignoff } = await import("./proofing/rounds.server");
+    return await submitGovernanceSignoff(
+      {
+        proofId: data.proofId,
+        decision: data.decision,
+        ...(data.notes !== undefined ? { notes: data.notes } : {}),
+      },
+      context.userId,
+    );
+  });
+
+export const emergencyReleaseOverrideFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      proofId: z.string(),
+      writtenJustification: z.string().min(25),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const { emergencyReleaseOverride } = await import("./proofing/rounds.server");
+    return await emergencyReleaseOverride(
+      {
+        proofId: data.proofId,
+        writtenJustification: data.writtenJustification,
+      },
+      context.userId,
+    );
+  });
+
+export const updateCanvaImplementationTaskFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      taskId: z.string(),
+      taskStatus: z
+        .enum([
+          "approved_pending_application",
+          "in_progress",
+          "applied_in_canva",
+          "rejected",
+          "verified",
+        ])
+        .optional(),
+      designerNotes: z.string().optional(),
+      canvaElementId: z.string().optional(),
+      canvaPageId: z.string().optional(),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const { updateCanvaImplementationTask } = await import("./proofing/rounds.server");
+    return await updateCanvaImplementationTask(data, context.userId);
+  });
+
+export const getCanvaImplementationTasksFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      yearbookId: z.string().optional(),
+      proofId: z.string().optional(),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const { getCanvaImplementationTasks } = await import("./proofing/rounds.server");
+    return await getCanvaImplementationTasks(data, context.userId);
+  });

@@ -51,8 +51,8 @@ async function main() {
       `
       INSERT INTO public.schools (id, name, short_name, city, state, is_active, created_by)
       VALUES ($1, 'ICAS de Calarian', 'ICAS', 'Zamboanga City', 'PH', true, $2)
-      ON CONFLICT (id) DO UPDATE SET 
-        name = EXCLUDED.name, 
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
         short_name = EXCLUDED.short_name,
         city = EXCLUDED.city,
         state = EXCLUDED.state;
@@ -64,9 +64,9 @@ async function main() {
       `
       INSERT INTO public.yearbooks (id, school_id, year, title, theme, page_count, created_by)
       VALUES ($1, $2, 2025, 'Milestone 2025', 'Jubilee 2025 – Pilgrims of Hope', 138, $3)
-      ON CONFLICT (id) DO UPDATE SET 
-        title = EXCLUDED.title, 
-        theme = EXCLUDED.theme, 
+      ON CONFLICT (id) DO UPDATE SET
+        title = EXCLUDED.title,
+        theme = EXCLUDED.theme,
         page_count = 138;
     `,
       [yearbookId, centerId, superAdminId],
@@ -343,7 +343,7 @@ async function main() {
       // 1. Insert Page
       const pageRes = await client.query(
         `
-        INSERT INTO public.pages 
+        INSERT INTO public.pages
         (yearbook_id, section_id, section_category_id, layout_type_id, physical_index, display_page_label, is_unnumbered, title)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id;
@@ -469,7 +469,7 @@ async function main() {
           const candName = nameCandidates[nIdx];
           const subjectRes = await client.query(
             `
-            INSERT INTO public.yearbook_subjects 
+            INSERT INTO public.yearbook_subjects
             (yearbook_id, center_id, person_type, full_name)
             VALUES ($1, $2, 'student', $3)
             RETURNING id;
@@ -507,7 +507,7 @@ async function main() {
         `
         INSERT INTO public.missing_content_checklist_items
         (page_id, yearbook_id, category, description, is_resolved)
-        VALUES 
+        VALUES
           ($1, $2, 'student_name_verification', 'Verify extracted names and biographies against official school registrar roster', false),
           ($1, $2, 'high_res_photo', 'Obtain high-resolution 300 DPI original photographs', false);
       `,
@@ -528,7 +528,7 @@ async function main() {
     await client.query(
       `
       INSERT INTO public.users (id, email, full_name, password_hash)
-      VALUES 
+      VALUES
         ($1, 'principal-icas@test.yearbook', 'Dr. Arthur Harrison', $3),
         ($2, 'director-icas@test.yearbook', 'Father Gabriel Thomas', $3)
       ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, email = EXCLUDED.email, password_hash = EXCLUDED.password_hash;
@@ -540,7 +540,7 @@ async function main() {
     await client.query(
       `
       INSERT INTO public.user_roles (user_id, role)
-      VALUES 
+      VALUES
         ($1, 'member'),
         ($2, 'member')
       ON CONFLICT DO NOTHING;
@@ -552,7 +552,7 @@ async function main() {
     await client.query(
       `
       INSERT INTO public.center_memberships (user_id, center_id, member_type, is_active)
-      VALUES 
+      VALUES
         ($1, $3, 'staff', true),
         ($2, $3, 'staff', true)
       ON CONFLICT DO NOTHING;
@@ -563,7 +563,7 @@ async function main() {
     await client.query(
       `
       INSERT INTO public.yearbook_members (yearbook_id, user_id, role)
-      VALUES 
+      VALUES
         ($1, $2, 'coordinator'),
         ($1, $3, 'editor_in_chief'),
         ($1, $4, 'advisor')
@@ -580,11 +580,13 @@ async function main() {
     console.log(`Computed Authoritative PDF Checksum SHA-256: ${sha256}`);
     const proofRes = await client.query(
       `
-      INSERT INTO public.proofs 
-      (yearbook_id, round_number, round_name, proof_version_status, file_path, storage_path, checksum_sha256, page_count, generated_by, created_by, generated_at)
-      VALUES ($1, 1, 'Proofreading Round 1', 'open_for_review', NULL, 'proofs/ICAS_Milestone_2025_Authoritative_138_Pages.pdf', $2, 138, $3, $3, now())
+      INSERT INTO public.proofs
+      (yearbook_id, round_number, official_round_number, round_classification, round_name, proof_version_status, file_path, storage_path, checksum_sha256, page_count, generated_by, created_by, generated_at)
+      VALUES ($1, 1, 1, 'official_master', 'Proofreading Round 1', 'open_for_review', NULL, 'proofs/ICAS_Milestone_2025_Authoritative_138_Pages.pdf', $2, 138, $3, $3, now())
       ON CONFLICT (yearbook_id, round_number) DO UPDATE SET
         proof_version_status = 'open_for_review',
+        round_classification = 'official_master',
+        official_round_number = 1,
         checksum_sha256 = EXCLUDED.checksum_sha256,
         file_path = NULL,
         storage_path = 'proofs/ICAS_Milestone_2025_Authoritative_138_Pages.pdf',
@@ -601,14 +603,14 @@ async function main() {
       INSERT INTO public.proof_storage_objects
       (proof_id, yearbook_id, center_id, provider, provider_file_id, provider_folder_id, original_filename, mime_type, file_size_bytes, page_count, checksum_sha256, uploaded_by, verified_at)
       VALUES ($1, $2, $3, 'google_drive', '1v250F5e4NIHCy69iqBLX-nqlrH712o0p', '1scAS8_ESB3QwDSejLSGLSEI71y02yngo', 'ICAS_Milestone_2025_Authoritative_138_Pages.pdf', 'application/pdf', $4, 138, $5, $6, now())
-      ON CONFLICT (proof_id) DO UPDATE SET 
+      ON CONFLICT (proof_id) DO UPDATE SET
         provider = 'google_drive',
         provider_file_id = '1v250F5e4NIHCy69iqBLX-nqlrH712o0p',
         provider_folder_id = '1scAS8_ESB3QwDSejLSGLSEI71y02yngo',
         original_filename = 'ICAS_Milestone_2025_Authoritative_138_Pages.pdf',
         file_size_bytes = $4,
         page_count = 138,
-        checksum_sha256 = EXCLUDED.checksum_sha256, 
+        checksum_sha256 = EXCLUDED.checksum_sha256,
         verified_at = now();
     `,
       [proofId, yearbookId, centerId, pdfBuf.length, sha256, superAdminId],
@@ -635,14 +637,14 @@ async function main() {
     // Set designated signoff requirements for Round 1 (All 4 distinct institutional signatories)
     await client.query(
       `
-      INSERT INTO public.proof_signoff_requirements 
+      INSERT INTO public.proof_signoff_requirements
       (proof_id, yearbook_id, signatory_role, designated_user_id, assigned_by, is_active)
-      VALUES 
+      VALUES
         ($1, $2, 'editor_in_chief', $3, $4, true),
         ($1, $2, 'coordinator', $5, $4, true),
         ($1, $2, 'principal', $6, $4, true),
         ($1, $2, 'school_director', $7, $4, true)
-      ON CONFLICT (proof_id, signatory_role) WHERE is_active = true 
+      ON CONFLICT (proof_id, signatory_role) WHERE is_active = true
       DO UPDATE SET designated_user_id = EXCLUDED.designated_user_id, assigned_by = EXCLUDED.assigned_by;
     `,
       [proofId, yearbookId, studentEditorId, superAdminId, coordId, principalId, directorId],

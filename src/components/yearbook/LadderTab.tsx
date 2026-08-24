@@ -22,6 +22,7 @@ import {
   Eye,
   PenTool,
   Clock,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,18 +69,51 @@ type Member = {
 
 // Realistic section accent color palette
 const SECTION_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  Opening: { bg: "bg-amber-500/10", text: "text-amber-700 dark:text-amber-300", border: "border-amber-500/30" },
-  "Senior Portraits": { bg: "bg-indigo-500/10", text: "text-indigo-700 dark:text-indigo-300", border: "border-indigo-500/30" },
-  "Student Life": { bg: "bg-rose-500/10", text: "text-rose-700 dark:text-rose-300", border: "border-rose-500/30" },
-  "Academics & CTE": { bg: "bg-purple-500/10", text: "text-purple-700 dark:text-purple-300", border: "border-purple-500/30" },
-  "Athletics & Sports": { bg: "bg-emerald-500/10", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-500/30" },
-  "Clubs & Orgs": { bg: "bg-cyan-500/10", text: "text-cyan-700 dark:text-cyan-300", border: "border-cyan-500/30" },
-  "Performing Arts": { bg: "bg-pink-500/10", text: "text-pink-700 dark:text-pink-300", border: "border-pink-500/30" },
-  "Graduation & Ads": { bg: "bg-blue-500/10", text: "text-blue-700 dark:text-blue-300", border: "border-blue-500/30" },
+  Opening: {
+    bg: "bg-amber-500/10",
+    text: "text-amber-700 dark:text-amber-300",
+    border: "border-amber-500/30",
+  },
+  "Senior Portraits": {
+    bg: "bg-indigo-500/10",
+    text: "text-indigo-700 dark:text-indigo-300",
+    border: "border-indigo-500/30",
+  },
+  "Student Life": {
+    bg: "bg-rose-500/10",
+    text: "text-rose-700 dark:text-rose-300",
+    border: "border-rose-500/30",
+  },
+  "Academics & CTE": {
+    bg: "bg-purple-500/10",
+    text: "text-purple-700 dark:text-purple-300",
+    border: "border-purple-500/30",
+  },
+  "Athletics & Sports": {
+    bg: "bg-emerald-500/10",
+    text: "text-emerald-700 dark:text-emerald-300",
+    border: "border-emerald-500/30",
+  },
+  "Clubs & Orgs": {
+    bg: "bg-cyan-500/10",
+    text: "text-cyan-700 dark:text-cyan-300",
+    border: "border-cyan-500/30",
+  },
+  "Performing Arts": {
+    bg: "bg-pink-500/10",
+    text: "text-pink-700 dark:text-pink-300",
+    border: "border-pink-500/30",
+  },
+  "Graduation & Ads": {
+    bg: "bg-blue-500/10",
+    text: "text-blue-700 dark:text-blue-300",
+    border: "border-blue-500/30",
+  },
 };
 
 function getSectionStyle(sectionName?: string) {
-  if (!sectionName) return { bg: "bg-muted", text: "text-muted-foreground", border: "border-border" };
+  if (!sectionName)
+    return { bg: "bg-muted", text: "text-muted-foreground", border: "border-border" };
   for (const [key, style] of Object.entries(SECTION_COLORS)) {
     if (sectionName.toLowerCase().includes(key.toLowerCase())) return style;
   }
@@ -188,9 +222,10 @@ export function LadderTab({
   }, [filtered, sectionById]);
 
   const PAGE_SIZE = viewMode === "spread" ? 6 : 14;
-  const totalPages = viewMode === "spread"
-    ? Math.ceil(spreads.length / PAGE_SIZE) || 1
-    : Math.ceil(filtered.length / PAGE_SIZE) || 1;
+  const totalPages =
+    viewMode === "spread"
+      ? Math.ceil(spreads.length / PAGE_SIZE) || 1
+      : Math.ceil(filtered.length / PAGE_SIZE) || 1;
 
   const paginatedSpreads = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
@@ -215,8 +250,12 @@ export function LadderTab({
 
   // Summary Metrics
   const totalCount = pages.length;
-  const inLayoutCount = pages.filter((p: any) => p.status_id && statusById[p.status_id]?.name?.includes("Layout")).length;
-  const approvedCount = pages.filter((p: any) => p.status_id && statusById[p.status_id]?.name?.includes("Approv")).length;
+  const inLayoutCount = pages.filter(
+    (p: any) => p.status_id && statusById[p.status_id]?.name?.includes("Layout"),
+  ).length;
+  const approvedCount = pages.filter(
+    (p: any) => p.status_id && statusById[p.status_id]?.name?.includes("Approv"),
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -301,12 +340,37 @@ export function LadderTab({
 
         {/* Filter Dropdowns */}
         <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-border text-xs">
-          <FilterSelect label="Section" value={fSection} onChange={(v) => { setFSection(v); setCurrentPage(1); }} options={sections} />
-          <FilterSelect label="Status" value={fStatus} onChange={(v) => { setFStatus(v); setCurrentPage(1); }} options={statuses} />
+          <FilterSelect
+            label="Section"
+            value={fSection}
+            onChange={(v) => {
+              setFSection(v);
+              setCurrentPage(1);
+            }}
+            options={sections}
+          />
+          <FilterSelect
+            label="Status"
+            value={fStatus}
+            onChange={(v) => {
+              setFStatus(v);
+              setCurrentPage(1);
+            }}
+            options={statuses}
+          />
           <div className="space-y-1">
             <Label className="text-[11px] text-muted-foreground font-semibold">Assignee</Label>
-            <Select value={fAssignee} onValueChange={(v) => { setFAssignee(v); setCurrentPage(1); }}>
-              <SelectTrigger className="w-44 h-8 text-xs" aria-label="Filter ladder by assigned staff member">
+            <Select
+              value={fAssignee}
+              onValueChange={(v) => {
+                setFAssignee(v);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger
+                className="w-44 h-8 text-xs"
+                aria-label="Filter ladder by assigned staff member"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -352,11 +416,18 @@ export function LadderTab({
                     setCurrentPage(1);
                   }}
                   className={`flex items-center gap-1.5 px-3 py-1 min-h-[30px] rounded-full border text-xs transition-colors ${
-                    fStatus === s.id ? "border-primary bg-primary/10 font-bold text-foreground" : "border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    fStatus === s.id
+                      ? "border-primary bg-primary/10 font-bold text-foreground"
+                      : "border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 >
-                  <span className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color || "#3b82f6" }} />
-                  <span>{s.name} ({count})</span>
+                  <span
+                    className="size-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: s.color || "#3b82f6" }}
+                  />
+                  <span>
+                    {s.name} ({count})
+                  </span>
                 </button>
               );
             })}
@@ -368,7 +439,9 @@ export function LadderTab({
       {filtered.length === 0 ? (
         <div className="p-12 text-center rounded-xl border border-dashed border-border bg-card/40">
           <BookOpen className="size-10 mx-auto mb-2 text-muted-foreground/40" />
-          <h3 className="font-display text-base font-semibold">No pages match your active filters</h3>
+          <h3 className="font-display text-base font-semibold">
+            No pages match your active filters
+          </h3>
           <p className="text-xs text-muted-foreground mt-1">
             Try clearing search keywords or selecting a different section.
           </p>
@@ -377,8 +450,12 @@ export function LadderTab({
         /* 1. VISUAL 2-PAGE FACING SPREAD VIEW */
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {paginatedSpreads.map((spread) => {
-            const leftSec = spread.left?.section_id ? sectionById[spread.left.section_id] : undefined;
-            const rightSec = spread.right?.section_id ? sectionById[spread.right.section_id] : undefined;
+            const leftSec = spread.left?.section_id
+              ? sectionById[spread.left.section_id]
+              : undefined;
+            const rightSec = spread.right?.section_id
+              ? sectionById[spread.right.section_id]
+              : undefined;
             const sectionStyle = getSectionStyle(leftSec?.name || rightSec?.name);
 
             return (
@@ -387,8 +464,12 @@ export function LadderTab({
                 className="rounded-xl border border-border bg-card shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col justify-between"
               >
                 {/* Spread Header */}
-                <div className={`px-3 py-2 border-b flex items-center justify-between ${sectionStyle.bg}`}>
-                  <span className={`text-xs font-semibold ${sectionStyle.text} flex items-center gap-1.5`}>
+                <div
+                  className={`px-3 py-2 border-b flex items-center justify-between ${sectionStyle.bg}`}
+                >
+                  <span
+                    className={`text-xs font-semibold ${sectionStyle.text} flex items-center gap-1.5`}
+                  >
                     <Layers className="size-3.5" />
                     {leftSec?.name || rightSec?.name || "General Spread"}
                   </span>
@@ -413,7 +494,9 @@ export function LadderTab({
                       userId={userId}
                       canEdit={canEdit}
                       onOpen={() => setOpenPage(spread.left.id)}
-                      onStatusChange={(statusId) => mUpdate.mutate({ id: spread.left.id, patch: { status_id: statusId } })}
+                      onStatusChange={(statusId) =>
+                        mUpdate.mutate({ id: spread.left.id, patch: { status_id: statusId } })
+                      }
                     />
                   ) : (
                     <div className="p-4 rounded border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground">
@@ -432,7 +515,9 @@ export function LadderTab({
                       userId={userId}
                       canEdit={canEdit}
                       onOpen={() => setOpenPage(spread.right.id)}
-                      onStatusChange={(statusId) => mUpdate.mutate({ id: spread.right.id, patch: { status_id: statusId } })}
+                      onStatusChange={(statusId) =>
+                        mUpdate.mutate({ id: spread.right.id, patch: { status_id: statusId } })
+                      }
                     />
                   ) : (
                     <div className="p-4 rounded border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground">
@@ -446,7 +531,10 @@ export function LadderTab({
                   <span>
                     Pages {spread.left?.page_number ?? "—"} &amp; {spread.right?.page_number ?? "—"}
                   </span>
-                  <span className="flex items-center gap-1 text-primary font-medium hover:underline cursor-pointer" onClick={() => setOpenPage(spread.left?.id || spread.right?.id)}>
+                  <span
+                    className="flex items-center gap-1 text-primary font-medium hover:underline cursor-pointer"
+                    onClick={() => setOpenPage(spread.left?.id || spread.right?.id)}
+                  >
                     <Eye className="size-3" /> Inspect Spread
                   </span>
                 </div>
@@ -495,8 +583,8 @@ export function LadderTab({
                       need > 0 && have >= need
                         ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
                         : need > 0
-                        ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
-                        : "bg-muted text-muted-foreground border-border"
+                          ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                          : "bg-muted text-muted-foreground border-border"
                     }`}
                   >
                     {have}/{need || 0} assets linked
@@ -505,7 +593,11 @@ export function LadderTab({
 
                 <div className="flex flex-wrap gap-1">
                   {as.map((a: any) => (
-                    <Badge key={a.id} variant="secondary" className="text-[10px] gap-1 pl-2 pr-1 py-0.5">
+                    <Badge
+                      key={a.id}
+                      variant="secondary"
+                      className="text-[10px] gap-1 pl-2 pr-1 py-0.5"
+                    >
                       {a.kind === "designer" ? "🎨" : "✏️"} {nameOf(a.user_id)}
                       {canEdit && (
                         <button
@@ -527,23 +619,41 @@ export function LadderTab({
 
                 <select
                   value={p.status_id ?? ""}
-                  onChange={(e) => mUpdate.mutate({ id: p.id, patch: { status_id: e.target.value } })}
+                  onChange={(e) =>
+                    mUpdate.mutate({ id: p.id, patch: { status_id: e.target.value } })
+                  }
                   disabled={!canEdit}
                   aria-label="Page status"
                   className="h-8 w-40 rounded-md border border-input bg-background px-2 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-ring font-medium"
                 >
-                  <option value="" disabled>Status</option>
+                  <option value="" disabled>
+                    Status
+                  </option>
                   {statuses.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
                   ))}
                 </select>
 
                 {canEdit && (
                   <div className="flex items-center gap-0.5">
-                    <Button size="icon" variant="ghost" aria-label="Move page up" className="size-7" onClick={() => move(p.id, -1)}>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label="Move page up"
+                      className="size-7"
+                      onClick={() => move(p.id, -1)}
+                    >
                       <ArrowUp className="size-3.5" />
                     </Button>
-                    <Button size="icon" variant="ghost" aria-label="Move page down" className="size-7" onClick={() => move(p.id, 1)}>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label="Move page down"
+                      className="size-7"
+                      onClick={() => move(p.id, 1)}
+                    >
                       <ArrowDown className="size-3.5" />
                     </Button>
                     {canManage && (
@@ -574,8 +684,11 @@ export function LadderTab({
         <div className="flex items-center justify-between p-3 rounded-xl bg-card border border-border">
           <p className="text-xs text-muted-foreground">
             Showing {(currentPage - 1) * PAGE_SIZE + 1}–
-            {Math.min(currentPage * PAGE_SIZE, viewMode === "spread" ? spreads.length : filtered.length)} of{" "}
-            {viewMode === "spread" ? `${spreads.length} spreads` : `${filtered.length} pages`}
+            {Math.min(
+              currentPage * PAGE_SIZE,
+              viewMode === "spread" ? spreads.length : filtered.length,
+            )}{" "}
+            of {viewMode === "spread" ? `${spreads.length} spreads` : `${filtered.length} pages`}
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -606,7 +719,6 @@ export function LadderTab({
       {/* Page Detailed Dialog */}
       {openPage && (
         <PageDialog
-          key={openPage}
           page={(pages as any[]).find((p: any) => p.id === openPage) as any}
           requirements={((data?.requirements as any[]) ?? []).filter(
             (r: any) => r.page_id === openPage,
@@ -617,6 +729,7 @@ export function LadderTab({
           canEdit={canEdit}
           onClose={() => setOpenPage(null)}
           onDone={refresh}
+          onOpenPacket={(id: string) => setPacketPageId(id)}
         />
       )}
 
@@ -625,8 +738,6 @@ export function LadderTab({
         isOpen={!!packetPageId}
         onClose={() => setPacketPageId(null)}
         pageId={packetPageId}
-        packetData={null}
-        isLoading={false}
       />
     </div>
   );
@@ -679,9 +790,7 @@ function PageTile({
         <h4 className="text-xs font-bold text-foreground mt-2 truncate group-hover:text-primary transition-colors">
           {page.title || `Page ${page.page_number || "Untitled"}`}
         </h4>
-        <p className="text-[11px] text-muted-foreground truncate">
-          {sec?.name || "No section"}
-        </p>
+        <p className="text-[11px] text-muted-foreground truncate">{sec?.name || "No section"}</p>
       </div>
 
       <div className="pt-2 border-t border-border/60 flex items-center justify-between text-[10px]">
@@ -690,7 +799,10 @@ function PageTile({
         </span>
         {st && (
           <span className="px-1.5 py-0.5 rounded font-semibold flex items-center gap-1 border border-border bg-muted/60 text-foreground">
-            <span className="size-1.5 rounded-full" style={{ backgroundColor: st.color || "#3b82f6" }} />
+            <span
+              className="size-1.5 rounded-full"
+              style={{ backgroundColor: st.color || "#3b82f6" }}
+            />
             {st.name}
           </span>
         )}
@@ -880,11 +992,23 @@ function AssignRangeDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="from-page-input">From Page</Label>
-              <Input id="from-page-input" aria-label="Starting page number" type="number" value={from} onChange={(e) => setFrom(Number(e.target.value))} />
+              <Input
+                id="from-page-input"
+                aria-label="Starting page number"
+                type="number"
+                value={from}
+                onChange={(e) => setFrom(Number(e.target.value))}
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="to-page-input">To Page</Label>
-              <Input id="to-page-input" aria-label="Ending page number" type="number" value={to} onChange={(e) => setTo(Number(e.target.value))} />
+              <Input
+                id="to-page-input"
+                aria-label="Ending page number"
+                type="number"
+                value={to}
+                onChange={(e) => setTo(Number(e.target.value))}
+              />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -967,6 +1091,7 @@ function PageDialog({
   canEdit,
   onClose,
   onDone,
+  onOpenPacket,
 }: {
   page: PageRow;
   requirements: { id: string; label: string; needed: number; have: number }[];
@@ -976,6 +1101,7 @@ function PageDialog({
   canEdit: boolean;
   onClose: () => void;
   onDone: () => void;
+  onOpenPacket?: (pageId: string) => void;
 }) {
   const doUpdate = useServerFn(updatePage);
   const doSaveReq = useServerFn(saveRequirement);
@@ -1013,10 +1139,26 @@ function PageDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Layers className="size-5 text-primary" />
-            Page {page.page_number ?? ""} — {page.title || "Untitled Spread"}
-          </DialogTitle>
+          <div className="flex items-center justify-between pr-6">
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="size-5 text-primary" />
+              Page {page.page_number ?? ""} — {page.title || "Untitled Spread"}
+            </DialogTitle>
+            {onOpenPacket && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  onOpenPacket(page.id);
+                  onClose();
+                }}
+                className="gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/10"
+              >
+                <FileText className="size-3.5" /> Preparation Packet
+              </Button>
+            )}
+          </div>
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-2">
@@ -1122,7 +1264,11 @@ function PageDialog({
                   >
                     <div className="flex items-center gap-3 truncate">
                       {asset.asset_type === "photo" && asset.storage_path ? (
-                        <img src={asset.storage_path} className="size-9 rounded object-cover" alt="" />
+                        <img
+                          src={asset.storage_path}
+                          className="size-9 rounded object-cover"
+                          alt=""
+                        />
                       ) : (
                         <div className="size-9 rounded bg-muted flex items-center justify-center">
                           <ImageIcon className="size-4 text-muted-foreground" />
@@ -1137,7 +1283,10 @@ function PageDialog({
                     </div>
 
                     <Select onValueChange={(rid) => handleLink(rid, asset.id)}>
-                      <SelectTrigger aria-label="Link asset to photo requirement" className="w-[110px] h-7 text-[10px]">
+                      <SelectTrigger
+                        aria-label="Link asset to photo requirement"
+                        className="w-[110px] h-7 text-[10px]"
+                      >
                         <SelectValue placeholder="Link asset..." />
                       </SelectTrigger>
                       <SelectContent>

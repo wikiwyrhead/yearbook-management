@@ -197,3 +197,10 @@ export const sendAssetToLayout = createServerFn({ method: "POST" })
       targetPageId: data.targetPageId,
     });
   });
+
+export const getCanvaFolderScopeStatusFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { getCanvaFolderScopeStatus } = await import("./design/admin-design.server");
+    return getCanvaFolderScopeStatus({ id: context.userId, email: "" });
+  });
