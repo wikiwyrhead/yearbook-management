@@ -220,34 +220,58 @@ export function PDFProofViewer({
               annotationMode !== "none" ? "cursor-crosshair ring-2 ring-primary/80" : ""
             }`}
           >
-            {/* Embedded PDF Page or Fallback Presentation */}
-            <div className="absolute inset-0 flex flex-col justify-between p-8 pointer-events-none bg-gradient-to-b from-zinc-50 to-zinc-100 text-zinc-900 font-sans">
-              <div className="flex justify-between items-start border-b border-zinc-300 pb-3">
-                <div>
-                  <p className="text-[10px] uppercase font-bold tracking-widest text-zinc-500">
-                    ICAS de Calarian • Milestone 2025
-                  </p>
-                  <h3 className="text-lg font-black tracking-tight text-zinc-900">
-                    Spread Page {page}
-                  </h3>
+            {/* PDF.js / react-pdf Vector Page Rendering */}
+            {proofUrl && !pdfLoadError ? (
+              <div className="absolute inset-0 w-full h-full flex items-center justify-center pointer-events-none select-none z-0 overflow-hidden">
+                <Document
+                  file={`${proofUrl}${proofUrl.includes("?") ? "&" : "?"}page=${page}`}
+                  onLoadSuccess={({ numPages: total }) => {
+                    if (total && total > 1) setNumPages(total);
+                    setPdfLoadError(false);
+                  }}
+                  onLoadError={() => setPdfLoadError(true)}
+                  loading={
+                    <div className="flex flex-col items-center justify-center p-8 text-zinc-400 space-y-2">
+                      <FileText className="size-8 animate-pulse text-zinc-500" />
+                      <span className="text-xs">Loading Vector Page {page}...</span>
+                    </div>
+                  }
+                >
+                  <Page
+                    pageNumber={1}
+                    width={pageWidthPx}
+                    renderTextLayer={false}
+                    renderAnnotationLayer={false}
+                  />
+                </Document>
+              </div>
+            ) : (
+              <div className="absolute inset-0 flex flex-col justify-between p-8 pointer-events-none bg-gradient-to-b from-zinc-50 to-zinc-100 text-zinc-900 font-sans">
+                <div className="flex justify-between items-start border-b border-zinc-300 pb-3">
+                  <div>
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-zinc-500">
+                      ICAS de Calarian • Milestone 2025
+                    </p>
+                    <h3 className="text-lg font-black tracking-tight text-zinc-900">
+                      Spread Page {page}
+                    </h3>
+                  </div>
+                  <span className="text-xs font-mono font-bold bg-zinc-200 px-2 py-0.5 rounded text-zinc-800">
+                    P. {page}
+                  </span>
                 </div>
-                <span className="text-xs font-mono font-bold bg-zinc-200 px-2 py-0.5 rounded text-zinc-800">
-                  P. {page}
-                </span>
+                <div className="flex-1 flex flex-col justify-center items-center text-center px-4 space-y-2">
+                  <FileText className="size-10 text-zinc-400 mx-auto" />
+                  <p className="text-xs text-zinc-600 max-w-sm">
+                    Authoritative Proof Spread Preview for Page {page}.
+                  </p>
+                </div>
+                <div className="border-t border-zinc-300 pt-2 flex justify-between text-[9px] text-zinc-400">
+                  <span>Jubilee 2025 – Pilgrims of Hope</span>
+                  <span>Official Publication Blueprint</span>
+                </div>
               </div>
-
-              <div className="flex-1 flex flex-col justify-center items-center text-center px-4 space-y-2">
-                <FileText className="size-10 text-zinc-400 mx-auto" />
-                <p className="text-xs text-zinc-600 max-w-sm">
-                  Authoritative Proof Spread Preview for Page {page}. High-resolution vector PDF rendering.
-                </p>
-              </div>
-
-              <div className="border-t border-zinc-300 pt-2 flex justify-between text-[9px] text-zinc-400">
-                <span>Jubilee 2025 – Pilgrims of Hope</span>
-                <span>Official Publication Blueprint</span>
-              </div>
-            </div>
+            )}
 
             {/* Render Corrections Pins & Boxes */}
             {pageCorrections.map((c, idx) => (

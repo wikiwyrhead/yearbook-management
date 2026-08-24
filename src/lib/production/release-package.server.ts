@@ -1,6 +1,7 @@
-import { query } from "../db/pool.server";
-import { getAuthenticatedActor } from "../preparation/preparation.server";
-import { createZipArchive, type ZipEntry } from "./zip-builder";
+import { query } from "../db/pool.server.ts";
+import { getAuthenticatedActor } from "../preparation/preparation.server.ts";
+import type { SessionUser } from "../auth/session.server.ts";
+import { createZipArchive, type ZipEntry } from "./zip-builder.ts";
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -9,7 +10,7 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 export interface PrintSpecificationsDTO {
   id?: string;
   yearbookId: string;
-  status: "unconfirmed" | "confirmed" | "verified";
+  status: "NOT_YET_CONFIRMED" | "draft" | "confirmed" | "verified";
   trimWidth: number;
   trimHeight: number;
   dimensionUnit: "in" | "mm";
@@ -29,21 +30,159 @@ export interface PrintSpecificationsDTO {
 }
 
 /**
+ * Escapes XML special characters.
+ */
+function escapeXml(val: any): string {
+  if (val === null || val === undefined) return "";
+  return String(val)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+/**
+ * Converts a column index (0-based) to an Excel column letter (e.g. 0 -> A, 13 -> N).
+ */
+function getColLetter(colIdx: number): string {
+  let temp = colIdx + 1;
+  let letter = "";
+  while (temp > 0) {
+    const mod = (temp - 1) % 26;
+    letter = String.fromCharCode(65 + mod) + letter;
+    temp = Math.floor((temp - mod) / 26);
+  }
+  return letter;
+}
+
+/**
+ * Builds a compliant in-memory OpenXML (.xlsx) binary buffer from table headers and rows.
+ * Features:
+ * - Frozen top header row
+ * - Autofilter on table columns
+ * - Bold header typography
+ */
+export function generateBookMapXlsxBuffer(headers: string[], rows: any[][]): Buffer {
+  const rowXmls: string[] = [];
+
+  // 1. Header Row (Row 1)
+  const headerCells = headers
+    .map((h, colIdx) => {
+      const colRef = `${getColLetter(colIdx)}1`;
+      return `<c r="${colRef}" t="inlineStr" s="1"><is><t>${escapeXml(h)}</t></is></c>`;
+    })
+    .join("");
+  rowXmls.push(`<row r="1" spans="1:${headers.length}">${headerCells}</row>`);
+
+  // 2. Data Rows (Row 2 .. N+1)
+  rows.forEach((row, rIdx) => {
+    const rowNum = rIdx + 2;
+    const cells = row
+      .map((val, colIdx) => {
+        const colRef = `${getColLetter(colIdx)}${rowNum}`;
+        const isNum = typeof val === "number";
+        if (isNum) {
+          return `<c r="${colRef}"><v>${val}</v></c>`;
+        }
+        return `<c r="${colRef}" t="inlineStr"><is><t>${escapeXml(val)}</t></is></c>`;
+      })
+      .join("");
+    rowXmls.push(`<row r="${rowNum}" spans="1:${headers.length}">${cells}</row>`);
+  });
+
+  const lastColLetter = getColLetter(headers.length - 1);
+  const totalRows = rows.length + 1;
+  const dimensionRef = `A1:${lastColLetter}${totalRows}`;
+
+  const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <dimension ref="${dimensionRef}"/>
+  <sheetViews>
+    <sheetView tabSelected="1" workbookViewId="0">
+      <pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>
+    </sheetView>
+  </sheetViews>
+  <sheetFormatPr defaultRowHeight="15"/>
+  <sheetData>
+    ${rowXmls.join("\n    ")}
+  </sheetData>
+  <autoFilter ref="${dimensionRef}"/>
+</worksheet>`;
+
+  const workbookXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="Production Book Map" sheetId="1" r:id="rId1"/>
+  </sheets>
+</workbook>`;
+
+  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="2">
+    <font><sz val="10"/><name val="Arial"/></font>
+    <font><b/><sz val="10"/><name val="Arial"/></font>
+  </fonts>
+  <fills count="2">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+  </fills>
+  <borders count="1"><border><left/><right/><top/><bottom/></border></borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="2">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+  </cellXfs>
+</styleSheet>`;
+
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+</Types>`;
+
+  const rootRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+
+  const wbRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+
+  const entries: ZipEntry[] = [
+    { filename: "[Content_Types].xml", data: contentTypesXml },
+    { filename: "_rels/.rels", data: rootRelsXml },
+    { filename: "xl/workbook.xml", data: workbookXml },
+    { filename: "xl/_rels/workbook.xml.rels", data: wbRelsXml },
+    { filename: "xl/styles.xml", data: stylesXml },
+    { filename: "xl/worksheets/sheet1.xml", data: sheetXml },
+  ];
+
+  return createZipArchive(entries);
+}
+
+/**
  * Retrieves the current print specifications for a yearbook.
  */
 export async function getProductionPrintSpecs(
   yearbookId: string,
-  actorId?: string
+  actorId?: string,
 ): Promise<PrintSpecificationsDTO> {
   const res = await query(
     `SELECT * FROM public.production_print_specifications WHERE yearbook_id = $1`,
-    [yearbookId]
+    [yearbookId],
   );
 
   if (res.rows.length === 0) {
     return {
       yearbookId,
-      status: "unconfirmed",
+      status: "NOT_YET_CONFIRMED",
       trimWidth: 8.5,
       trimHeight: 11.0,
       dimensionUnit: "in",
@@ -55,7 +194,8 @@ export async function getProductionPrintSpecs(
       coverFinish: "Matte Lamination + Spot UV",
       printQuantity: 500,
       serviceBureauName: "Apex High-Volume Service Bureau",
-      serviceBureauNotes: "",
+      serviceBureauNotes:
+        "Draft placeholder specifications — awaiting commercial press confirmation",
     };
   }
 
@@ -63,7 +203,7 @@ export async function getProductionPrintSpecs(
   return {
     id: r.id,
     yearbookId: r.yearbook_id,
-    status: r.status,
+    status: r.status || "NOT_YET_CONFIRMED",
     trimWidth: parseFloat(r.trim_width) || 8.5,
     trimHeight: parseFloat(r.trim_height) || 11.0,
     dimensionUnit: r.dimension_unit || "in",
@@ -88,8 +228,14 @@ export async function getProductionPrintSpecs(
  */
 export async function updateProductionPrintSpecs(
   params: PrintSpecificationsDTO,
-  actorId?: string
+  actor?: string | SessionUser,
 ): Promise<{ success: boolean; status: string }> {
+  const actorId =
+    actor && typeof actor === "object" && "id" in actor
+      ? actor.id
+      : typeof actor === "string"
+        ? actor
+        : null;
   const res = await query(
     `INSERT INTO public.production_print_specifications (
        yearbook_id, status, trim_width, trim_height, dimension_unit, bleed_size,
@@ -131,7 +277,7 @@ export async function updateProductionPrintSpecs(
       params.serviceBureauName,
       params.serviceBureauNotes || null,
       actorId || null,
-    ]
+    ],
   );
 
   return { success: true, status: res.rows[0].status };
@@ -142,7 +288,7 @@ export async function updateProductionPrintSpecs(
  */
 export async function generateServiceBureauReleasePackage(
   proofId: string,
-  actorId?: string
+  actor?: string | SessionUser,
 ): Promise<{
   packageId: string;
   filename: string;
@@ -150,6 +296,12 @@ export async function generateServiceBureauReleasePackage(
   packageSizeBytes: number;
   downloadUrl: string;
 }> {
+  const actorId =
+    actor && typeof actor === "object" && "id" in actor
+      ? actor.id
+      : typeof actor === "string"
+        ? actor
+        : null;
   if (!actorId) {
     throw new Error("UNAUTHORIZED: Actor ID is required.");
   }
@@ -157,10 +309,12 @@ export async function generateServiceBureauReleasePackage(
   // Require Super Admin
   const adminRes = await query(
     `SELECT 1 FROM public.user_roles WHERE user_id = $1 AND role = 'super_admin'`,
-    [actorId]
+    [actorId],
   );
   if (adminRes.rows.length === 0) {
-    throw new Error("FORBIDDEN: Only Super Administrators can generate final Service Bureau release packages.");
+    throw new Error(
+      "FORBIDDEN: Only Super Administrators can generate final Service Bureau release packages.",
+    );
   }
 
   // 1. Fetch Proof and Yearbook info
@@ -170,7 +324,7 @@ export async function generateServiceBureauReleasePackage(
      FROM public.proofs p
      JOIN public.yearbooks y ON y.id = p.yearbook_id
      WHERE p.id = $1`,
-    [proofId]
+    [proofId],
   );
   if (proofRes.rows.length === 0) {
     throw new Error("NOT_FOUND: Proof not found");
@@ -178,38 +332,32 @@ export async function generateServiceBureauReleasePackage(
   const proof = proofRes.rows[0];
 
   // 2. Validate release lifecycle state
-  // Check for override
   const overrideRes = await query(
     `SELECT 1 FROM public.production_release_overrides WHERE proof_id = $1 AND authorized_by_super_admin_id IS NOT NULL`,
-    [proofId]
+    [proofId],
   );
   const hasApprovedOverride = overrideRes.rows.length > 0;
 
   if (proof.proof_version_status !== "institutionally_approved" && !hasApprovedOverride) {
     throw new Error(
-      `PRECONDITION_FAILED: Proof must be 'institutionally_approved' before generating release package (current: ${proof.proof_version_status}).`
+      `PRECONDITION_FAILED: Proof must be 'institutionally_approved' before generating release package (current: ${proof.proof_version_status}).`,
     );
   }
 
-  // 3. Fetch Confirmed Print Specifications
+  // 3. Fetch Confirmed Print Specifications & enforce verification
   const specsRes = await query(
     `SELECT * FROM public.production_print_specifications WHERE yearbook_id = $1`,
-    [proof.yearbook_id]
+    [proof.yearbook_id],
   );
-  const specs = specsRes.rows[0] || {
-    trim_width: 8.5,
-    trim_height: 11.0,
-    dimension_unit: "in",
-    bleed_size: 0.125,
-    color_profile: "CMYK Fogra39 / GRACoL",
-    paper_stock_interior: "100# Gloss Text",
-    paper_stock_cover: "120# Matte Cover",
-    binding_type: "Smyth Sewn Hardcover",
-    cover_finish: "Matte Lamination + Spot UV",
-    print_quantity: 500,
-    service_bureau_name: "Apex High-Volume Service Bureau",
-    service_bureau_notes: "Standard print run",
-  };
+  const specs = specsRes.rows[0];
+  if (
+    !specs ||
+    (specs.status !== "confirmed" && specs.status !== "verified" && !hasApprovedOverride)
+  ) {
+    throw new Error(
+      `PRECONDITION_FAILED: Commercial print specifications must be confirmed or verified before generating release package (current: ${specs?.status || "NOT_YET_CONFIRMED"}).`,
+    );
+  }
 
   // 4. Fetch All 4 Signatory Decisions
   const sigRes = await query(
@@ -219,11 +367,13 @@ export async function generateServiceBureauReleasePackage(
      LEFT JOIN public.proof_signoff_decisions d ON d.requirement_id = r.id AND d.pdf_checksum_sha256 = $2
      WHERE r.proof_id = $1 AND r.is_active = true
      ORDER BY r.assigned_at ASC`,
-    [proofId, proof.checksum_sha256]
+    [proofId, proof.checksum_sha256],
   );
 
   // 5. Load Master PDF Binary
-  const localFixturePath = process.env["ICAS_BLUEPRINT_PDF_PATH"] || path.resolve(process.cwd(), ".localdev/fixtures/icas-138.pdf");
+  const localFixturePath =
+    process.env["ICAS_BLUEPRINT_PDF_PATH"] ||
+    path.resolve(process.cwd(), ".localdev/fixtures/icas-138.pdf");
   let pdfMasterBuf: Buffer;
   try {
     pdfMasterBuf = await fs.readFile(localFixturePath);
@@ -235,7 +385,15 @@ export async function generateServiceBureauReleasePackage(
 
   const pdfChecksum = createHash("sha256").update(pdfMasterBuf).digest("hex");
 
-  // 6. Build Manifests
+  // 6. Generate Book Map CSV and XLSX
+  const bookMapData = await getBookMapRawData(proof.yearbook_id);
+  const bookMapCsv = generateBookMapCsvString(bookMapData.headers, bookMapData.rows);
+  const bookMapXlsx = generateBookMapXlsxBuffer(bookMapData.headers, bookMapData.rows);
+
+  const csvHash = createHash("sha256").update(bookMapCsv).digest("hex");
+  const xlsxHash = createHash("sha256").update(bookMapXlsx).digest("hex");
+
+  // 7. Build Manifests
   const approvalManifest = {
     manifest_type: "institutional_governance_approval_manifest",
     yearbook_title: proof.yearbook_title,
@@ -248,10 +406,10 @@ export async function generateServiceBureauReleasePackage(
         s.signatory_role === "editor_in_chief"
           ? "Editor-in-Chief"
           : s.signatory_role === "coordinator"
-          ? "Yearbook Coordinator"
-          : s.signatory_role === "principal"
-          ? "School Principal"
-          : "School Director",
+            ? "Yearbook Coordinator"
+            : s.signatory_role === "principal"
+              ? "School Principal"
+              : "School Director",
       display_name: s.signatory_name,
       decision: s.decision || "approved_via_override",
       decided_at: s.decided_at || new Date().toISOString(),
@@ -284,13 +442,17 @@ export async function generateServiceBureauReleasePackage(
     `# Generated at: ${new Date().toISOString()}`,
     `${pdfChecksum}  PRINT_READY_MASTER.pdf`,
     `${manifestHash}  APPROVAL_MANIFEST.json`,
-    `${specHash}  SPECIFICATIONS.json`,
+    `${csvHash}  BOOK_MAP.csv`,
+    `${xlsxHash}  BOOK_MAP.xlsx`,
+    `${specHash}  PRODUCTION_SPECIFICATIONS.json`,
   ].join("\n");
 
   const zipEntries: ZipEntry[] = [
     { filename: "PRINT_READY_MASTER.pdf", data: pdfMasterBuf },
     { filename: "APPROVAL_MANIFEST.json", data: manifestStr },
-    { filename: "SPECIFICATIONS.json", data: specStr },
+    { filename: "BOOK_MAP.csv", data: bookMapCsv },
+    { filename: "BOOK_MAP.xlsx", data: bookMapXlsx },
+    { filename: "PRODUCTION_SPECIFICATIONS.json", data: specStr },
     { filename: "CHECKSUMS.sha256", data: checksumsFileContent },
   ];
 
@@ -318,13 +480,13 @@ export async function generateServiceBureauReleasePackage(
       specificationsManifest,
       approvalManifest,
       actorId,
-    ]
+    ],
   );
 
   // Transition proof to released_for_production
   await query(
     `UPDATE public.proofs SET proof_version_status = 'released_for_production' WHERE id = $1`,
-    [proofId]
+    [proofId],
   );
 
   return {
@@ -337,14 +499,11 @@ export async function generateServiceBureauReleasePackage(
 }
 
 /**
- * Generates an XLSX/CSV format Book Map of all 138 pages.
+ * Raw data query helper for Book Map generation.
  */
-export async function exportProductionBookMapXLSX(
+async function getBookMapRawData(
   yearbookId: string,
-  cookieHeader?: string | null
-): Promise<{ csvContent: string; filename: string }> {
-  await getAuthenticatedActor(cookieHeader);
-
+): Promise<{ headers: string[]; rows: any[][] }> {
   const res = await query(
     `SELECT 
        p.physical_index,
@@ -373,7 +532,7 @@ export async function exportProductionBookMapXLSX(
      GROUP BY p.id, p.physical_index, p.display_page_label, p.title,
               s.name, sc.name, lt.name, lt.slot_count, pkt.school_level, pkt.grade_level, pkt.class_section, pkt.prep_status
      ORDER BY p.physical_index ASC`,
-    [yearbookId]
+    [yearbookId],
   );
 
   const headers = [
@@ -393,30 +552,47 @@ export async function exportProductionBookMapXLSX(
     "Roster Count",
   ];
 
+  const rows = res.rows.map((r) => [
+    r.physical_index,
+    r.display_page_label,
+    r.title || "",
+    r.section_name || "",
+    r.section_category_name || "",
+    r.layout_type_name || "",
+    r.slot_count || 0,
+    r.school_level || "",
+    r.grade_level || "",
+    r.class_section || "",
+    r.prep_status || "not_started",
+    parseInt(r.missing_assets, 10) || 0,
+    parseInt(r.open_punch_items, 10) || 0,
+    parseInt(r.roster_count, 10) || 0,
+  ]);
+
+  return { headers, rows };
+}
+
+function generateBookMapCsvString(headers: string[], rows: any[][]): string {
   const escapeCsv = (val: any) => {
     if (val === null || val === undefined) return '""';
     const str = String(val).replace(/"/g, '""');
     return `"${str}"`;
   };
 
-  const rows = res.rows.map((r) => [
-    r.physical_index,
-    r.display_page_label,
-    r.title,
-    r.section_name || "",
-    r.section_category_name || "",
-    r.layout_type_name || "",
-    r.slot_count || "",
-    r.school_level || "",
-    r.grade_level || "",
-    r.class_section || "",
-    r.prep_status,
-    r.missing_assets,
-    r.open_punch_items,
-    r.roster_count,
-  ].map(escapeCsv).join(","));
+  const csvRows = rows.map((r) => r.map(escapeCsv).join(","));
+  return [headers.map(escapeCsv).join(","), ...csvRows].join("\n");
+}
 
-  const csvContent = [headers.map(escapeCsv).join(","), ...rows].join("\n");
+/**
+ * Generates an XLSX/CSV format Book Map of all 138 pages.
+ */
+export async function exportProductionBookMapXLSX(
+  yearbookId: string,
+  cookieHeader?: string | null,
+): Promise<{ csvContent: string; filename: string }> {
+  await getAuthenticatedActor(cookieHeader);
+  const data = await getBookMapRawData(yearbookId);
+  const csvContent = generateBookMapCsvString(data.headers, data.rows);
   const filename = `Production_Book_Map_${new Date().toISOString().slice(0, 10)}.csv`;
 
   return { csvContent, filename };
@@ -427,7 +603,7 @@ export async function exportProductionBookMapXLSX(
  */
 export async function exportPrintableBookMapPDF(
   yearbookId: string,
-  cookieHeader?: string | null
+  cookieHeader?: string | null,
 ): Promise<{ pdfBytes: Uint8Array; filename: string }> {
   await getAuthenticatedActor(cookieHeader);
 
@@ -447,7 +623,7 @@ export async function exportPrintableBookMapPDF(
      LEFT JOIN public.page_preparation_packets pkt ON pkt.page_id = p.id
      WHERE p.yearbook_id = $1
      ORDER BY p.physical_index ASC`,
-    [yearbookId]
+    [yearbookId],
   );
 
   const pdfDoc = await PDFDocument.create();
@@ -470,13 +646,16 @@ export async function exportPrintableBookMapPDF(
       color: rgb(0.1, 0.1, 0.1),
     });
 
-    page.drawText(`Generated: ${new Date().toISOString().slice(0, 10)} | Page ${pageNum + 1} of ${totalPages}`, {
-      x: 40,
-      y: 735,
-      size: 9,
-      font: fontRegular,
-      color: rgb(0.4, 0.4, 0.4),
-    });
+    page.drawText(
+      `Generated: ${new Date().toISOString().slice(0, 10)} | Page ${pageNum + 1} of ${totalPages}`,
+      {
+        x: 40,
+        y: 735,
+        size: 9,
+        font: fontRegular,
+        color: rgb(0.4, 0.4, 0.4),
+      },
+    );
 
     // Table Header
     let y = 705;
@@ -491,7 +670,13 @@ export async function exportPrintableBookMapPDF(
     page.drawText("Idx", { x: 45, y, size: 8, font: fontBold, color: rgb(0.1, 0.1, 0.1) });
     page.drawText("Label", { x: 75, y, size: 8, font: fontBold, color: rgb(0.1, 0.1, 0.1) });
     page.drawText("Page Title", { x: 120, y, size: 8, font: fontBold, color: rgb(0.1, 0.1, 0.1) });
-    page.drawText("Section / Category", { x: 280, y, size: 8, font: fontBold, color: rgb(0.1, 0.1, 0.1) });
+    page.drawText("Section / Category", {
+      x: 280,
+      y,
+      size: 8,
+      font: fontBold,
+      color: rgb(0.1, 0.1, 0.1),
+    });
     page.drawText("Layout Type", { x: 430, y, size: 8, font: fontBold, color: rgb(0.1, 0.1, 0.1) });
     page.drawText("Status", { x: 520, y, size: 8, font: fontBold, color: rgb(0.1, 0.1, 0.1) });
 
@@ -501,9 +686,24 @@ export async function exportPrintableBookMapPDF(
     for (const item of pageItems) {
       page.drawText(String(item.physical_index), { x: 45, y, size: 7.5, font: fontRegular });
       page.drawText(String(item.display_page_label), { x: 75, y, size: 7.5, font: fontRegular });
-      page.drawText(String(item.title || "").slice(0, 32), { x: 120, y, size: 7.5, font: fontRegular });
-      page.drawText(String(item.category_name || item.section_name || "General").slice(0, 26), { x: 280, y, size: 7.5, font: fontRegular });
-      page.drawText(String(item.layout_name || "Standard").slice(0, 20), { x: 430, y, size: 7.5, font: fontRegular });
+      page.drawText(String(item.title || "").slice(0, 32), {
+        x: 120,
+        y,
+        size: 7.5,
+        font: fontRegular,
+      });
+      page.drawText(String(item.category_name || item.section_name || "General").slice(0, 26), {
+        x: 280,
+        y,
+        size: 7.5,
+        font: fontRegular,
+      });
+      page.drawText(String(item.layout_name || "Standard").slice(0, 20), {
+        x: 430,
+        y,
+        size: 7.5,
+        font: fontRegular,
+      });
       page.drawText(String(item.prep_status), { x: 520, y, size: 7.5, font: fontRegular });
 
       y -= 15;

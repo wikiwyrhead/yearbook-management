@@ -92,7 +92,15 @@ export default {
       }
     }
 
-    // 2. Storage Streaming Endpoint for Local Provider
+    // 2. Authenticated Proof Streaming Endpoint
+    const proofStreamMatch = url.pathname.match(/^\/api\/storage\/proofs\/([^/]+)\/stream/);
+    if (proofStreamMatch && proofStreamMatch[1]) {
+      const proofId = proofStreamMatch[1];
+      const { handleProofStreamRequest } = await import("./lib/storage/proof-streaming.server.ts");
+      return await handleProofStreamRequest(proofId, request);
+    }
+
+    // 3. Storage Streaming Endpoint for Local Provider
     if (url.pathname.startsWith("/api/storage/")) {
       const rawPath = url.pathname.replace(/^\/api\/storage\//, "");
       const slashIdx = rawPath.indexOf("/");
