@@ -11,6 +11,7 @@ import {
   Unlock,
   ChevronRight,
   Eye,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +23,14 @@ import {
   lockYearbook,
   unlockYearbook,
 } from "@/lib/yearbook.functions";
-import { getReadinessReport } from "@/lib/production.functions";
+import {
+  getReadinessReport,
+  getProofSignoffStatusFn,
+  submitGovernanceSignoffFn,
+  emergencyReleaseOverrideFn,
+  lockProofRoundFn,
+  coordinatorApproveCorrectionFn,
+} from "@/lib/production.functions";
 import { FinalSignoffDashboard } from "@/components/yearbook/governance/FinalSignoffDashboard";
 
 interface ProofreadingCenterProps {
@@ -39,8 +47,11 @@ export function ProofreadingCenter({
   const qc = useQueryClient();
   const fetchReport = useServerFn(getReadinessReport);
   const fetchCorrections = useServerFn(getCorrections);
-  const doLock = useServerFn(lockYearbook);
-  const doUnlock = useServerFn(unlockYearbook);
+  const fetchSignoffs = useServerFn(getProofSignoffStatusFn);
+  const submitSignoff = useServerFn(submitGovernanceSignoffFn);
+  const emergencyOverride = useServerFn(emergencyReleaseOverrideFn);
+  const lockRound = useServerFn(lockProofRoundFn);
+  const approveCorrection = useServerFn(coordinatorApproveCorrectionFn);
 
   const { data: report, isLoading: reportLoading } = useQuery({
     queryKey: ["readiness", yearbookId],
@@ -52,97 +63,173 @@ export function ProofreadingCenter({
     queryFn: () => fetchCorrections({ data: { yearbookId } }),
   });
 
+  const proofId = report?.lockDetails?.proof_id;
+
+  const { data: signoffStatus } = useQuery({
+    queryKey: ["proofSignoffStatus", proofId],
+    queryFn: () => fetchSignoffs({ data: { proofId: proofId! } }),
+    enabled: !!proofId,
+  });
+
   const mLock = useMutation({
-    mutationFn: (notes?: string) =>
-      doLock({ data: { yearbookId, proofId: report?.lockDetails?.proof_id || "latest", notes } }),
+    mutationFn: async (notes?: string) => {
+      if (proofId) {
+        await lockRound({ data: { proofId, lockNotes: notes } });
+      }
+    },
     onSuccess: () => {
-      toast.success("Yearbook locked for production");
+      toast.success("Proof round locked and frozen for Canva revisions");
       qc.invalidateQueries({ queryKey: ["readiness", yearbookId] });
+      qc.invalidateQueries({ queryKey: ["proofSignoffStatus", proofId] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to lock proof round");
     },
   });
 
-  const mUnlock = useMutation({
-    mutationFn: (reason: string) =>
-      doUnlock({
-        data: { yearbookId, proofId: report?.lockDetails?.proof_id || "latest", reason },
-      }),
+  const mSign = useMutation({
+    mutationFn: async ({
+      decision,
+      notes,
+    }: {
+      decision: "approved" | "approved_with_notes" | "changes_requested";
+      notes?: string;
+    }) => {
+      if (!proofId) return;
+      await submitSignoff({ data: { proofId, decision, notes } });
+    },
     onSuccess: () => {
-      toast.success("Yearbook unlocked for revisions");
+      toast.success("Institutional governance signoff recorded successfully");
+      qc.invalidateQueries({ queryKey: ["proofSignoffStatus", proofId] });
       qc.invalidateQueries({ queryKey: ["readiness", yearbookId] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to submit signoff decision");
     },
   });
 
-  if (reportLoading)
-    return <div className="p-8 text-center animate-pulse">Analyzing production readiness...</div>;
+  const mOverride = useMutation({
+    mutationFn: async (justification: string) => {
+      if (!proofId) return;
+      await emergencyOverride({
+        data: { proofId, writtenJustification: justification },
+      });
+    },
+    onSuccess: () => {
+      toast.success("Emergency escalation recorded in audit trail");
+      qc.invalidateQueries({ queryKey: ["proofSignoffStatus", proofId] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to record emergency escalation");
+    },
+  });
+
+  const mApproveCorrection = useMutation({
+    mutationFn: async (correctionId: string) => {
+      await approveCorrection({ data: { correctionId } });
+    },
+    onSuccess: () => {
+      toast.success("Correction approved into Canva Implementation Task");
+      qc.invalidateQueries({ queryKey: ["corrections", yearbookId] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to approve correction");
+    },
+  });
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="plate p-4 flex flex-col justify-between">
-          <div>
-            <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <FileCheck className="size-4" /> Page Completion
-            </h3>
-            <p className="text-2xl font-display mt-1">
-              {report?.completePages ?? 0} / {report?.totalPages ?? 0}
-            </p>
-          </div>
-          <Progress
-            value={((report?.completePages ?? 0) / (report?.totalPages ?? 1)) * 100}
-            className="mt-4 h-1.5"
-          />
-        </div>
-
-        <div className="plate p-4 flex flex-col justify-between">
-          <div>
-            <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <MessageSquare className="size-4" /> Open Corrections
-            </h3>
-            <p className="text-2xl font-display mt-1 text-destructive">{report?.openCorrections}</p>
-          </div>
-          <p className="text-xs text-muted-foreground mt-4">
-            Requiring attention before production
+      <div className="flex justify-between items-center bg-card border border-border p-6 rounded-xl shadow-xs">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <FileCheck className="size-5 text-primary" /> Proofreading &amp; Quality Control Center
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Review live PDF spreads, submit spatial pin/box corrections, and record governance
+            signoffs.
           </p>
         </div>
 
-        <div className="plate p-4 flex flex-col justify-between">
-          <div>
-            <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Clock className="size-4" /> Final Status
-            </h3>
-            <div className="mt-1">
-              {report?.isLocked ? (
-                <Badge className="bg-green-600 hover:bg-green-700">LOCKED FOR PRODUCTION</Badge>
-              ) : report?.ready ? (
-                <Badge className="bg-blue-600 hover:bg-blue-700">READY FOR SIGN-OFF</Badge>
-              ) : (
-                <Badge variant="outline" className="text-amber-500 border-amber-500/30">
-                  IN PROGRESS
-                </Badge>
-              )}
+        <div className="flex items-center gap-2">
+          {proofId && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => onViewProof(proofId)}
+              className="gap-1.5"
+            >
+              <Eye className="size-3.5" /> View PDF Proof
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="plate p-6 space-y-4 md:col-span-2">
+          <div className="flex justify-between items-center">
+            <h3 className="font-semibold text-base">Proofing Progress</h3>
+            <span className="text-sm font-medium">
+              {report?.totalPages
+                ? Math.round((report.completePages / report.totalPages) * 100)
+                : 0}
+              % Ready
+            </span>
+          </div>
+          <Progress
+            value={
+              report?.totalPages ? Math.round((report.completePages / report.totalPages) * 100) : 0
+            }
+            className="h-2"
+          />
+
+          <div className="grid grid-cols-3 gap-4 pt-4 border-t text-center">
+            <div>
+              <div className="text-2xl font-bold">{report?.completePages || 0}</div>
+              <div className="text-xs text-muted-foreground">Complete Pages</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-amber-500">
+                {Math.max(0, (report?.totalPages || 0) - (report?.completePages || 0))}
+              </div>
+              <div className="text-xs text-muted-foreground">In Review</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-destructive">
+                {corrections?.filter((c: any) => c.status !== "resolved").length || 0}
+              </div>
+              <div className="text-xs text-muted-foreground">Open Corrections</div>
             </div>
           </div>
+        </div>
+
+        <div className="plate p-6 space-y-4 flex flex-col justify-between">
+          <div>
+            <h3 className="font-semibold text-base">Production Lock Status</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Locking an official proof round freezes its pages and corrections, and enables Canva
+              task execution.
+            </p>
+          </div>
+
           {canManage && (
-            <div className="mt-4">
+            <div className="pt-4 border-t">
               {report?.isLocked ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full text-xs"
-                  onClick={() => mUnlock.mutate("Authorizing revisions")}
-                  disabled={mUnlock.isPending}
-                >
-                  <Unlock className="size-3.5 mr-1.5" /> Unlock Proof
-                </Button>
+                <div className="space-y-2">
+                  <Badge
+                    variant="outline"
+                    className="w-full justify-center py-1.5 bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20 text-xs"
+                  >
+                    <Lock className="size-3.5 mr-1.5" /> Proof Round Locked
+                  </Badge>
+                </div>
               ) : (
                 <Button
-                  size="sm"
                   variant="default"
                   className="w-full text-xs"
-                  onClick={() => mLock.mutate("Pre-flight passed")}
-                  disabled={!report?.ready || mLock.isPending}
+                  onClick={() => mLock.mutate("Pre-flight review completed")}
+                  disabled={!proofId || mLock.isPending}
                 >
-                  <Lock className="size-3.5 mr-1.5" /> Lock for Production
+                  <Lock className="size-3.5 mr-1.5" /> Lock Proof Round
                 </Button>
               )}
             </div>
@@ -150,97 +237,108 @@ export function ProofreadingCenter({
         </div>
       </div>
 
-      {/* Institutional Governance Signoff Dashboard */}
-      {report?.lockDetails?.proof_id && (
+      {/* Institutional Governance Signoff Dashboard (Live Data) */}
+      {proofId && signoffStatus && (
         <FinalSignoffDashboard
-          proofId={report.lockDetails.proof_id}
-          roundName="Proofreading Round 1"
-          checksumSha256={report.lockDetails.pdf_checksum || "29e19e992cb58264e54dc6843311ab944ab9b45c501b6e486548c600873a78a2"}
-          proofVersionStatus={report.isLocked ? "locked" : "open_for_review"}
-          signatories={[
-            {
-              role: "editor_in_chief",
-              roleTitle: "Editor-in-Chief",
-              designatedUserName: "Chloe Bennett",
-              designatedUserEmail: "student@test.yearbook",
-              decision: "approved",
-            },
-            {
-              role: "coordinator",
-              roleTitle: "Yearbook Coordinator",
-              designatedUserName: "Elena Rostova",
-              designatedUserEmail: "coordinator@test.yearbook",
-              decision: "approved",
-            },
-            {
-              role: "principal",
-              roleTitle: "School Principal",
-              designatedUserName: "Dr. Arthur Harrison",
-              designatedUserEmail: "principal@test.yearbook",
-              decision: "pending",
-            },
-            {
-              role: "school_director",
-              roleTitle: "School Director",
-              designatedUserName: "Father Gabriel Thomas",
-              designatedUserEmail: "director@test.yearbook",
-              decision: "pending",
-            },
-          ]}
+          proofId={proofId}
+          roundName="Candidate Proof Round"
+          checksumSha256={signoffStatus.checksumSha256}
+          proofVersionStatus={signoffStatus.proofVersionStatus}
+          signatories={signoffStatus.signatories.map((s) => ({
+            role: s.role,
+            roleTitle:
+              s.role === "editor_in_chief"
+                ? "Editor-in-Chief"
+                : s.role === "coordinator"
+                  ? "Yearbook Coordinator"
+                  : s.role === "principal"
+                    ? "School Principal"
+                    : "School Director",
+            designatedUserName: s.signatoryName,
+            designatedUserEmail: s.signatoryEmail,
+            decision: s.decision,
+            notes: s.notes,
+            decidedAt: s.decidedAt,
+          }))}
           isSuperAdmin={canManage}
-          currentUserRole={canManage ? "coordinator" : "member"}
+          onSign={(decision, notes) =>
+            mSign.mutateAsync({ decision, ...(notes !== undefined ? { notes } : {}) })
+          }
+          onEmergencyOverride={(justification) => mOverride.mutateAsync(justification)}
         />
       )}
 
+      {/* Recent Corrections List with Coordinator Approval */}
       <div className="plate overflow-hidden">
         <div className="bg-muted/50 p-3 border-b flex items-center justify-between">
-          <h3 className="font-medium text-sm">Recent Activity & Corrections</h3>
-          <Button variant="ghost" size="sm" className="h-7 text-xs">
-            View All Activity
-          </Button>
+          <h3 className="font-medium text-sm">
+            Reviewer Corrections &amp; Canva Implementation Tasks
+          </h3>
+          <span className="text-xs text-muted-foreground">
+            {corrections?.length || 0} total corrections
+          </span>
         </div>
         <div className="divide-y max-h-[400px] overflow-y-auto">
           {corrections?.length === 0 ? (
             <div className="p-8 text-center text-sm text-muted-foreground">
-              No corrections reported yet.
+              No corrections reported yet for this round.
             </div>
           ) : (
-            corrections?.slice(0, 10).map((c: any) => (
+            corrections?.slice(0, 15).map((c: any) => (
               <div
                 key={c.id}
-                className="p-4 flex items-start gap-4 hover:bg-muted/30 transition-colors group"
+                className="p-4 flex items-start justify-between gap-4 hover:bg-muted/30 transition-colors group"
               >
-                <div className="mt-1">
-                  {c.status === "resolved" ? (
-                    <CheckCircle className="size-4 text-green-500" />
-                  ) : c.status === "open" ? (
-                    <AlertTriangle className="size-4 text-destructive" />
-                  ) : (
-                    <Clock className="size-4 text-muted-foreground" />
+                <div className="flex items-start gap-3">
+                  <div className="mt-1">
+                    {c.status === "acknowledged" || c.status === "resolved" ? (
+                      <CheckCircle className="size-4 text-green-500" />
+                    ) : (
+                      <AlertTriangle className="size-4 text-amber-500" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">
+                        {c.title || `Correction on Page ${c.page_number || "—"}`}
+                      </span>
+                      <Badge variant="outline" className="text-[10px] capitalize">
+                        {c.severity || "medium"}
+                      </Badge>
+                      <Badge
+                        className={
+                          c.status === "acknowledged" || c.status === "resolved"
+                            ? "bg-emerald-600 text-white text-[10px]"
+                            : "bg-muted text-muted-foreground text-[10px]"
+                        }
+                      >
+                        {c.status === "acknowledged"
+                          ? "Approved for Canva"
+                          : c.status === "resolved"
+                            ? "Resolved"
+                            : c.status}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
+                      {c.description}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {canManage && c.status !== "acknowledged" && c.status !== "resolved" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => mApproveCorrection.mutate(c.id)}
+                      disabled={mApproveCorrection.isPending}
+                      className="text-xs h-7 gap-1"
+                      title="Approve as actionable Canva Implementation Task"
+                    >
+                      <Check className="size-3" /> Approve for Canva
+                    </Button>
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm truncate">{c.title}</span>
-                    <Badge variant="outline" className="text-[10px] uppercase">
-                      {c.status}
-                    </Badge>
-                    <Badge variant="secondary" className="text-[10px]">
-                      Page {c.page_number || "?"}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                    {c.description}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="opacity-0 group-hover:opacity-100 h-8"
-                  onClick={() => onViewProof(c.proof_id, c.page_id)}
-                >
-                  <Eye className="size-4 mr-1" /> Inspect
-                </Button>
               </div>
             ))
           )}

@@ -32,7 +32,7 @@ export interface PrintSpecificationsDTO {
 /**
  * Escapes XML special characters.
  */
-function escapeXml(val: any): string {
+function escapeXml(val: unknown): string {
   if (val === null || val === undefined) return "";
   return String(val)
     .replace(/&/g, "&amp;")
@@ -63,7 +63,7 @@ function getColLetter(colIdx: number): string {
  * - Autofilter on table columns
  * - Bold header typography
  */
-export function generateBookMapXlsxBuffer(headers: string[], rows: any[][]): Buffer {
+export function generateBookMapXlsxBuffer(headers: string[], rows: unknown[][]): Buffer {
   const rowXmls: string[] = [];
 
   // 1. Header Row (Row 1)
@@ -332,34 +332,34 @@ export async function generateServiceBureauReleasePackage(
   const proof = proofRes.rows[0];
 
   // 2. Validate release lifecycle state
-  const overrideRes = await query(
-    `SELECT 1 FROM public.production_release_overrides WHERE proof_id = $1 AND authorized_by_super_admin_id IS NOT NULL`,
-    [proofId],
-  );
-  const hasApprovedOverride = overrideRes.rows.length > 0;
-
-  if (proof.proof_version_status !== "institutionally_approved" && !hasApprovedOverride) {
+  if (
+    proof.proof_version_status !== "institutionally_approved" &&
+    proof.proof_version_status !== "final_candidate"
+  ) {
     throw new Error(
-      `PRECONDITION_FAILED: Proof must be 'institutionally_approved' before generating release package (current: ${proof.proof_version_status}).`,
+      `PRECONDITION_FAILED: Proof must be 'institutionally_approved' or 'final_candidate' before generating release package (current: ${proof.proof_version_status}).`,
     );
   }
 
-  // 3. Fetch Confirmed Print Specifications & enforce verification
+  // 3. Fetch Confirmed Print Specifications & enforce verification (Stage 2 Verification)
   const specsRes = await query(
     `SELECT * FROM public.production_print_specifications WHERE yearbook_id = $1`,
     [proof.yearbook_id],
   );
   const specs = specsRes.rows[0];
-  if (
-    !specs ||
-    (specs.status !== "confirmed" && specs.status !== "verified" && !hasApprovedOverride)
-  ) {
+  if (!specs || (specs.status !== "confirmed" && specs.status !== "verified")) {
     throw new Error(
       `PRECONDITION_FAILED: Commercial print specifications must be confirmed or verified before generating release package (current: ${specs?.status || "NOT_YET_CONFIRMED"}).`,
     );
   }
 
-  // 4. Fetch All 4 Signatory Decisions
+  // 4. Fetch and strictly validate all 4 distinct signatory approvals
+  const mandatoryRoles = [
+    "editor_in_chief",
+    "coordinator",
+    "principal",
+    "school_director",
+  ] as const;
   const sigRes = await query(
     `SELECT r.signatory_role, u.full_name as signatory_name, d.decision, d.decided_at, d.notes
      FROM public.proof_signoff_requirements r
@@ -369,6 +369,20 @@ export async function generateServiceBureauReleasePackage(
      ORDER BY r.assigned_at ASC`,
     [proofId, proof.checksum_sha256],
   );
+
+  const decisionsByRole = new Map<string, { signatory_role: string; decision: string }>();
+  for (const row of sigRes.rows) {
+    decisionsByRole.set(row.signatory_role, row);
+  }
+
+  for (const role of mandatoryRoles) {
+    const sig = decisionsByRole.get(role);
+    if (!sig || (sig.decision !== "approved" && sig.decision !== "approved_with_notes")) {
+      throw new Error(
+        `PRECONDITION_FAILED: Missing mandatory institutional signoff for role '${role}'. All four distinct signatories (Editor-in-Chief, Coordinator, Principal, School Director) must approve before release package generation.`,
+      );
+    }
+  }
 
   // 5. Load Master PDF Binary
   const localFixturePath =
@@ -503,9 +517,9 @@ export async function generateServiceBureauReleasePackage(
  */
 async function getBookMapRawData(
   yearbookId: string,
-): Promise<{ headers: string[]; rows: any[][] }> {
+): Promise<{ headers: string[]; rows: (string | number)[][] }> {
   const res = await query(
-    `SELECT 
+    `SELECT
        p.physical_index,
        p.display_page_label,
        p.title,
@@ -552,7 +566,7 @@ async function getBookMapRawData(
     "Roster Count",
   ];
 
-  const rows = res.rows.map((r) => [
+  const rows: (string | number)[][] = res.rows.map((r) => [
     r.physical_index,
     r.display_page_label,
     r.title || "",
@@ -572,8 +586,8 @@ async function getBookMapRawData(
   return { headers, rows };
 }
 
-function generateBookMapCsvString(headers: string[], rows: any[][]): string {
-  const escapeCsv = (val: any) => {
+function generateBookMapCsvString(headers: string[], rows: (string | number)[][]): string {
+  const escapeCsv = (val: unknown) => {
     if (val === null || val === undefined) return '""';
     const str = String(val).replace(/"/g, '""');
     return `"${str}"`;
@@ -608,7 +622,7 @@ export async function exportPrintableBookMapPDF(
   await getAuthenticatedActor(cookieHeader);
 
   const res = await query(
-    `SELECT 
+    `SELECT
        p.physical_index,
        p.display_page_label,
        p.title,

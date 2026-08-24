@@ -372,3 +372,51 @@ export async function uploadAssetToCanva(
   const name = json.asset?.name || json.job?.asset?.name || fileName;
   return { id: assetId, name };
 }
+
+/**
+ * Create a Canva folder using the Connect API (requires folder:write scope).
+ */
+export async function createCanvaFolder(
+  ref: DesignRef,
+  name: string,
+  parentFolderId?: string,
+): Promise<{ id: string; name: string }> {
+  const body: Record<string, any> = { name };
+  if (parentFolderId) {
+    body["parent_folder_id"] = parentFolderId;
+  }
+
+  const res = await canvaFetch(ref, "/folders", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+  const json = (await res.json()) as {
+    folder?: { id: string; name: string };
+    id?: string;
+    name?: string;
+  };
+  const folder = json.folder || json;
+  return {
+    id: folder.id || "folder_created",
+    name: folder.name || name,
+  };
+}
+
+/**
+ * Move a Canva item (design or asset) into a target folder (requires folder:write scope).
+ */
+export async function moveCanvaFolderItem(
+  ref: DesignRef,
+  folderId: string,
+  itemId: string,
+): Promise<{ success: boolean }> {
+  await canvaFetch(ref, `/folders/move`, {
+    method: "POST",
+    body: JSON.stringify({
+      to_folder_id: folderId,
+      item_id: itemId,
+    }),
+  });
+  return { success: true };
+}

@@ -122,7 +122,7 @@ export async function initializeLocalDatabase(): Promise<void> {
     [ybAId],
   );
 
-  const pagesList: any[] = [];
+  const pagesList: Array<{ id: string } & Record<string, unknown>> = [];
 
   if (existingPages.rows[0]?.count === 0) {
     const sec1Res = await query(
@@ -181,19 +181,21 @@ export async function initializeLocalDatabase(): Promise<void> {
     }
 
     // Page Assignments
-    if (pagesList.length > 0) {
+    const firstPage = pagesList[0];
+    const secondPage = pagesList[1];
+    if (firstPage && secondPage) {
       await query(
         `INSERT INTO public.page_assignments (page_id, yearbook_id, user_id, kind)
          VALUES ($1, $2, $3, 'designer'), ($4, $2, $5, 'proofreader')
          ON CONFLICT DO NOTHING`,
-        [pagesList[0].id, ybAId, memberAId, pagesList[1].id, coordAId],
+        [firstPage.id, ybAId, memberAId, secondPage.id, coordAId],
       );
 
       // Requirements
       await query(
         `INSERT INTO public.page_requirements (page_id, yearbook_id, label, needed, have, position)
          VALUES ($1, $2, 'High-Res Principal Portrait', 1, 1, 1)`,
-        [pagesList[0].id, ybAId],
+        [firstPage.id, ybAId],
       );
     }
   } else {
@@ -260,26 +262,27 @@ export async function initializeLocalDatabase(): Promise<void> {
   );
 
   const proofRes = await query(
-    `INSERT INTO public.proofs (yearbook_id, pdf_storage_path, version, status, created_by)
-     VALUES ($1, $2, 1, 'ready', $3)
+    `INSERT INTO public.proofs (yearbook_id, round_number, round_name, pdf_storage_path, version, status, created_by, round_classification, official_round_number)
+     VALUES ($1, 1, 'Proofreading Round 1 (Master Candidate)', $2, 1, 'ready', $3, 'official_master', 1)
      RETURNING id`,
     [ybAId, proofStoragePath, coordAId],
   );
   const proofId = proofRes.rows[0]?.id;
 
   // Corrections
-  if (pagesList.length > 0) {
+  const targetPage = pagesList[0];
+  if (targetPage) {
     await query(
       `INSERT INTO public.corrections (yearbook_id, page_id, proof_id, page_number, title, description, coordinates, status, created_by)
        VALUES ($1, $2, $3, 1, 'Header font sizing', 'Increase title tracking and adjust margin by 4px.', '{"x":25.5,"y":18.2}'::jsonb, 'resolved', $4)`,
-      [ybAId, pagesList[0].id, proofId, coordAId],
+      [ybAId, targetPage.id, proofId, coordAId],
     );
 
     await query(
       `INSERT INTO public.page_approvals (yearbook_id, page_id, approved_by)
        VALUES ($1, $2, $3)
        ON CONFLICT DO NOTHING`,
-      [ybAId, pagesList[0].id, coordAId],
+      [ybAId, targetPage.id, coordAId],
     );
   }
 

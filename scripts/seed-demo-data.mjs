@@ -19,14 +19,14 @@ const TINY_PNG = Buffer.from(
   "base64",
 );
 
-export async function seedDemoData() {
+export async function seedDemoData(customConnectionString) {
   const isLocal = (process.env.DATA_BACKEND || "local") === "local";
   if (!isLocal) {
     console.log("[Demo Seed] Skipping local demo seed (DATA_BACKEND != local)");
     return;
   }
 
-  let connectionString = process.env.DATABASE_URL || "";
+  let connectionString = customConnectionString || process.env.DATABASE_URL || "";
   if (!connectionString && fsSync.existsSync(".env")) {
     const envContent = fsSync.readFileSync(".env", "utf8");
     const m = envContent.match(/DATABASE_URL="?([^"\n]+)"?/);
@@ -256,7 +256,7 @@ export async function seedDemoData() {
   // Annual Yearbook Team Assignments
   await client.query(
     `INSERT INTO public.yearbook_team_assignments (yearbook_id, user_id, center_membership_id, role, start_date, is_active, assigned_by)
-     VALUES 
+     VALUES
        ($1, $2, $3, 'advisor', CURRENT_DATE, true, $4),
        ($1, $5, $6, 'editorial_member', CURRENT_DATE, true, $7)
      ON CONFLICT DO NOTHING`,
@@ -406,11 +406,11 @@ export async function seedDemoData() {
     const title = realisticPageTitles[i - 1] || `${secName} - Page ${i}`;
 
     const pRes = await client.query(
-      `INSERT INTO public.pages (yearbook_id, section_id, page_type_id, status_id, position, page_number, title, description)
-       VALUES ($1, $2, $3, $4, $5, $5, $6, $7)
+      `INSERT INTO public.pages (yearbook_id, section_id, page_type_id, status_id, position, page_number, physical_index, display_page_label, title, description)
+       VALUES ($1, $2, $3, $4, $5, $5, $5, $6, $7, $8)
        ON CONFLICT DO NOTHING
        RETURNING *`,
-      [ybAId, secId, ptId, statId, i, title, `${secName} spread in DHS 2026 Yearbook`],
+      [ybAId, secId, ptId, statId, i, String(i), title, `${secName} spread in DHS 2026 Yearbook`],
     );
 
     if (pRes.rows[0]) {
@@ -709,8 +709,8 @@ export async function seedDemoData() {
   await fs.writeFile(proofFilePath, Buffer.from(proofBytes));
 
   const proofRes = await client.query(
-    `INSERT INTO public.proofs (yearbook_id, pdf_storage_path, storage_path, version, status, created_by)
-     VALUES ($1, $2, $2, 1, 'ready', $3)
+    `INSERT INTO public.proofs (yearbook_id, round_number, round_name, version, pdf_storage_path, storage_path, status, created_by, round_classification, official_round_number)
+     VALUES ($1, 1, 'Proofreading Round 1 (Master Candidate)', 1, $2, $2, 'ready', $3, 'official_master', 1)
      ON CONFLICT DO NOTHING
      RETURNING id`,
     [ybAId, `yearbooks/${ybAId}/proofs/proof_v1.pdf`, coordAId],
@@ -907,7 +907,7 @@ export async function seedDemoData() {
   console.log("[Demo Seed] 4. Seeding Service Bureaus Catalog...");
   await client.query(
     `INSERT INTO public.service_bureaus (name, code, contact_email, notes)
-     VALUES 
+     VALUES
        ('Milestone Press & Print', 'milestone_press', 'press@milestone.example.com', 'Primary high-volume offset yearbook printing partner'),
        ('Precision Bindery & Litho', 'precision_bindery', 'orders@precisionbindery.example.com', 'Specialty foil stamping and leatherette hardbound editions')
      ON CONFLICT (code) DO NOTHING`,
@@ -920,7 +920,9 @@ export async function seedDemoData() {
   await pool.end();
 }
 
-seedDemoData().catch((err) => {
-  console.error("[Demo Seed Error]:", err);
-  process.exit(1);
-});
+if (process.argv[1]?.endsWith("seed-demo-data.mjs")) {
+  seedDemoData().catch((err) => {
+    console.error("[Demo Seed Error]:", err);
+    process.exit(1);
+  });
+}

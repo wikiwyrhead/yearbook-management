@@ -597,8 +597,9 @@ export async function exportCanvaDesignToProof(
   const proofRes = await query(
     `INSERT INTO public.proofs (
        yearbook_id, version, proof_type, pdf_storage_path, storage_path,
-       status, page_count, created_by, canva_export_id, notes
-     ) VALUES ($1, $2, 'spread', $3, $4, 'ready', 1, $5, $6, $7)
+       status, page_count, created_by, canva_export_id, notes,
+       round_classification, official_round_number
+     ) VALUES ($1, $2, 'spread', $3, $4, 'ready', 1, $5, $6, $7, 'legacy_preview', NULL)
      RETURNING *`,
     [
       yearbookId,

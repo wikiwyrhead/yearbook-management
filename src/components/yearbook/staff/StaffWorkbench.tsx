@@ -14,6 +14,7 @@ import {
   Sparkles,
   ChevronRight,
   Layers,
+  FileEdit,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ import {
   getAssets,
 } from "@/lib/yearbook.functions";
 import { BulkUpload } from "../assets/BulkUpload";
+import { PagePreparationPacketDrawer } from "../preparation/PagePreparationPacketDrawer";
 
 interface StaffWorkbenchProps {
   yearbookId: string;
@@ -48,6 +50,7 @@ export function StaffWorkbench({
   onOpenProofing,
 }: StaffWorkbenchProps) {
   const qc = useQueryClient();
+  const [selectedPageIdForPacket, setSelectedPageIdForPacket] = useState<string | null>(null);
   const fetchLadder = useServerFn(getLadder);
   const fetchCorrections = useServerFn(getCorrections);
   const doUpdatePage = useServerFn(updatePage);
@@ -295,35 +298,46 @@ export function StaffWorkbench({
                     </div>
                   )}
 
-                  <div className="pt-2 border-t flex items-center justify-between gap-2">
+                  <div className="pt-2 border-t flex flex-wrap items-center justify-between gap-2">
                     <Button
                       size="sm"
-                      variant="secondary"
-                      className="text-xs h-8 bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20"
-                      onClick={() => {
-                        if (onOpenAssetLibrary) onOpenAssetLibrary();
-                        else toast.info(`Ready to layout Page ${p.page_number}`);
-                      }}
+                      variant="default"
+                      className="text-xs h-8 gap-1.5 bg-primary/90 hover:bg-primary"
+                      onClick={() => setSelectedPageIdForPacket(p.id)}
                     >
-                      <Palette className="size-3 mr-1" /> Layout Assets
+                      <FileEdit className="size-3" /> Preparation Packet
                     </Button>
 
-                    {/* Quick status cycle */}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-xs h-8"
-                      onClick={() => {
-                        if (statuses.length === 0) return;
-                        const currentIdx = statuses.findIndex((s) => s.id === p.status_id);
-                        const nextIdx = (currentIdx + 1) % statuses.length;
-                        if (statuses[nextIdx]) {
-                          mUpdateStatus.mutate({ id: p.id, statusId: statuses[nextIdx].id });
-                        }
-                      }}
-                    >
-                      Next Status →
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="text-xs h-8 bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20"
+                        onClick={() => {
+                          if (onOpenAssetLibrary) onOpenAssetLibrary();
+                          else toast.info(`Ready to layout Page ${p.page_number}`);
+                        }}
+                      >
+                        <Palette className="size-3 mr-1" /> Layout
+                      </Button>
+
+                      {/* Quick status cycle */}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-8"
+                        onClick={() => {
+                          if (statuses.length === 0) return;
+                          const currentIdx = statuses.findIndex((s) => s.id === p.status_id);
+                          const nextIdx = (currentIdx + 1) % statuses.length;
+                          if (statuses[nextIdx]) {
+                            mUpdateStatus.mutate({ id: p.id, statusId: statuses[nextIdx].id });
+                          }
+                        }}
+                      >
+                        Next Status →
+                      </Button>
+                    </div>
                   </div>
                 </div>
               );
@@ -413,6 +427,13 @@ export function StaffWorkbench({
           </div>
         </div>
       </div>
+
+      {/* Preparation Packet Drawer for Assigned Editorial Members */}
+      <PagePreparationPacketDrawer
+        isOpen={!!selectedPageIdForPacket}
+        onClose={() => setSelectedPageIdForPacket(null)}
+        pageId={selectedPageIdForPacket}
+      />
     </div>
   );
 }
