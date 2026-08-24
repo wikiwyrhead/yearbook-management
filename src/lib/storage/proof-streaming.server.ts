@@ -1,5 +1,5 @@
-import { query } from "../db/pool.server";
-import { getAuthenticatedActor } from "../preparation/preparation.server";
+import { query } from "../db/pool.server.ts";
+import { getAuthenticatedActor } from "../preparation/preparation.server.ts";
 import { PDFDocument } from "pdf-lib";
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
@@ -54,7 +54,7 @@ export interface UserProofAccessEvaluation {
  */
 export async function evaluateUserProofAccess(
   userId: string,
-  proofId: string
+  proofId: string,
 ): Promise<UserProofAccessEvaluation> {
   // 1. Fetch Proof & Yearbook metadata
   const proofRes = await query(
@@ -62,107 +62,177 @@ export async function evaluateUserProofAccess(
      FROM public.proofs p
      JOIN public.yearbooks y ON y.id = p.yearbook_id
      WHERE p.id = $1`,
-    [proofId]
+    [proofId],
   );
 
   if (proofRes.rows.length === 0) {
-    return { hasAccess: false, isWholeBook: false, authorizedPageNumbers: new Set(), roleSummary: "none" };
+    return {
+      hasAccess: false,
+      isWholeBook: false,
+      authorizedPageNumbers: new Set(),
+      roleSummary: "none",
+    };
   }
   const { yearbook_id, center_id } = proofRes.rows[0];
 
   // 2. Check Super Admin
   const adminRes = await query(
     `SELECT 1 FROM public.user_roles WHERE user_id = $1 AND role = 'super_admin'`,
-    [userId]
+    [userId],
   );
   if (adminRes.rows.length > 0) {
-    return { hasAccess: true, isWholeBook: true, authorizedPageNumbers: new Set(), roleSummary: "super_admin" };
+    return {
+      hasAccess: true,
+      isWholeBook: true,
+      authorizedPageNumbers: new Set(),
+      roleSummary: "super_admin",
+    };
   }
 
   // 3. Verify user belongs to Center
   const centerMemberRes = await query(
-    `SELECT 1 FROM public.center_memberships 
+    `SELECT 1 FROM public.center_memberships
      WHERE user_id = $1 AND center_id = $2 AND is_active = true`,
-    [userId, center_id]
+    [userId, center_id],
   );
   const isCenterMember = centerMemberRes.rows.length > 0;
 
-  // 4. Check Center Coordinator
+  // 4. Check Center Coordinator via center_role_appointments (active, date-ranged)
   const coordRes = await query(
-    `SELECT 1 FROM public.coordinators 
-     WHERE user_id = $1 AND school_id = $2 AND is_active = true`,
-    [userId, center_id]
+    `SELECT 1 FROM public.center_role_appointments
+     WHERE user_id = $1
+       AND center_id = $2
+       AND role = 'coordinator'
+       AND is_active = true
+       AND start_date <= CURRENT_DATE
+       AND (end_date IS NULL OR end_date >= CURRENT_DATE)`,
+    [userId, center_id],
   );
   if (coordRes.rows.length > 0) {
-    return { hasAccess: true, isWholeBook: true, authorizedPageNumbers: new Set(), roleSummary: "coordinator" };
+    return {
+      hasAccess: true,
+      isWholeBook: true,
+      authorizedPageNumbers: new Set(),
+      roleSummary: "coordinator",
+    };
   }
 
-  // 5. Check Governance Signatories (EIC, Principal, School Director)
+  // 4b. Check yearbook_members for coordinator role on this yearbook's center
+  const ymCoordRes = await query(
+    `SELECT 1 FROM public.yearbook_members
+     WHERE user_id = $1 AND yearbook_id = $2 AND role = 'coordinator'`,
+    [userId, yearbook_id],
+  );
+  if (ymCoordRes.rows.length > 0) {
+    return {
+      hasAccess: true,
+      isWholeBook: true,
+      authorizedPageNumbers: new Set(),
+      roleSummary: "coordinator",
+    };
+  }
+
+  // 5. Check Governance Signatories (proof_signoff_requirements covers EIC, Principal, School Director)
   const signoffRes = await query(
     `SELECT signatory_role FROM public.proof_signoff_requirements
      WHERE proof_id = $1 AND designated_user_id = $2 AND is_active = true`,
-    [proofId, userId]
+    [proofId, userId],
   );
   if (signoffRes.rows.length > 0) {
-    return { hasAccess: true, isWholeBook: true, authorizedPageNumbers: new Set(), roleSummary: signoffRes.rows[0].signatory_role };
+    return {
+      hasAccess: true,
+      isWholeBook: true,
+      authorizedPageNumbers: new Set(),
+      roleSummary: signoffRes.rows[0].signatory_role,
+    };
   }
 
-  // 6. Check Active Team Role (e.g. Editor-in-Chief on Yearbook)
-  const teamRes = await query(
-    `SELECT role FROM public.yearbook_team_assignments
-     WHERE yearbook_id = $1 AND user_id = $2 AND is_active = true`,
-    [yearbook_id, userId]
+  // 6. Check EIC annual assignment via yearbook_members
+  const eicRes = await query(
+    `SELECT role FROM public.yearbook_members
+     WHERE yearbook_id = $1 AND user_id = $2 AND role = 'editor_in_chief'`,
+    [yearbook_id, userId],
   );
-  const teamRoles = teamRes.rows.map((r) => r.role);
-  if (teamRoles.includes("editor_in_chief")) {
-    return { hasAccess: true, isWholeBook: true, authorizedPageNumbers: new Set(), roleSummary: "editor_in_chief" };
+  if (eicRes.rows.length > 0) {
+    return {
+      hasAccess: true,
+      isWholeBook: true,
+      authorizedPageNumbers: new Set(),
+      roleSummary: "editor_in_chief",
+    };
+  }
+
+  // 6b. Check advisor/proofreader in yearbook_members (whole-book roles)
+  const advisorRes = await query(
+    `SELECT role FROM public.yearbook_members
+     WHERE yearbook_id = $1 AND user_id = $2 AND role IN ('advisor', 'proofreader')`,
+    [yearbook_id, userId],
+  );
+  if (advisorRes.rows.length > 0) {
+    return {
+      hasAccess: true,
+      isWholeBook: true,
+      authorizedPageNumbers: new Set(),
+      roleSummary: advisorRes.rows[0].role,
+    };
   }
 
   // 7. Check Scoped Reviewer Assignments & Page Assignments
   const authorizedPages = new Set<number>();
 
-  // a. Assigned pages directly
+  // a. Assigned pages via yearbook_team_assignments + yearbook_assignment_pages
   const pageAssignRes = await query(
     `SELECT p.physical_index, p.page_number
-     FROM public.assigned_pages ap
+     FROM public.yearbook_team_assignments ta
+     JOIN public.yearbook_assignment_pages ap ON ap.assignment_id = ta.id AND ap.yearbook_id = ta.yearbook_id
      JOIN public.pages p ON p.id = ap.page_id
-     WHERE ap.user_id = $1 AND p.yearbook_id = $2`,
-    [userId, yearbook_id]
+     WHERE ta.user_id = $1 AND ta.yearbook_id = $2 AND ta.is_active = true
+       AND ta.start_date <= CURRENT_DATE
+       AND (ta.end_date IS NULL OR ta.end_date >= CURRENT_DATE)`,
+    [userId, yearbook_id],
   );
   for (const r of pageAssignRes.rows) {
     authorizedPages.add(r.physical_index || r.page_number);
   }
 
-  // b. Assigned sections
+  // b. Assigned sections via yearbook_team_assignments + yearbook_assignment_sections
   const secAssignRes = await query(
     `SELECT p.physical_index, p.page_number
-     FROM public.assigned_sections as_sec
+     FROM public.yearbook_team_assignments ta
+     JOIN public.yearbook_assignment_sections as_sec ON as_sec.assignment_id = ta.id AND as_sec.yearbook_id = ta.yearbook_id
      JOIN public.pages p ON p.section_id = as_sec.section_id
-     WHERE as_sec.user_id = $1 AND p.yearbook_id = $2`,
-    [userId, yearbook_id]
+     WHERE ta.user_id = $1 AND ta.yearbook_id = $2 AND ta.is_active = true
+       AND ta.start_date <= CURRENT_DATE
+       AND (ta.end_date IS NULL OR ta.end_date >= CURRENT_DATE)`,
+    [userId, yearbook_id],
   );
   for (const r of secAssignRes.rows) {
     authorizedPages.add(r.physical_index || r.page_number);
   }
 
-  // c. Proof Reviewer Assignments (Scoped)
+  // c. Proof Reviewer Assignments (Scoped grant via proof_reviewer_assignments)
   const revAssignRes = await query(
     `SELECT ra.scope, p.physical_index as page_num, sec_p.physical_index as sec_page_num
      FROM public.proof_reviewer_assignments ra
      LEFT JOIN public.pages p ON p.id = ra.target_page_id
      LEFT JOIN public.pages sec_p ON sec_p.section_id = ra.target_section_id
      WHERE ra.proof_id = $1 AND ra.user_id = $2 AND ra.revoked_at IS NULL`,
-    [proofId, userId]
+    [proofId, userId],
   );
   for (const r of revAssignRes.rows) {
     if (r.scope === "edition") {
-      return { hasAccess: true, isWholeBook: true, authorizedPageNumbers: new Set(), roleSummary: "special_edition_reviewer" };
+      return {
+        hasAccess: true,
+        isWholeBook: true,
+        authorizedPageNumbers: new Set(),
+        roleSummary: "special_edition_reviewer",
+      };
     }
     if (r.page_num) authorizedPages.add(r.page_num);
     if (r.sec_page_num) authorizedPages.add(r.sec_page_num);
   }
 
-  // d. Active Proof Access Grants
+  // d. Active Proof Access Grants (approved special reviewer access)
   const grantRes = await query(
     `SELECT g.id, gp.page_id, p.physical_index as page_num, gs.section_id, sec_p.physical_index as sec_page_num
      FROM public.proof_access_grants g
@@ -175,7 +245,7 @@ export async function evaluateUserProofAccess(
        AND g.starts_at <= now()
        AND g.expires_at >= now()
        AND g.revoked_at IS NULL`,
-    [proofId, yearbook_id, userId]
+    [proofId, yearbook_id, userId],
   );
   for (const r of grantRes.rows) {
     if (r.page_num) authorizedPages.add(r.page_num);
@@ -191,8 +261,13 @@ export async function evaluateUserProofAccess(
     };
   }
 
-  // Fallback: If Center member has no explicit assigned pages or grants, deny whole-book access
-  return { hasAccess: false, isWholeBook: false, authorizedPageNumbers: new Set(), roleSummary: isCenterMember ? "unassigned_center_member" : "cross_center" };
+  // Fallback: deny
+  return {
+    hasAccess: false,
+    isWholeBook: false,
+    authorizedPageNumbers: new Set(),
+    roleSummary: isCenterMember ? "unassigned_center_member" : "cross_center",
+  };
 }
 
 /**
@@ -200,30 +275,45 @@ export async function evaluateUserProofAccess(
  */
 async function loadProofSourcePdfBinary(proofId: string): Promise<Buffer> {
   const objRes = await query(
-    `SELECT provider_file_id, provider_folder_id, checksum_sha256
-     FROM public.proof_storage_objects
-     WHERE proof_id = $1`,
-    [proofId]
+    `SELECT pso.provider, pso.provider_file_id, pso.center_id, pso.checksum_sha256, csc.credentials, csc.status
+     FROM public.proof_storage_objects pso
+     LEFT JOIN public.center_storage_connections csc ON csc.center_id = pso.center_id AND csc.provider = pso.provider
+     WHERE pso.proof_id = $1`,
+    [proofId],
   );
 
   if (objRes.rows.length > 0) {
-    const { provider_file_id } = objRes.rows[0];
-    const localFixturePath = path.resolve(process.cwd(), ".localdev/fixtures/icas-138.pdf");
-    try {
-      return await fs.readFile(localFixturePath);
-    } catch {
-      // Create a blank 138-page PDF fallback if fixture missing
-      const doc = await PDFDocument.create();
-      for (let i = 0; i < 138; i++) {
-        doc.addPage([612, 792]);
+    const row = objRes.rows[0];
+    if (row.provider === "google_drive" && row.provider_file_id && row.credentials) {
+      try {
+        const { googleDriveProvider } = await import("./google-drive.provider.ts");
+        const { openCredentials } = await import("./credentials.server.ts");
+        const credObj = typeof row.credentials === "string" ? JSON.parse(row.credentials) : row.credentials;
+        const unsealed = openCredentials(credObj);
+        if (unsealed.accessToken || unsealed.refreshToken) {
+          const credRef = {
+            provider: "google_drive" as const,
+            scope: "center" as const,
+            centerId: row.center_id,
+            accessToken: unsealed.accessToken,
+            refreshToken: unsealed.refreshToken,
+            expiresAt: unsealed.expiresAt,
+          };
+          const downloaded = await googleDriveProvider.downloadFile(credRef, row.provider_file_id);
+          if (downloaded.bytes && downloaded.bytes.byteLength > 0) {
+            return Buffer.from(downloaded.bytes);
+          }
+        }
+      } catch (gdriveErr) {
+        console.warn("[ProofStream] Google Drive download fallback:", gdriveErr);
       }
-      const bytes = await doc.save();
-      return Buffer.from(bytes);
     }
   }
 
-  // Fallback to fixture or generated PDF
-  const localFixturePath = process.env["ICAS_BLUEPRINT_PDF_PATH"] || path.resolve(process.cwd(), ".localdev/fixtures/icas-138.pdf");
+  // Fallback to local cache/fixture
+  const localFixturePath =
+    process.env["ICAS_BLUEPRINT_PDF_PATH"] ||
+    path.resolve(process.cwd(), ".localdev/fixtures/icas-138.pdf");
   try {
     return await fs.readFile(localFixturePath);
   } catch {
@@ -241,20 +331,28 @@ async function loadProofSourcePdfBinary(proofId: string): Promise<Buffer> {
  */
 export async function handleProofStreamRequest(
   proofId: string,
-  request: Request
+  request: Request,
+  trustedActor?: { id: string; email: string; fullName: string | null; roles: string[] },
 ): Promise<Response> {
-  const authHeader = request.headers.get("x-user-id") || request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || request.headers.get("cookie");
-  let actor;
-  try {
-    actor = await getAuthenticatedActor(authHeader);
-  } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message || "Unauthorized" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
+  let actor = trustedActor;
+
+  if (!actor) {
+    // Derive identity exclusively from authenticated server session cookie
+    const cookieHeader = request.headers.get("cookie");
+    try {
+      actor = await getAuthenticatedActor(cookieHeader);
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: Valid authentication session cookie required." }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
   }
 
-  // Rate limiting check
+  // Rate limiting check per authenticated user
   if (!checkRateLimit(actor.id)) {
     return new Response(JSON.stringify({ error: "Too Many Requests. Rate limit exceeded." }), {
       status: 429,
@@ -265,10 +363,16 @@ export async function handleProofStreamRequest(
   // Authorization Evaluation
   const evalResult = await evaluateUserProofAccess(actor.id, proofId);
   if (!evalResult.hasAccess) {
-    return new Response(JSON.stringify({ error: "Forbidden. Access to this proof is denied.", role: evalResult.roleSummary }), {
-      status: 403,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        error: "Forbidden. Access to this proof is denied.",
+        role: evalResult.roleSummary,
+      }),
+      {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 
   const url = new URL(request.url);
@@ -324,7 +428,21 @@ export async function handleProofStreamRequest(
     });
   }
 
-  // SCENARIO B: Page-Scoped User or Explicit Page Slice Request
+  // If user is page-scoped and did not specify a page or slice range, deny whole-book access
+  if (!evalResult.isWholeBook && !reqPage && !reqStart) {
+    return new Response(
+      JSON.stringify({
+        error: "Forbidden: Page-scoped reviewers must specify an authorized page parameter.",
+        authorizedPages: Array.from(evalResult.authorizedPageNumbers),
+      }),
+      {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+
+  // SCENARIO B: Sliced Page Request
   let requestedPages: number[] = [];
   if (reqPage) {
     requestedPages = [reqPage];
@@ -340,7 +458,7 @@ export async function handleProofStreamRequest(
       if (!evalResult.authorizedPageNumbers.has(p)) {
         return new Response(
           JSON.stringify({ error: `Forbidden: You are not authorized to view page ${p}` }),
-          { status: 403, headers: { "Content-Type": "application/json" } }
+          { status: 403, headers: { "Content-Type": "application/json" } },
         );
       }
     }
@@ -350,7 +468,7 @@ export async function handleProofStreamRequest(
   if (requestedPages.length > 20) {
     return new Response(
       JSON.stringify({ error: "Range too large. Maximum 20 pages per sliced request." }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
+      { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
 

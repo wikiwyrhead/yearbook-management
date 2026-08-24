@@ -34,7 +34,7 @@ export async function seedDemoData() {
   }
   if (!connectionString) {
     throw new Error(
-      "DATABASE_URL is required. Set it in .env or as an environment variable before running this script."
+      "DATABASE_URL is required. Set it in .env or as an environment variable before running this script.",
     );
   }
   // If running from host outside docker network

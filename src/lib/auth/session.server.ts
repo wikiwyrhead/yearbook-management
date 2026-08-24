@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { query } from "../db/pool.server";
+import { query } from "../db/pool.server.ts";
 
 export interface SessionUser {
   id: string;

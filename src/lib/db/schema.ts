@@ -963,6 +963,7 @@ export interface SectionCategory {
   color: string;
   sort_order: number;
   description?: string | null;
+  is_active?: boolean;
   created_at: string;
 }
 
@@ -977,6 +978,7 @@ export interface LayoutType {
   col_count?: number | null;
   description?: string | null;
   sort_order: number;
+  is_active?: boolean;
   created_at: string;
 }
 

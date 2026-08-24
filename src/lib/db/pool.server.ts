@@ -7,7 +7,12 @@ let _pool: pg.Pool | null = null;
 
 export function getDbPool(): pg.Pool {
   if (!_pool) {
-    const connectionString = process.env["DATABASE_URL"];
+    let connectionString = process.env["DATABASE_URL"];
+    if (!connectionString && fs.existsSync(".env")) {
+      const envContent = fs.readFileSync(".env", "utf8");
+      const m = envContent.match(/^\s*DATABASE_URL\s*=\s*"?([^"\n]+)"?/m);
+      if (m) connectionString = m[1];
+    }
     if (!connectionString) {
       throw new Error("DATABASE_URL environment variable is required but not set.");
     }

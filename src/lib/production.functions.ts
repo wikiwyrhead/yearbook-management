@@ -500,7 +500,7 @@ export const updatePrintSpecsFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       yearbookId: z.string(),
-      status: z.enum(["unconfirmed", "confirmed", "verified"]),
+      status: z.enum(["NOT_YET_CONFIRMED", "draft", "unconfirmed", "confirmed", "verified"]),
       trimWidth: z.number(),
       trimHeight: z.number(),
       dimensionUnit: z.enum(["in", "mm"]),
@@ -517,7 +517,7 @@ export const updatePrintSpecsFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { updateProductionPrintSpecs } = await import("./production/release-package.server");
-    return await updateProductionPrintSpecs(data, context.userId);
+    return await updateProductionPrintSpecs(data as any, context.userId);
   });
 
 export const generateReleasePackageFn = createServerFn({ method: "POST" })
@@ -534,6 +534,18 @@ export const exportBookMapCsvFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { exportProductionBookMapXLSX } = await import("./production/release-package.server");
     return await exportProductionBookMapXLSX(data.yearbookId);
+  });
+
+export const exportBookMapPdfFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ yearbookId: z.string() }))
+  .handler(async ({ data, context }) => {
+    const { exportPrintableBookMapPDF } = await import("./production/release-package.server");
+    const res = await exportPrintableBookMapPDF(data.yearbookId);
+    return {
+      pdfBase64: Buffer.from(res.pdfBytes).toString("base64"),
+      filename: res.filename,
+    };
   });
 
 export const requestProofAccessGrantFn = createServerFn({ method: "POST" })

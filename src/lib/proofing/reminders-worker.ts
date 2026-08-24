@@ -1,4 +1,4 @@
-import { getDbPool } from "../db/pool.server";
+import { getDbPool } from "../db/pool.server.ts";
 
 const ADVISORY_LOCK_ID = 88442211;
 
