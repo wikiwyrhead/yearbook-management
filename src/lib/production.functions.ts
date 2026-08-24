@@ -484,3 +484,204 @@ export const getProductionDashboardData = createServerFn({ method: "POST" })
       serviceBureaus: unwrap(serviceBureaus),
     };
   });
+
+/* ---------------- Phase B Production & Release Server Functions ---------------- */
+
+export const getPrintSpecsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ yearbookId: z.string() }))
+  .handler(async ({ data, context }) => {
+    const { getProductionPrintSpecs } = await import("./production/release-package.server");
+    return await getProductionPrintSpecs(data.yearbookId, context.userId);
+  });
+
+export const updatePrintSpecsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      yearbookId: z.string(),
+      status: z.enum(["NOT_YET_CONFIRMED", "draft", "unconfirmed", "confirmed", "verified"]),
+      trimWidth: z.number(),
+      trimHeight: z.number(),
+      dimensionUnit: z.enum(["in", "mm"]),
+      bleedSize: z.number(),
+      colorProfile: z.string(),
+      paperStockInterior: z.string(),
+      paperStockCover: z.string(),
+      bindingType: z.string(),
+      coverFinish: z.string(),
+      printQuantity: z.number(),
+      serviceBureauName: z.string(),
+      serviceBureauNotes: z.string().optional(),
+    })
+  )
+  .handler(async ({ data, context }) => {
+    const { updateProductionPrintSpecs } = await import("./production/release-package.server");
+    return await updateProductionPrintSpecs(data as any, context.userId);
+  });
+
+export const generateReleasePackageFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ proofId: z.string() }))
+  .handler(async ({ data, context }) => {
+    const { generateServiceBureauReleasePackage } = await import("./production/release-package.server");
+    return await generateServiceBureauReleasePackage(data.proofId, context.userId);
+  });
+
+export const exportBookMapCsvFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ yearbookId: z.string() }))
+  .handler(async ({ data, context }) => {
+    const { exportProductionBookMapXLSX } = await import("./production/release-package.server");
+    return await exportProductionBookMapXLSX(data.yearbookId);
+  });
+
+export const exportBookMapPdfFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ yearbookId: z.string() }))
+  .handler(async ({ data, context }) => {
+    const { exportPrintableBookMapPDF } = await import("./production/release-package.server");
+    const res = await exportPrintableBookMapPDF(data.yearbookId);
+    return {
+      pdfBase64: Buffer.from(res.pdfBytes).toString("base64"),
+      filename: res.filename,
+    };
+  });
+
+export const requestProofAccessGrantFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      proofId: z.string(),
+      yearbookId: z.string(),
+      targetUserId: z.string(),
+      scope: z.enum(["page", "section", "edition"]),
+      targetPageId: z.string().optional(),
+      targetSectionId: z.string().optional(),
+      reason: z.string(),
+      dueAt: z.string().optional(),
+    })
+  )
+  .handler(async ({ data, context }) => {
+    const { query } = await import("./db/pool.server");
+    const res = await query(
+      `INSERT INTO public.proof_access_requests 
+       (proof_id, yearbook_id, requested_by_user_id, target_user_id, scope, target_page_id, target_section_id, reason, due_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, status`,
+      [
+        data.proofId,
+        data.yearbookId,
+        context.userId,
+        data.targetUserId,
+        data.scope,
+        data.targetPageId || null,
+        data.targetSectionId || null,
+        data.reason,
+        data.dueAt || null,
+      ]
+    );
+    return res.rows[0];
+  });
+
+export const reviewProofAccessRequestFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      requestId: z.string(),
+      decision: z.enum(["approved", "rejected"]),
+      notes: z.string().optional(),
+    })
+  )
+  .handler(async ({ data, context }) => {
+    const { query } = await import("./db/pool.server");
+    const { invalidateProofSliceCache } = await import("./storage/proof-streaming.server");
+
+    // Require Super Admin
+    const adminRes = await query(
+      `SELECT 1 FROM public.user_roles WHERE user_id = $1 AND role = 'super_admin'`,
+      [context.userId]
+    );
+    if (adminRes.rows.length === 0) {
+      throw new Error("FORBIDDEN: Only Super Administrators can approve proof access requests.");
+    }
+
+    const reqRes = await query(
+      `SELECT * FROM public.proof_access_requests WHERE id = $1`,
+      [data.requestId]
+    );
+    if (reqRes.rows.length === 0) throw new Error("Request not found");
+    const req = reqRes.rows[0];
+
+    await query(
+      `UPDATE public.proof_access_requests 
+       SET status = $1, reviewed_by_user_id = $2, reviewed_at = now(), review_notes = $3
+       WHERE id = $4`,
+      [data.decision, context.userId, data.notes || null, data.requestId]
+    );
+
+    if (data.decision === "approved") {
+      // Create active proof_access_grant
+      const grantRes = await query(
+        `INSERT INTO public.proof_access_grants
+         (yearbook_id, proof_id, user_id, can_view, can_comment, granted_by, starts_at, expires_at)
+         VALUES ($1, $2, $3, true, true, $4, now(), COALESCE($5, now() + INTERVAL '14 days'))
+         RETURNING id`,
+        [req.yearbook_id, req.proof_id, req.target_user_id, context.userId, req.due_at]
+      );
+      const grantId = grantRes.rows[0].id;
+
+      if (req.scope === "page" && req.target_page_id) {
+        await query(
+          `INSERT INTO public.proof_access_grant_pages (grant_id, page_id, yearbook_id) VALUES ($1, $2, $3)`,
+          [grantId, req.target_page_id, req.yearbook_id]
+        );
+      } else if (req.scope === "section" && req.target_section_id) {
+        await query(
+          `INSERT INTO public.proof_access_grant_sections (grant_id, section_id, yearbook_id) VALUES ($1, $2, $3)`,
+          [grantId, req.target_section_id, req.yearbook_id]
+        );
+      }
+
+      invalidateProofSliceCache(req.proof_id);
+    }
+
+    return { success: true, decision: data.decision };
+  });
+
+export const addCorrectionAttachmentFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      correctionId: z.string(),
+      proofId: z.string(),
+      yearbookId: z.string(),
+      originalFilename: z.string(),
+      mimeType: z.string(),
+      fileSizeBytes: z.number(),
+      checksumSha256: z.string(),
+      storageProviderFileId: z.string(),
+    })
+  )
+  .handler(async ({ data, context }) => {
+    const { query } = await import("./db/pool.server");
+    const res = await query(
+      `INSERT INTO public.correction_attachments
+       (correction_id, proof_id, yearbook_id, storage_provider_file_id, original_filename, mime_type, file_size_bytes, checksum_sha256, validation_status, uploaded_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'validated', $9)
+       RETURNING id, original_filename, uploaded_at`,
+      [
+        data.correctionId,
+        data.proofId,
+        data.yearbookId,
+        data.storageProviderFileId,
+        data.originalFilename,
+        data.mimeType,
+        data.fileSizeBytes,
+        data.checksumSha256,
+        context.userId,
+      ]
+    );
+    return res.rows[0];
+  });
+

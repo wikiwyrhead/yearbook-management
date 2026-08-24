@@ -116,78 +116,92 @@ export async function initializeLocalDatabase(): Promise<void> {
     [ybAId, coordAId, memberAId, studentAId],
   );
 
-  // Sections
-  const sec1Res = await query(
-    `INSERT INTO public.sections (yearbook_id, name, color, position) VALUES ($1, 'Front Matter / Dedication', '#3b82f6', 1) RETURNING id`,
-    [ybAId],
-  );
-  const sec2Res = await query(
-    `INSERT INTO public.sections (yearbook_id, name, color, position) VALUES ($1, 'Senior Portraits', '#10b981', 2) RETURNING id`,
-    [ybAId],
-  );
-  const sec3Res = await query(
-    `INSERT INTO public.sections (yearbook_id, name, color, position) VALUES ($1, 'Faculty & Academics', '#8b5cf6', 3) RETURNING id`,
-    [ybAId],
-  );
-  const sec4Res = await query(
-    `INSERT INTO public.sections (yearbook_id, name, color, position) VALUES ($1, 'Athletics & Student Life', '#f59e0b', 4) RETURNING id`,
+  // Sections & Pages Ladder (Check for existing pages to avoid duplication)
+  const existingPages = await query(
+    `SELECT count(*)::int as count FROM public.pages WHERE yearbook_id = $1`,
     [ybAId],
   );
 
-  const sec1 = sec1Res.rows[0]?.id;
-  const sec2 = sec2Res.rows[0]?.id;
-  const sec3 = sec3Res.rows[0]?.id;
-  const sec4 = sec4Res.rows[0]?.id;
-
-  // Page Status & Types
-  const psRes = await query(
-    `INSERT INTO public.page_statuses (yearbook_id, name, color, position) VALUES ($1, 'Ready for Review', '#10b981', 3) RETURNING id`,
-    [ybAId],
-  );
-  const psId = psRes.rows[0]?.id;
-
-  const ptRes = await query(
-    `INSERT INTO public.page_types (yearbook_id, name, position) VALUES ($1, 'Feature Spread', 1) RETURNING id`,
-    [ybAId],
-  );
-  const ptId = ptRes.rows[0]?.id;
-
-  // 16 Pages Ladder
   const pagesList: any[] = [];
-  for (let i = 1; i <= 16; i++) {
-    const secId = i <= 2 ? sec1 : i <= 8 ? sec2 : i <= 12 ? sec3 : sec4;
-    const pageRes = await query(
-      `INSERT INTO public.pages (yearbook_id, section_id, page_type_id, status_id, position, page_number, title, description)
-       VALUES ($1, $2, $3, $4, $5, $5, $6, $7)
-       RETURNING *`,
-      [
-        ybAId,
-        secId,
-        ptId,
-        psId,
-        i,
-        i === 1 ? "Cover & Opening" : `Spread Page ${i}`,
-        `Page ${i} of Demo High School 2026 Yearbook`,
-      ],
-    );
-    if (pageRes.rows[0]) pagesList.push(pageRes.rows[0]);
-  }
 
-  // Page Assignments
-  if (pagesList.length > 0) {
-    await query(
-      `INSERT INTO public.page_assignments (page_id, yearbook_id, user_id, kind)
-       VALUES ($1, $2, $3, 'designer'), ($4, $2, $5, 'proofreader')
-       ON CONFLICT DO NOTHING`,
-      [pagesList[0].id, ybAId, memberAId, pagesList[1].id, coordAId],
+  if (existingPages.rows[0]?.count === 0) {
+    const sec1Res = await query(
+      `INSERT INTO public.sections (yearbook_id, name, color, position) VALUES ($1, 'Front Matter / Dedication', '#3b82f6', 1) RETURNING id`,
+      [ybAId],
+    );
+    const sec2Res = await query(
+      `INSERT INTO public.sections (yearbook_id, name, color, position) VALUES ($1, 'Senior Portraits', '#10b981', 2) RETURNING id`,
+      [ybAId],
+    );
+    const sec3Res = await query(
+      `INSERT INTO public.sections (yearbook_id, name, color, position) VALUES ($1, 'Faculty & Academics', '#8b5cf6', 3) RETURNING id`,
+      [ybAId],
+    );
+    const sec4Res = await query(
+      `INSERT INTO public.sections (yearbook_id, name, color, position) VALUES ($1, 'Athletics & Student Life', '#f59e0b', 4) RETURNING id`,
+      [ybAId],
     );
 
-    // Requirements
-    await query(
-      `INSERT INTO public.page_requirements (page_id, yearbook_id, label, needed, have, position)
-       VALUES ($1, $2, 'High-Res Principal Portrait', 1, 1, 1)`,
-      [pagesList[0].id, ybAId],
+    const sec1 = sec1Res.rows[0]?.id;
+    const sec2 = sec2Res.rows[0]?.id;
+    const sec3 = sec3Res.rows[0]?.id;
+    const sec4 = sec4Res.rows[0]?.id;
+
+    // Page Status & Types
+    const psRes = await query(
+      `INSERT INTO public.page_statuses (yearbook_id, name, color, position) VALUES ($1, 'Ready for Review', '#10b981', 3) RETURNING id`,
+      [ybAId],
     );
+    const psId = psRes.rows[0]?.id;
+
+    const ptRes = await query(
+      `INSERT INTO public.page_types (yearbook_id, name, position) VALUES ($1, 'Feature Spread', 1) RETURNING id`,
+      [ybAId],
+    );
+    const ptId = ptRes.rows[0]?.id;
+
+    // 16 Pages Ladder
+    for (let i = 1; i <= 16; i++) {
+      const secId = i <= 2 ? sec1 : i <= 8 ? sec2 : i <= 12 ? sec3 : sec4;
+      const pageRes = await query(
+        `INSERT INTO public.pages (yearbook_id, section_id, page_type_id, status_id, position, page_number, title, description)
+         VALUES ($1, $2, $3, $4, $5, $5, $6, $7)
+         RETURNING *`,
+        [
+          ybAId,
+          secId,
+          ptId,
+          psId,
+          i,
+          i === 1 ? "Cover & Dedication" : i === 10 ? "Student Life & Clubs" : `Spread Page ${i}`,
+          `Page ${i} of Oakridge High School Yearbook`,
+        ],
+      );
+      if (pageRes.rows[0]) pagesList.push(pageRes.rows[0]);
+    }
+
+    // Page Assignments
+    if (pagesList.length > 0) {
+      await query(
+        `INSERT INTO public.page_assignments (page_id, yearbook_id, user_id, kind)
+         VALUES ($1, $2, $3, 'designer'), ($4, $2, $5, 'proofreader')
+         ON CONFLICT DO NOTHING`,
+        [pagesList[0].id, ybAId, memberAId, pagesList[1].id, coordAId],
+      );
+
+      // Requirements
+      await query(
+        `INSERT INTO public.page_requirements (page_id, yearbook_id, label, needed, have, position)
+         VALUES ($1, $2, 'High-Res Principal Portrait', 1, 1, 1)`,
+        [pagesList[0].id, ybAId],
+      );
+    }
+  } else {
+    const existingList = await query(
+      `SELECT * FROM public.pages WHERE yearbook_id = $1 ORDER BY position ASC`,
+      [ybAId],
+    );
+    pagesList.push(...existingList.rows);
   }
 
   // 3. Real Multi-Page PDF Proof Spread
@@ -350,12 +364,19 @@ export async function initializeLocalDatabase(): Promise<void> {
     [ybBId, coordBId],
   );
 
-  for (let j = 1; j <= 4; j++) {
-    await query(
-      `INSERT INTO public.pages (yearbook_id, position, page_number, title, description)
-       VALUES ($1, $2, $2, $3, 'Confidential School B Page')`,
-      [ybBId, j, `School B Page ${j}`],
-    );
+  const existingBPages = await query(
+    `SELECT count(*)::int as count FROM public.pages WHERE yearbook_id = $1`,
+    [ybBId],
+  );
+
+  if (existingBPages.rows[0]?.count === 0) {
+    for (let j = 1; j <= 4; j++) {
+      await query(
+        `INSERT INTO public.pages (yearbook_id, position, page_number, title, description)
+         VALUES ($1, $2, $2, $3, 'Pacific Crest Academy Page')`,
+        [ybBId, j, `School B Page ${j}`],
+      );
+    }
   }
 
   console.log("[Local DB] Seed completed successfully.");

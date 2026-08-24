@@ -39,6 +39,8 @@ import { ProofreadingCenter } from "@/components/yearbook/production/Proofreadin
 import { ProductionDashboard } from "@/components/yearbook/production/ProductionDashboard";
 import { EditorialTeamTab } from "@/components/yearbook/EditorialTeamTab";
 import { TabErrorBoundary } from "@/components/ui/TabErrorBoundary";
+import { DesignQueueTab } from "@/components/yearbook/preparation/DesignQueueTab";
+import { ProofAccessApprovalQueue } from "@/components/yearbook/production/ProofAccessApprovalQueue";
 import {
   getYearbook,
   addMember,
@@ -236,192 +238,262 @@ function Workspace() {
           </div>
         </div>
 
-      {/* 2. DEDICATED STAFF WORKBENCH */}
-      {isStaffOnly ? (
-        <Tabs
-          defaultValue={
-            search?.tab === "design" || search?.tab === "layout" ? "design" : "workbench"
-          }
-          className="mt-8"
-        >
-          <TabsList className="w-full justify-start overflow-x-auto no-scrollbar scroll-smooth h-auto p-1.5 flex flex-nowrap gap-1">
-            <TabsTrigger value="workbench" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">My Workbench</TabsTrigger>
-            <TabsTrigger value="design" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">Layout & Proofing</TabsTrigger>
-            <TabsTrigger value="assets" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">Asset Library</TabsTrigger>
-          </TabsList>
+        {/* 2. DEDICATED STAFF WORKBENCH */}
+        {isStaffOnly ? (
+          <Tabs
+            defaultValue={
+              search?.tab === "design" || search?.tab === "layout" ? "design" : "workbench"
+            }
+            className="mt-8"
+          >
+            <TabsList className="w-full justify-start overflow-x-auto no-scrollbar scroll-smooth h-auto p-1.5 flex flex-nowrap gap-1">
+              <TabsTrigger
+                value="workbench"
+                className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium"
+              >
+                My Workbench
+              </TabsTrigger>
+              <TabsTrigger
+                value="design"
+                className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium"
+              >
+                Layout & Proofing
+              </TabsTrigger>
+              <TabsTrigger
+                value="assets"
+                className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium"
+              >
+                Asset Library
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="workbench" className="mt-6">
-            <StaffWorkbench
-              yearbookId={yearbookId}
-              userId={user?.id ?? ""}
-              sections={data.sections}
-              statuses={data.statuses as never}
-              pageTypes={data.pageTypes}
-            />
-          </TabsContent>
+            <TabsContent value="workbench" className="mt-6">
+              <StaffWorkbench
+                yearbookId={yearbookId}
+                userId={user?.id ?? ""}
+                sections={data.sections}
+                statuses={data.statuses as never}
+                pageTypes={data.pageTypes}
+              />
+            </TabsContent>
 
-          <TabsContent value="design" className="mt-6">
-            <LayoutWorkspace
-              yearbookId={yearbookId}
-              canManage={data.canManage}
-              canEdit={data.canEdit}
-              canGenerateProof={data.canGenerateProof}
-            />
-          </TabsContent>
+            <TabsContent value="design" className="mt-6">
+              <LayoutWorkspace
+                yearbookId={yearbookId}
+                canManage={data.canManage}
+                canEdit={data.canEdit}
+                canGenerateProof={data.canGenerateProof}
+              />
+            </TabsContent>
 
-          <TabsContent value="assets" className="mt-6">
-            <AssetLibrary
-              yearbookId={yearbookId}
-              canEdit={data.canEdit}
-              studentId={data.myStudentId ?? undefined}
-            />
-          </TabsContent>
-        </Tabs>
-      ) : (
-        /* 3. FULL COORDINATOR / SUPER ADMIN COCKPIT */
-        <Tabs value={cockpitTab} onValueChange={setCockpitTab} className="mt-8">
-          <TabsList className="w-full justify-start overflow-x-auto no-scrollbar scroll-smooth h-auto p-1.5 flex flex-nowrap gap-1">
-            <TabsTrigger value="ladder" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">Page ladder</TabsTrigger>
-            <TabsTrigger value="design" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">
-              {user?.roles?.includes("super_admin") ? "Design Integration" : "Layout & Proofing"}
-            </TabsTrigger>
-            <TabsTrigger value="proofreading" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium gap-1.5">
-              <BookCheck className="size-4" /> Proofreading
-            </TabsTrigger>
-            <TabsTrigger value="assets" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">Assets</TabsTrigger>
-            <TabsTrigger value="people" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">People</TabsTrigger>
-            <TabsTrigger value="production" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">Production</TabsTrigger>
-            <TabsTrigger value="storage" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">Storage</TabsTrigger>
-            <TabsTrigger value="team" className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium">Team</TabsTrigger>
-          </TabsList>
+            <TabsContent value="assets" className="mt-6">
+              <AssetLibrary
+                yearbookId={yearbookId}
+                canEdit={data.canEdit}
+                studentId={data.myStudentId ?? undefined}
+              />
+            </TabsContent>
+          </Tabs>
+        ) : (
+          /* 3. FULL COORDINATOR / SUPER ADMIN COCKPIT */
+          <Tabs value={cockpitTab} onValueChange={setCockpitTab} className="mt-8">
+            <TabsList className="w-full justify-start overflow-x-auto no-scrollbar scroll-smooth h-auto p-1.5 flex flex-nowrap gap-1">
+              <TabsTrigger
+                value="ladder"
+                className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium"
+              >
+                Page ladder
+              </TabsTrigger>
+              <TabsTrigger
+                value="design"
+                className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium"
+              >
+                {isSuperAdmin ? "Design Integration" : "Layout & Proofing"}
+              </TabsTrigger>
+              {(isSuperAdmin || isCoordinator) && (
+                <TabsTrigger
+                  value="design-queue"
+                  className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium gap-1.5"
+                >
+                  <BookCheck className="size-4" /> Design Queue
+                </TabsTrigger>
+              )}
+              <TabsTrigger
+                value="proofreading"
+                className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium gap-1.5"
+              >
+                <BookCheck className="size-4" /> Proofreading
+              </TabsTrigger>
+              <TabsTrigger
+                value="assets"
+                className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium"
+              >
+                Assets
+              </TabsTrigger>
+              <TabsTrigger
+                value="people"
+                className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium"
+              >
+                People
+              </TabsTrigger>
+              <TabsTrigger
+                value="production"
+                className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium"
+              >
+                Production
+              </TabsTrigger>
+              <TabsTrigger
+                value="storage"
+                className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium"
+              >
+                Storage
+              </TabsTrigger>
+              <TabsTrigger
+                value="team"
+                className="min-h-[44px] shrink-0 text-xs sm:text-sm font-medium"
+              >
+                Team
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="ladder" className="mt-6">
-            {cockpitTab === "ladder" && (
-              <TabErrorBoundary tabName="Page Ladder">
-                <LadderTab
-                  yearbookId={yearbookId}
-                  sections={data.sections}
-                  pageTypes={data.pageTypes}
-                  statuses={data.statuses as never}
-                  members={data.members as never}
-                  canEdit={data.canEdit}
-                  canManage={data.canManage}
-                  userId={user?.id ?? ""}
-                />
-              </TabErrorBoundary>
+            <TabsContent value="ladder" className="mt-6">
+              {cockpitTab === "ladder" && (
+                <TabErrorBoundary tabName="Page Ladder">
+                  <LadderTab
+                    yearbookId={yearbookId}
+                    sections={data.sections}
+                    pageTypes={data.pageTypes}
+                    statuses={data.statuses as never}
+                    members={data.members as never}
+                    canEdit={data.canEdit}
+                    canManage={data.canManage}
+                    userId={user?.id ?? ""}
+                  />
+                </TabErrorBoundary>
+              )}
+            </TabsContent>
+
+            <TabsContent value="design" className="mt-6">
+              {cockpitTab === "design" && (
+                <TabErrorBoundary tabName="Layout Workspace">
+                  {user?.roles?.includes("super_admin") ? (
+                    <AdminCanvaManager yearbookId={yearbookId} />
+                  ) : (
+                    <LayoutWorkspace
+                      yearbookId={yearbookId}
+                      canManage={data.canManage}
+                      canEdit={data.canEdit}
+                      canGenerateProof={data.canGenerateProof}
+                    />
+                  )}
+                </TabErrorBoundary>
+              )}
+            </TabsContent>
+
+            {(isSuperAdmin || isCoordinator) && (
+              <TabsContent value="design-queue" className="mt-6">
+                {cockpitTab === "design-queue" && (
+                  <TabErrorBoundary tabName="Design Queue">
+                    <DesignQueueTab yearbookId={yearbookId} isSuperAdmin={isSuperAdmin} />
+                  </TabErrorBoundary>
+                )}
+              </TabsContent>
             )}
-          </TabsContent>
 
-          <TabsContent value="design" className="mt-6">
-            {cockpitTab === "design" && (
-              <TabErrorBoundary tabName="Layout Workspace">
-                {user?.roles?.includes("super_admin") ? (
-                  <AdminCanvaManager yearbookId={yearbookId} />
-                ) : (
-                  <LayoutWorkspace
+            <TabsContent value="proofreading" className="mt-6">
+              {cockpitTab === "proofreading" && (
+                <TabErrorBoundary tabName="Proofreading Center">
+                  {isSuperAdmin && <ProofAccessApprovalQueue yearbookId={yearbookId} />}
+                  <ProofreadingCenter
                     yearbookId={yearbookId}
                     canManage={data.canManage}
-                    canEdit={data.canEdit}
-                    canGenerateProof={data.canGenerateProof}
+                    onViewProof={handleViewProof}
                   />
-                )}
-              </TabErrorBoundary>
-            )}
-          </TabsContent>
+                </TabErrorBoundary>
+              )}
+            </TabsContent>
 
-          <TabsContent value="proofreading" className="mt-6">
-            {cockpitTab === "proofreading" && (
-              <TabErrorBoundary tabName="Proofreading Center">
-                <ProofreadingCenter
-                  yearbookId={yearbookId}
-                  canManage={data.canManage}
-                  onViewProof={handleViewProof}
-                />
-              </TabErrorBoundary>
-            )}
-          </TabsContent>
+            <TabsContent value="assets" className="mt-6">
+              {cockpitTab === "assets" && (
+                <TabErrorBoundary tabName="Asset Library">
+                  <AssetLibrary
+                    yearbookId={yearbookId}
+                    canEdit={data.canEdit}
+                    studentId={data.myStudentId ?? undefined}
+                  />
+                </TabErrorBoundary>
+              )}
+            </TabsContent>
 
-          <TabsContent value="assets" className="mt-6">
-            {cockpitTab === "assets" && (
-              <TabErrorBoundary tabName="Asset Library">
-                <AssetLibrary
-                  yearbookId={yearbookId}
-                  canEdit={data.canEdit}
-                  studentId={data.myStudentId ?? undefined}
-                />
-              </TabErrorBoundary>
-            )}
-          </TabsContent>
+            <TabsContent value="storage" className="mt-6">
+              {cockpitTab === "storage" && (
+                <TabErrorBoundary tabName="Storage Settings">
+                  <StorageTab
+                    yearbookId={yearbookId}
+                    centerId={data.yearbook.school_id || (data.yearbook as any).center_id}
+                    canManage={data.canManage}
+                  />
+                </TabErrorBoundary>
+              )}
+            </TabsContent>
 
-          <TabsContent value="storage" className="mt-6">
-            {cockpitTab === "storage" && (
-              <TabErrorBoundary tabName="Storage Settings">
-                <StorageTab
-                  yearbookId={yearbookId}
-                  centerId={data.yearbook.school_id || (data.yearbook as any).center_id}
-                  canManage={data.canManage}
-                />
-              </TabErrorBoundary>
-            )}
-          </TabsContent>
+            <TabsContent value="production" className="mt-6">
+              {cockpitTab === "production" && (
+                <TabErrorBoundary tabName="Production Dashboard">
+                  <ProductionDashboard yearbookId={yearbookId} canManage={data.canManage} />
+                </TabErrorBoundary>
+              )}
+            </TabsContent>
 
-          <TabsContent value="production" className="mt-6">
-            {cockpitTab === "production" && (
-              <TabErrorBoundary tabName="Production Dashboard">
-                <ProductionDashboard yearbookId={yearbookId} canManage={data.canManage} />
-              </TabErrorBoundary>
-            )}
-          </TabsContent>
+            <TabsContent value="people" className="mt-6">
+              {cockpitTab === "people" && (
+                <TabErrorBoundary tabName="People & Roles">
+                  <PeopleTab yearbookId={yearbookId} canEdit={data.canEdit} />
+                </TabErrorBoundary>
+              )}
+            </TabsContent>
 
-          <TabsContent value="people" className="mt-6">
-            {cockpitTab === "people" && (
-              <TabErrorBoundary tabName="People & Roles">
-                <PeopleTab yearbookId={yearbookId} canEdit={data.canEdit} />
-              </TabErrorBoundary>
-            )}
-          </TabsContent>
+            <TabsContent value="team" className="mt-6">
+              {cockpitTab === "team" && (
+                <TabErrorBoundary tabName="Editorial Team">
+                  <EditorialTeamTab
+                    yearbookId={yearbookId}
+                    isSuperAdmin={isSuperAdmin}
+                    canManage={data.canManage}
+                    pages={(data.sections ?? []).flatMap((s: any) => s.pages ?? [])}
+                    sections={data.sections as any}
+                  />
+                </TabErrorBoundary>
+              )}
+            </TabsContent>
+          </Tabs>
+        )}
 
-          <TabsContent value="team" className="mt-6">
-            {cockpitTab === "team" && (
-              <TabErrorBoundary tabName="Editorial Team">
-                <EditorialTeamTab
-                  yearbookId={yearbookId}
-                  isSuperAdmin={isSuperAdmin}
-                  canManage={data.canManage}
-                  pages={(data.sections ?? []).flatMap((s: any) => s.pages ?? [])}
-                  sections={data.sections as any}
-                />
-              </TabErrorBoundary>
-            )}
-          </TabsContent>
-        </Tabs>
-      )}
-
-      <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
-        <DialogContent className="max-w-5xl w-full p-0 overflow-hidden bg-background">
-          <DialogHeader className="p-4 border-b">
-            <DialogTitle>PDF Proof Viewer</DialogTitle>
-          </DialogHeader>
-          <div className="h-[80vh]">
-            {viewerOpen && activeProofId && (
-              <React.Suspense
-                fallback={<div className="p-10 text-center">Loading proof viewer...</div>}
-              >
-                <PDFProofViewer
-                  yearbookId={yearbookId}
-                  proofUrl={getStorageUrl(`proofs/${activeProofId}.pdf`)}
-                  initialPage={1}
-                  onAddCorrection={async (c) => {
-                    toast.success("Correction added");
-                    qc.invalidateQueries({ queryKey: ["corrections", yearbookId] });
-                  }}
-                  corrections={corrections ?? []}
-                />
-              </React.Suspense>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+        <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
+          <DialogContent className="max-w-5xl w-full p-0 overflow-hidden bg-background">
+            <DialogHeader className="p-4 border-b">
+              <DialogTitle>PDF Proof Viewer</DialogTitle>
+            </DialogHeader>
+            <div className="h-[80vh]">
+              {viewerOpen && activeProofId && (
+                <React.Suspense
+                  fallback={<div className="p-10 text-center">Loading proof viewer...</div>}
+                >
+                  <PDFProofViewer
+                    yearbookId={yearbookId}
+                    proofUrl={`/api/storage/proofs/${activeProofId}/stream`}
+                    initialPage={1}
+                    onAddCorrection={async (c) => {
+                      toast.success("Correction added");
+                      qc.invalidateQueries({ queryKey: ["corrections", yearbookId] });
+                    }}
+                    corrections={corrections ?? []}
+                  />
+                </React.Suspense>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppShell>
   );

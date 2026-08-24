@@ -188,6 +188,133 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_active_yearbook_assignment
   ON public.yearbook_team_assignments (yearbook_id, user_id, role)
   WHERE is_active = true;
 
+CREATE TABLE IF NOT EXISTS public.yearbook_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  role public.yearbook_role NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (yearbook_id, user_id, role)
+);
+
+-- 5. LADDERS, SECTIONS, PAGES, ROSTER
+CREATE TABLE IF NOT EXISTS public.sections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT '#64748b',
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_sections_composite UNIQUE (id, yearbook_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.page_types (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.page_statuses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT '#64748b',
+  position INTEGER NOT NULL DEFAULT 0,
+  is_terminal BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.classes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  grade TEXT,
+  homeroom TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.students (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  class_id UUID REFERENCES public.classes(id) ON DELETE SET NULL,
+  user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  student_number TEXT,
+  first_name TEXT NOT NULL,
+  middle_name TEXT,
+  last_name TEXT NOT NULL,
+  preferred_name TEXT,
+  suffix TEXT,
+  grade TEXT,
+  email TEXT,
+  submission_status TEXT NOT NULL DEFAULT 'pending',
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.faculty (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  first_name TEXT NOT NULL,
+  middle_name TEXT,
+  last_name TEXT NOT NULL,
+  preferred_name TEXT,
+  suffix TEXT,
+  title TEXT,
+  department TEXT,
+  email TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.pages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  section_id UUID REFERENCES public.sections(id) ON DELETE SET NULL,
+  page_type_id UUID REFERENCES public.page_types(id) ON DELETE SET NULL,
+  status_id UUID REFERENCES public.page_statuses(id) ON DELETE SET NULL,
+  position INTEGER NOT NULL DEFAULT 0,
+  page_number INTEGER,
+  title TEXT,
+  description TEXT,
+  required_assets TEXT,
+  notes TEXT,
+  blocking_reason TEXT,
+  canva_design_id TEXT,
+  canva_design_url TEXT,
+  canva_synced_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_pages_composite UNIQUE (id, yearbook_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.page_requirements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  page_id UUID NOT NULL REFERENCES public.pages(id) ON DELETE CASCADE,
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  label TEXT NOT NULL,
+  needed INTEGER NOT NULL DEFAULT 0,
+  have INTEGER NOT NULL DEFAULT 0,
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.page_assignments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  page_id UUID NOT NULL REFERENCES public.pages(id) ON DELETE CASCADE,
+  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL DEFAULT 'designer',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (page_id, user_id, kind)
+);
+
 CREATE TABLE IF NOT EXISTS public.yearbook_assignment_pages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   assignment_id UUID NOT NULL,
@@ -208,15 +335,6 @@ CREATE TABLE IF NOT EXISTS public.yearbook_assignment_sections (
   FOREIGN KEY (assignment_id, yearbook_id) REFERENCES public.yearbook_team_assignments(id, yearbook_id) ON DELETE CASCADE,
   FOREIGN KEY (section_id, yearbook_id) REFERENCES public.sections(id, yearbook_id) ON DELETE CASCADE,
   UNIQUE (assignment_id, section_id)
-);
-
-CREATE TABLE IF NOT EXISTS public.yearbook_members (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  role public.yearbook_role NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (yearbook_id, user_id, role)
 );
 
 CREATE OR REPLACE FUNCTION public.is_active_coordinator(_user_id uuid, _center_id uuid)
@@ -313,122 +431,6 @@ CREATE OR REPLACE FUNCTION public.is_yearbook_locked(yb_id uuid)
 RETURNS boolean LANGUAGE sql STABLE AS $$
   SELECT COALESCE((SELECT is_locked FROM public.yearbooks WHERE id = yb_id), false);
 $$;
-
--- 5. LADDERS, SECTIONS, PAGES, ROSTER
-CREATE TABLE IF NOT EXISTS public.sections (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  color TEXT NOT NULL DEFAULT '#64748b',
-  position INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.page_types (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  description TEXT,
-  position INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.page_statuses (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  color TEXT NOT NULL DEFAULT '#64748b',
-  position INTEGER NOT NULL DEFAULT 0,
-  is_terminal BOOLEAN NOT NULL DEFAULT false,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.classes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  grade TEXT,
-  homeroom TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.students (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  class_id UUID REFERENCES public.classes(id) ON DELETE SET NULL,
-  user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
-  student_number TEXT,
-  first_name TEXT NOT NULL,
-  middle_name TEXT,
-  last_name TEXT NOT NULL,
-  preferred_name TEXT,
-  suffix TEXT,
-  grade TEXT,
-  email TEXT,
-  submission_status TEXT NOT NULL DEFAULT 'pending',
-  notes TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.faculty (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  user_id REFERENCES public.users(id) ON DELETE SET NULL,
-  first_name TEXT NOT NULL,
-  middle_name TEXT,
-  last_name TEXT NOT NULL,
-  preferred_name TEXT,
-  suffix TEXT,
-  title TEXT,
-  department TEXT,
-  email TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.pages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  section_id UUID REFERENCES public.sections(id) ON DELETE SET NULL,
-  page_type_id UUID REFERENCES public.page_types(id) ON DELETE SET NULL,
-  status_id UUID REFERENCES public.page_statuses(id) ON DELETE SET NULL,
-  position INTEGER NOT NULL DEFAULT 0,
-  page_number INTEGER,
-  title TEXT,
-  description TEXT,
-  required_assets TEXT,
-  notes TEXT,
-  blocking_reason TEXT,
-  canva_design_id TEXT,
-  canva_design_url TEXT,
-  canva_synced_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.page_requirements (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  page_id UUID NOT NULL REFERENCES public.pages(id) ON DELETE CASCADE,
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  label TEXT NOT NULL,
-  needed INTEGER NOT NULL DEFAULT 0,
-  have INTEGER NOT NULL DEFAULT 0,
-  position INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.page_assignments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  page_id UUID NOT NULL REFERENCES public.pages(id) ON DELETE CASCADE,
-  yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  kind TEXT NOT NULL DEFAULT 'designer',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (page_id, user_id, kind)
-);
 
 -- 6. ASSETS & STORAGE
 CREATE TABLE IF NOT EXISTS public.assets (
@@ -719,6 +721,28 @@ CREATE TABLE IF NOT EXISTS public.yearbook_design_bindings (
   CONSTRAINT yearbook_design_bindings_composite_key UNIQUE (id, yearbook_id)
 );
 
+CREATE OR REPLACE FUNCTION public.validate_positive_unique_int_array(arr INT[])
+RETURNS BOOLEAN LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE
+  elem INT;
+  seen_count INT;
+BEGIN
+  IF arr IS NULL OR array_length(arr, 1) IS NULL THEN
+    RETURN FALSE;
+  END IF;
+  FOREACH elem IN ARRAY arr LOOP
+    IF elem IS NULL OR elem <= 0 THEN
+      RETURN FALSE;
+    END IF;
+  END LOOP;
+  SELECT COUNT(DISTINCT x) INTO seen_count FROM unnest(arr) AS x;
+  IF seen_count <> array_length(arr, 1) THEN
+    RETURN FALSE;
+  END IF;
+  RETURN TRUE;
+END;
+$$;
+
 CREATE TABLE IF NOT EXISTS public.yearbook_design_page_mappings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   yearbook_id UUID NOT NULL REFERENCES public.yearbooks(id) ON DELETE CASCADE,
@@ -929,5 +953,151 @@ export interface PlatformSettingsHistory {
   new_primary_center_name?: string | null;
   changed_by?: string | null;
   changed_at: string;
+}
+
+export interface SectionCategory {
+  id: string;
+  yearbook_id: string;
+  name: string;
+  code: string;
+  color: string;
+  sort_order: number;
+  description?: string | null;
+  is_active?: boolean;
+  created_at: string;
+}
+
+export interface LayoutType {
+  id: string;
+  yearbook_id: string;
+  name: string;
+  code: string;
+  default_span: "single_page" | "facing_spread_left" | "facing_spread_right" | "two_page_spread" | "cover" | "unnumbered";
+  slot_count?: number | null;
+  row_count?: number | null;
+  col_count?: number | null;
+  description?: string | null;
+  sort_order: number;
+  is_active?: boolean;
+  created_at: string;
+}
+
+export interface DesignPacketSnapshot {
+  id: string;
+  page_id: string;
+  yearbook_id: string;
+  version: number;
+  parent_snapshot_id?: string | null;
+  snapshot_sha256: string;
+  prepared_by: string;
+  created_at: string;
+  snapshot_payload: any;
+}
+
+export interface DesignPacketReview {
+  id: string;
+  snapshot_id: string;
+  page_id: string;
+  yearbook_id: string;
+  stage: "eic_review" | "coordinator_approval" | "super_admin_check";
+  reviewer_user_id: string;
+  decision: "approved" | "changes_requested" | "rejected";
+  notes?: string | null;
+  created_at: string;
+}
+
+export interface DesignPacketAssetTransfer {
+  id: string;
+  design_packet_id: string;
+  page_id: string;
+  yearbook_id: string;
+  asset_requirement_id: string;
+  source_asset_id: string;
+  provider: string;
+  provider_upload_job_id?: string | null;
+  provider_asset_id?: string | null;
+  transfer_status: "pending" | "uploading" | "processing" | "available" | "failed" | "cancelled";
+  attempt_count: number;
+  idempotency_key: string;
+  error_summary?: string | null;
+  uploaded_by: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  created_at: string;
+}
+
+export interface ProofStorageObject {
+  id: string;
+  proof_id: string;
+  yearbook_id: string;
+  center_id: string;
+  storage_connection_id?: string | null;
+  provider: string;
+  provider_file_id: string;
+  provider_folder_id: string;
+  original_filename: string;
+  mime_type: string;
+  file_size_bytes: number;
+  page_count: number;
+  checksum_sha256: string;
+  uploaded_by: string;
+  uploaded_at: string;
+  verified_at: string;
+}
+
+export interface ProofAccessRequest {
+  id: string;
+  proof_id: string;
+  yearbook_id: string;
+  requested_by_user_id: string;
+  target_user_id: string;
+  scope: "page" | "section" | "edition";
+  target_page_id?: string | null;
+  target_section_id?: string | null;
+  reason: string;
+  due_at?: string | null;
+  status: "pending" | "approved" | "rejected";
+  reviewed_by_user_id?: string | null;
+  reviewed_at?: string | null;
+  review_notes?: string | null;
+  created_at: string;
+}
+
+export interface ProductionPrintSpecification {
+  id: string;
+  yearbook_id: string;
+  status: "unconfirmed" | "confirmed" | "verified";
+  trim_width?: number | null;
+  trim_height?: number | null;
+  dimension_unit: "in" | "mm";
+  bleed_size: number;
+  color_profile: string;
+  paper_stock_interior: string;
+  paper_stock_cover: string;
+  binding_type: string;
+  cover_finish: string;
+  print_quantity: number;
+  service_bureau_name?: string | null;
+  service_bureau_notes?: string | null;
+  confirmed_by?: string | null;
+  confirmed_at?: string | null;
+  verified_by?: string | null;
+  verified_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ServiceBureauReleasePackage {
+  id: string;
+  yearbook_id: string;
+  proof_id: string;
+  package_filename: string;
+  package_sha256: string;
+  package_size_bytes: number;
+  storage_path: string;
+  specifications_snapshot: any;
+  approvals_snapshot: any;
+  released_by_super_admin_id: string;
+  released_at: string;
 }
 

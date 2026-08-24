@@ -31,6 +31,8 @@ dist-ssr
 # Local dev credentials, test account passwords, generated assets
 .localdev
 .localdev/*
+scratch/
+scratch/*
 
 # AES / crypto key files
 *.key
@@ -103,8 +105,10 @@ scripts/report-*.mjs
 scripts/restore-*.mjs
 scripts/rotate-*.mjs
 scripts/run-*.mjs
+!scripts/run-reminders-daemon.mjs
 scripts/smoke-*.mjs
 scripts/test-*.mjs
+scripts/upload-*.mjs
 scripts/trace-*.mjs
 scripts/verify-*.mjs
 scripts/fix-*.mjs

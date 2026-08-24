@@ -16,6 +16,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedYearbooksYearbookIdRouteImport } from './routes/_authenticated/yearbooks.$yearbookId'
 import { Route as ApiPublicAuthCallbackRouteImport } from './routes/api/public/auth.callback'
 import { Route as ApiPublicCanvaReturnRouteImport } from './routes/api/public/canva.return'
+import { Route as ApiStorageProofsProofIdStreamRouteImport } from './routes/api/storage.proofs.$proofId.stream'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -52,6 +53,12 @@ const ApiPublicCanvaReturnRoute = ApiPublicCanvaReturnRouteImport.update({
   path: '/api/public/canva/return',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiStorageProofsProofIdStreamRoute =
+  ApiStorageProofsProofIdStreamRouteImport.update({
+    id: '/api/storage/proofs/$proofId/stream',
+    path: '/api/storage/proofs/$proofId/stream',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -60,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/yearbooks/$yearbookId': typeof AuthenticatedYearbooksYearbookIdRoute
   '/api/public/auth/callback': typeof ApiPublicAuthCallbackRoute
   '/api/public/canva/return': typeof ApiPublicCanvaReturnRoute
+  '/api/storage/proofs/$proofId/stream': typeof ApiStorageProofsProofIdStreamRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -68,6 +76,7 @@ export interface FileRoutesByTo {
   '/yearbooks/$yearbookId': typeof AuthenticatedYearbooksYearbookIdRoute
   '/api/public/auth/callback': typeof ApiPublicAuthCallbackRoute
   '/api/public/canva/return': typeof ApiPublicCanvaReturnRoute
+  '/api/storage/proofs/$proofId/stream': typeof ApiStorageProofsProofIdStreamRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -78,6 +87,7 @@ export interface FileRoutesById {
   '/_authenticated/yearbooks/$yearbookId': typeof AuthenticatedYearbooksYearbookIdRoute
   '/api/public/auth/callback': typeof ApiPublicAuthCallbackRoute
   '/api/public/canva/return': typeof ApiPublicCanvaReturnRoute
+  '/api/storage/proofs/$proofId/stream': typeof ApiStorageProofsProofIdStreamRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -88,6 +98,7 @@ export interface FileRouteTypes {
     | '/yearbooks/$yearbookId'
     | '/api/public/auth/callback'
     | '/api/public/canva/return'
+    | '/api/storage/proofs/$proofId/stream'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -96,6 +107,7 @@ export interface FileRouteTypes {
     | '/yearbooks/$yearbookId'
     | '/api/public/auth/callback'
     | '/api/public/canva/return'
+    | '/api/storage/proofs/$proofId/stream'
   id:
     | '__root__'
     | '/'
@@ -105,6 +117,7 @@ export interface FileRouteTypes {
     | '/_authenticated/yearbooks/$yearbookId'
     | '/api/public/auth/callback'
     | '/api/public/canva/return'
+    | '/api/storage/proofs/$proofId/stream'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -113,6 +126,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ApiPublicAuthCallbackRoute: typeof ApiPublicAuthCallbackRoute
   ApiPublicCanvaReturnRoute: typeof ApiPublicCanvaReturnRoute
+  ApiStorageProofsProofIdStreamRoute: typeof ApiStorageProofsProofIdStreamRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -166,6 +180,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCanvaReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/storage/proofs/$proofId/stream': {
+      id: '/api/storage/proofs/$proofId/stream'
+      path: '/api/storage/proofs/$proofId/stream'
+      fullPath: '/api/storage/proofs/$proofId/stream'
+      preLoaderRoute: typeof ApiStorageProofsProofIdStreamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -188,6 +209,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ApiPublicAuthCallbackRoute: ApiPublicAuthCallbackRoute,
   ApiPublicCanvaReturnRoute: ApiPublicCanvaReturnRoute,
+  ApiStorageProofsProofIdStreamRoute: ApiStorageProofsProofIdStreamRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

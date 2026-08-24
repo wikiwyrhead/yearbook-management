@@ -17,6 +17,19 @@ services:
         condition: service_healthy
     restart: always
 
+  reminder-worker:
+    build: .
+    command: ["node", "scripts/run-reminders-daemon.mjs"]
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - REMINDER_INTERVAL_SECONDS=3600
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     restart: always

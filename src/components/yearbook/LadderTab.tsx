@@ -86,6 +86,19 @@ function getSectionStyle(sectionName?: string) {
   return { bg: "bg-primary/10", text: "text-primary", border: "border-primary/20" };
 }
 
+import { PagePreparationPacketDrawer } from "./preparation/PagePreparationPacketDrawer";
+
+interface LadderTabProps {
+  yearbookId: string;
+  sections: Lookup[];
+  pageTypes: Lookup[];
+  statuses: (Lookup & { color: string })[];
+  members: Member[];
+  canEdit: boolean;
+  canManage: boolean;
+  userId: string;
+}
+
 export function LadderTab({
   yearbookId,
   sections,
@@ -95,16 +108,7 @@ export function LadderTab({
   canEdit,
   canManage,
   userId,
-}: {
-  yearbookId: string;
-  sections: Lookup[];
-  pageTypes: Lookup[];
-  statuses: (Lookup & { color: string })[];
-  members: Member[];
-  canEdit: boolean;
-  canManage: boolean;
-  userId: string;
-}) {
+}: LadderTabProps) {
   const fetchLadder = useServerFn(getLadder);
   const qc = useQueryClient();
   const key = ["ladder", yearbookId];
@@ -121,6 +125,7 @@ export function LadderTab({
   const [viewMode, setViewMode] = useState<"spread" | "list">("spread");
   const [currentPage, setCurrentPage] = useState(1);
   const [openPage, setOpenPage] = useState<string | null>(null);
+  const [packetPageId, setPacketPageId] = useState<string | null>(null);
 
   const doUpdate = useServerFn(updatePage);
   const doDelete = useServerFn(deletePage);
@@ -614,6 +619,15 @@ export function LadderTab({
           onDone={refresh}
         />
       )}
+
+      {/* Page Preparation Packet Drawer */}
+      <PagePreparationPacketDrawer
+        isOpen={!!packetPageId}
+        onClose={() => setPacketPageId(null)}
+        pageId={packetPageId}
+        packetData={null}
+        isLoading={false}
+      />
     </div>
   );
 }
